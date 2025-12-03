@@ -44,6 +44,79 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// DEBUG: Descobrir estrutura das tabelas
+app.get('/api/debug/empresa', async (req, res) => {
+  try {
+    const sql = `SELECT FIRST 5 * FROM EMPRESA`;
+    const result = await executeQuery(sql);
+    
+    // Retorna as colunas encontradas e alguns dados de exemplo
+    const columns = result.length > 0 ? Object.keys(result[0]) : [];
+    res.json({
+      columns,
+      sampleData: result,
+      totalColumns: columns.length
+    });
+  } catch (error) {
+    console.error('Erro /api/debug/empresa:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DEBUG: Estrutura da tabela TRANSACAO
+app.get('/api/debug/transacao', async (req, res) => {
+  try {
+    const sql = `SELECT FIRST 5 * FROM TRANSACAO`;
+    const result = await executeQuery(sql);
+    
+    const columns = result.length > 0 ? Object.keys(result[0]) : [];
+    res.json({
+      columns,
+      sampleData: result,
+      totalColumns: columns.length
+    });
+  } catch (error) {
+    console.error('Erro /api/debug/transacao:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DEBUG: Estrutura da tabela TRANSACAO_ITEM
+app.get('/api/debug/transacao-item', async (req, res) => {
+  try {
+    const sql = `SELECT FIRST 5 * FROM TRANSACAO_ITEM`;
+    const result = await executeQuery(sql);
+    
+    const columns = result.length > 0 ? Object.keys(result[0]) : [];
+    res.json({
+      columns,
+      sampleData: result,
+      totalColumns: columns.length
+    });
+  } catch (error) {
+    console.error('Erro /api/debug/transacao-item:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DEBUG: Estrutura da tabela NATUREZAOPERACAO
+app.get('/api/debug/naturezaoperacao', async (req, res) => {
+  try {
+    const sql = `SELECT FIRST 5 * FROM NATUREZAOPERACAO`;
+    const result = await executeQuery(sql);
+    
+    const columns = result.length > 0 ? Object.keys(result[0]) : [];
+    res.json({
+      columns,
+      sampleData: result,
+      totalColumns: columns.length
+    });
+  } catch (error) {
+    console.error('Erro /api/debug/naturezaoperacao:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // KPIs do Dashboard - replica a query original
 app.get('/api/kpis', async (req, res) => {
   try {
@@ -178,21 +251,23 @@ app.get('/api/vendas-por-loja', async (req, res) => {
   }
 });
 
-// Lista de empresas/lojas
+// Lista de empresas/lojas - TEMPORÁRIO com SELECT *
 app.get('/api/empresas', async (req, res) => {
   try {
-    const sql = `
-      SELECT CODEMPRESA as cod_empresa, NOMEFANTASIA as nome_fantasia, CIDADE, UF
-      FROM EMPRESA
-      ORDER BY NOMEFANTASIA
-    `;
+    // Usando SELECT * para descobrir colunas disponíveis
+    const sql = `SELECT * FROM EMPRESA ORDER BY NOMEFANTASIA`;
     
     const result = await executeQuery(sql);
+    
+    // Mapeia dinamicamente baseado nas colunas disponíveis
     res.json(result.map(row => ({
-      codEmpresa: row.COD_EMPRESA,
-      nomeFantasia: row.NOME_FANTASIA,
-      cidade: row.CIDADE,
-      uf: row.UF
+      codEmpresa: row.CODEMPRESA,
+      nomeFantasia: row.NOMEFANTASIA,
+      // Campos opcionais - só inclui se existirem
+      ...(row.CIDADE && { cidade: row.CIDADE }),
+      ...(row.UF && { uf: row.UF }),
+      ...(row.RAZAOSOCIAL && { razaoSocial: row.RAZAOSOCIAL }),
+      ...(row.CNPJ && { cnpj: row.CNPJ })
     })));
   } catch (error) {
     console.error('Erro /api/empresas:', error);
