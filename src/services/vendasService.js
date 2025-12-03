@@ -1,13 +1,9 @@
 // src/services/vendasService.js
-const fs = require('fs');
-const path = require('path');
 const { runQuery } = require('../db');
+const { loadSQL } = require('../utils/loadSQL');
 
-// Carrega o SQL do arquivo
-const resumoSql = fs.readFileSync(
-  path.join(__dirname, '../../queries/vendas/resumo_empresa_vendedor.sql'),
-  'utf8'
-);
+// Carrega o SQL da pasta queries
+const resumoSql = loadSQL('vendas/resumo_empresa_vendedor.sql');
 
 async function getResumoEmpresaVendedor({ dataInicio, dataFim }) {
   const params = [dataInicio, dataFim, dataInicio, dataFim];
