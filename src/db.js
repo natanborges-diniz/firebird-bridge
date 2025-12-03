@@ -21,6 +21,7 @@ function runQuery(sql, params = []) {
 
       db.query(sql, params, (err, result) => {
         db.detach();
+
         if (err) {
           console.error('❌ Erro ao executar query Firebird:', err);
           return reject(err);
