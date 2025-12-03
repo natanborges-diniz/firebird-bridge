@@ -184,7 +184,6 @@ app.get('/api/empresas', async (req, res) => {
     const sql = `
       SELECT CODEMPRESA as cod_empresa, NOMEFANTASIA as nome_fantasia, CIDADE, UF
       FROM EMPRESA
-      WHERE ATIVO = 1
       ORDER BY NOMEFANTASIA
     `;
     
