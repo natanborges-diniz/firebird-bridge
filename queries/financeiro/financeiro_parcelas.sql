@@ -36,10 +36,9 @@ select
   fcc.numeroconta                             as contacla_numero,
   fcc.descricao                               as contacla_descricao,
 
-  /* FORMA DE PAGAMENTO (TIPO + DESCRIÇÃO) */
+  /* FORMA DE PAGAMENTO (TIPO) */
   ffp.cod_formapagamento                      as formapagto_codigo,
   ffp.cod_formapagamentotipo                  as formapagto_tipo_codigo,
-  ffp.descricao                               as formapagto_descricao,
 
   cast(
     case ffp.cod_formapagamentotipo
