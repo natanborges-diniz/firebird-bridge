@@ -18,7 +18,8 @@ const sqlParcelas = loadSql("financeiro/financeiro_parcelas.sql");
  * @param {number|string} codEmpresa
  */
 async function getParcelas({ dataIni, dataFim, codEmpresa }) {
-  const params = [dataIni, dataFim, codEmpresa];
+  // mesmo formato de data (YYYY-MM-DD), só mudamos a ordem
+  const params = [codEmpresa, dataIni, dataFim];
   const rows = await db.query(sqlParcelas, params);
   return rows;
 }
