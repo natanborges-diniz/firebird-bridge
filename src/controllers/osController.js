@@ -55,7 +55,11 @@ async function monitorOs(req, res) {
         FROM ordemservicocaixalog l
         WHERE l.cod_ordemservicocaixa = osc.cod_ordemservicocaixa
         ORDER BY l.datahoraentrada DESC
-      ) AS DATAHORASAIDA_ULTIMA
+      ) AS DATAHORASAIDA_ULTIMA,
+
+      -- Flags (por enquanto tudo 0; depois colocamos a regra real)
+      0 AS IS_REPARO,
+      0 AS IS_ECOMMERCE
 
     FROM
       ordemservicocaixa osc
