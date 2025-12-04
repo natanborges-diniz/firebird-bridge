@@ -4,6 +4,7 @@ const express = require('express');
 const vendasRoutes = require('./vendas.routes');
 const estoqueRoutes = require('./estoque.routes');
 const osRoutes = require('./os.routes');
+const empresasRoutes = require('./empresas.routes'); // 👈 NOVO
 
 const router = express.Router();
 
@@ -11,6 +12,9 @@ const router = express.Router();
 router.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
+
+// Empresas (usado nos filtros dos painéis)
+router.use('/api/v1/empresas', empresasRoutes);
 
 // Vendas
 router.use('/api/v1/vendas', vendasRoutes);
