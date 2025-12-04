@@ -1,54 +1,23 @@
-const { createNativeClient, getDefaultLibraryFilename } = require('node-firebird-driver-native');
+// index.js (raiz)
 
-let clientPromise = null;
+const express = require('express');
+const cors = require('cors');
+const routes = require('./src/routes');
 
-function getClient() {
-  if (!clientPromise) {
-    clientPromise = Promise.resolve(createNativeClient(getDefaultLibraryFilename()));
-  }
-  return clientPromise;
-}
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-function buildConnectString() {
-  const host = process.env.FIREBIRD_HOST;
-  const database = process.env.FIREBIRD_DATABASE;
+app.use(cors());
+app.use(express.json());
 
-  if (!host || !database) {
-    throw new Error('FIREBIRD_HOST ou FIREBIRD_DATABASE não configurados nas variáveis de ambiente');
-  }
+// Health simples – NÃO toca no Firebird
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
-  // Exemplo: 201.20.35.230:E:\FTPBackup\Integracao\SPOSASCO.DATAWEB.CERT
-  return `${host}:${database}`;
-}
+// Rotas principais da API (vendas, estoque, OS etc.)
+app.use(routes);
 
-async function runQuery(sql, params = []) {
-  const client = await getClient();
-  const connectString = buildConnectString();
-
-  const attachment = await client.connect(connectString, {
-    username: process.env.FIREBIRD_USER || 'SYSDBA',
-    password: process.env.FIREBIRD_PASSWORD || 'masterkey'
-  });
-
-  const transaction = await attachment.startTransaction();
-
-  try {
-    const resultSet = await attachment.executeQuery(transaction, sql, params);
-    const rows = await resultSet.fetch();
-    await resultSet.close();
-    await transaction.commit();
-    await attachment.disconnect();
-    return rows;
-  } catch (err) {
-    try { await transaction.rollback(); } catch (_) {}
-    try { await attachment.disconnect(); } catch (_) {}
-    console.error('Erro ao executar query Firebird:', err);
-    throw err;
-  }
-}
-
-module.exports = {
-  runQuery,
-  // alias pra compatibilizar com outros arquivos que usem "query"
-  query: runQuery
-};
+app.listen(PORT, () => {
+  console.log(`firebird-bridge rodando na porta ${PORT}`);
+});
