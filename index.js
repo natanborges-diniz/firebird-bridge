@@ -1,27 +1,54 @@
-// index.js - entrypoint principal do firebird-bridge
+const { createNativeClient, getDefaultLibraryFilename } = require('node-firebird-driver-native');
 
-const express = require('express');
-const cors = require('cors');
-const routes = require('./src/routes'); // carrega src/routes/index.js
+let clientPromise = null;
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+function getClient() {
+  if (!clientPromise) {
+    clientPromise = Promise.resolve(createNativeClient(getDefaultLibraryFilename()));
+  }
+  return clientPromise;
+}
 
-// Middlewares básicos
-app.use(cors());
-app.use(express.json());
+function buildConnectString() {
+  const host = process.env.FIREBIRD_HOST;
+  const database = process.env.FIREBIRD_DATABASE;
 
-// Todas as rotas da API ficam centralizadas em src/routes/index.js
-app.use(routes);
+  if (!host || !database) {
+    throw new Error('FIREBIRD_HOST ou FIREBIRD_DATABASE não configurados nas variáveis de ambiente');
+  }
 
-// Health check raiz (opcional)
-app.get('/', (req, res) => {
-  res.json({ status: 'firebird-bridge ok', version: '1.0.0' });
-});
+  // Exemplo: 201.20.35.230:E:\FTPBackup\Integracao\SPOSASCO.DATAWEB.CERT
+  return `${host}:${database}`;
+}
 
-// Sobe o servidor
-app.listen(PORT, () => {
-  console.log(`🚀 Firebird-bridge rodando na porta ${PORT}`);
-});
+async function runQuery(sql, params = []) {
+  const client = await getClient();
+  const connectString = buildConnectString();
 
-module.exports = app;
+  const attachment = await client.connect(connectString, {
+    username: process.env.FIREBIRD_USER || 'SYSDBA',
+    password: process.env.FIREBIRD_PASSWORD || 'masterkey'
+  });
+
+  const transaction = await attachment.startTransaction();
+
+  try {
+    const resultSet = await attachment.executeQuery(transaction, sql, params);
+    const rows = await resultSet.fetch();
+    await resultSet.close();
+    await transaction.commit();
+    await attachment.disconnect();
+    return rows;
+  } catch (err) {
+    try { await transaction.rollback(); } catch (_) {}
+    try { await attachment.disconnect(); } catch (_) {}
+    console.error('Erro ao executar query Firebird:', err);
+    throw err;
+  }
+}
+
+module.exports = {
+  runQuery,
+  // alias pra compatibilizar com outros arquivos que usem "query"
+  query: runQuery
+};
