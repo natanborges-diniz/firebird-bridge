@@ -1,58 +1,42 @@
 // src/db/index.js
 
-const { createNativeClient, getDefaultLibraryFilename } = require('node-firebird-driver-native');
+const Firebird = require('node-firebird');
 
-let clientPromise = null;
+const options = {
+  host: process.env.FIREBIRD_HOST,
+  port: process.env.FIREBIRD_PORT || 3050,
+  database: process.env.FIREBIRD_DATABASE,
+  user: process.env.FIREBIRD_USER || 'SYSDBA',
+  password: process.env.FIREBIRD_PASSWORD || 'masterkey',
+  lowercase_keys: false,
+  role: null,
+  pageSize: 8192
+};
 
-function getClient() {
-  if (!clientPromise) {
-    clientPromise = Promise.resolve(createNativeClient(getDefaultLibraryFilename()));
-  }
-  return clientPromise;
-}
+function runQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    Firebird.attach(options, (err, db) => {
+      if (err) {
+        console.error('Erro ao conectar ao Firebird:', err);
+        return reject(err);
+      }
 
-function buildConnectString() {
-  // Exemplo: 201.20.35.230:E:\\FTPBackup\\Integracao\\SPOSASCO.DATAWEB.CERT
-  const host = process.env.FIREBIRD_HOST;
-  const database = process.env.FIREBIRD_DATABASE;
+      db.query(sql, params, (err, result) => {
+        db.detach();
 
-  if (!host || !database) {
-    throw new Error('FIREBIRD_HOST ou FIREBIRD_DATABASE não configurados nas variáveis de ambiente');
-  }
+        if (err) {
+          console.error('Erro ao executar query Firebird:', err);
+          return reject(err);
+        }
 
-  return `${host}:${database}`;
-}
-
-async function runQuery(sql, params = []) {
-  const client = await getClient();
-  const connectString = buildConnectString();
-
-  const attachment = await client.connect(connectString, {
-    username: process.env.FIREBIRD_USER || 'SYSDBA',
-    password: process.env.FIREBIRD_PASSWORD || 'masterkey'
+        resolve(result);
+      });
+    });
   });
-
-  const transaction = await attachment.startTransaction();
-
-  try {
-    const resultSet = await attachment.executeQuery(transaction, sql, params);
-    const rows = await resultSet.fetch();
-    await resultSet.close();
-    await transaction.commit();
-    await attachment.disconnect();
-    return rows;
-  } catch (err) {
-    try {
-      await transaction.rollback();
-    } catch (_) {}
-    try {
-      await attachment.disconnect();
-    } catch (_) {}
-    console.error('Erro ao executar query Firebird:', err);
-    throw err;
-  }
 }
 
+// Alias para manter compatível com quem usa "query"
 module.exports = {
-  runQuery
+  runQuery,
+  query: runQuery
 };
