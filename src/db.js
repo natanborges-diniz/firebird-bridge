@@ -1,36 +1,38 @@
-// src/db.js
-const Firebird = require('node-firebird');
+const firebird = require("node-firebird-driver-native");
 
 const options = {
-  host: process.env.FB_HOST,
-  port: Number(process.env.FB_PORT || 3050),
-  database: process.env.FB_DATABASE,
-  user: process.env.FB_USER,
-  password: process.env.FB_PASSWORD,
-  lowercase_keys: false,
-  blobAsText: true
+  host: process.env.FIREBIRD_HOST,
+  port: Number(process.env.FIREBIRD_PORT || 3050),
+  database: process.env.FIREBIRD_DATABASE,
+  user: process.env.FIREBIRD_USER,
+  password: process.env.FIREBIRD_PASSWORD,
 };
 
-function runQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    Firebird.attach(options, (err, db) => {
-      if (err) {
-        console.error('❌ Erro ao conectar no Firebird:', err);
-        return reject(err);
-      }
+async function runQuery(sql, params = []) {
+  const attachment = await firebird.createAttachment(options);
+  const transaction = await attachment.startTransaction();
 
-      db.query(sql, params, (err, result) => {
-        db.detach();
+  try {
+    const resultSet = await attachment.executeQuery(
+      transaction,
+      sql,
+      params
+    );
 
-        if (err) {
-          console.error('❌ Erro ao executar query Firebird:', err);
-          return reject(err);
-        }
+    const rows = await resultSet.fetch();
+    await resultSet.close();
 
-        resolve(result);
-      });
-    });
-  });
+    await transaction.commit();
+    await attachment.disconnect();
+
+    return rows;
+  } catch (error) {
+    await transaction.rollback();
+    await attachment.disconnect();
+    throw error;
+  }
 }
 
-module.exports = { runQuery };
+module.exports = {
+  runQuery
+};
