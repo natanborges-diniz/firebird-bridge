@@ -73,8 +73,8 @@ from
       on p_cli.cod_pessoa = fl.cod_pessoa
 
 where
-  fp.dataemissao between ? and ?
-  and fl.cod_empresa = ?
+  fl.cod_empresa = ?
+  and fp.datavencimento between ? and ?
 
 order by
   fp.dataemissao,
