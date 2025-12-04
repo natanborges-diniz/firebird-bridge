@@ -7,9 +7,9 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "node-firebird": "^1.1.8"
+  "express": "^4.18.2",
+  "cors": "^2.8.5",
+  "node-firebird-driver-native": "3.2.2"
   },
   "engines": {
     "node": ">=18.0.0"
