@@ -1,3 +1,4 @@
+// src/services/financeiroService.js
 const path = require("path");
 const fs = require("fs");
 const db = require("../db"); // src/db/index.js
@@ -7,7 +8,8 @@ function loadSql(fileName) {
   return fs.readFileSync(filePath, "utf8");
 }
 
-const sqlParcelas = loadSql("financeiro_parcelas.sql");
+// 👇 agora apontando corretamente pra subpasta "financeiro"
+const sqlParcelas = loadSql("financeiro/financeiro_parcelas.sql");
 
 /**
  * Busca parcelas financeiras (pagar/receber) por período e empresa
