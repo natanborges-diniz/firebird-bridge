@@ -8,7 +8,7 @@ function loadSql(fileName) {
   return fs.readFileSync(filePath, "utf8");
 }
 
-// 👇 agora apontando corretamente pra subpasta "financeiro"
+// 👇 repara neste caminho
 const sqlParcelas = loadSql("financeiro/financeiro_parcelas.sql");
 
 /**
