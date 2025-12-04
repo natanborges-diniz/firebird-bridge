@@ -6,7 +6,7 @@ const estoqueRoutes = require('./estoque.routes');
 
 const router = express.Router();
 
-// Health check simples (se ainda nao existir, opcional)
+// Health check simples
 router.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
