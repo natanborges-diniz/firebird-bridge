@@ -1,12 +1,7 @@
+// src/controllers/financeiroController.js
+
 const financeiroService = require("../services/financeiroService");
 
-/**
- * GET /api/v1/financeiro/parcelas
- * Query params:
- *  - dataIni (YYYY-MM-DD)
- *  - dataFim (YYYY-MM-DD)
- *  - empresa (código da empresa)
- */
 async function listarParcelas(req, res) {
   try {
     const { dataIni, dataFim, empresa } = req.query;
