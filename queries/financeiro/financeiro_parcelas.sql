@@ -77,6 +77,6 @@ where
   and fp.datavencimento between ? and ?
 
 order by
-  fp.dataemissao,
+  fp.datavencimento,
   fl.cod_lancamento,
   fp.cod_lancamentoparcela;
