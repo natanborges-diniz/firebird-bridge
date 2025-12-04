@@ -1,10 +1,9 @@
 // src/routes/os.routes.js
-const express = require('express');
-const { monitorOS } = require('../controllers/osController');
+const express = require("express");
+const { monitorOs } = require("../controllers/osController");
 
 const router = express.Router();
 
-// GET /api/v1/os/monitor
-router.get('/monitor', monitorOS);
+router.get("/monitor", monitorOs);
 
 module.exports = router;
