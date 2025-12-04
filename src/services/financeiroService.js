@@ -8,7 +8,7 @@ function loadSql(fileName) {
   return fs.readFileSync(filePath, "utf8");
 }
 
-// 👇 repara neste caminho
+// importante: caminho com subpasta "financeiro"
 const sqlParcelas = loadSql("financeiro/financeiro_parcelas.sql");
 
 /**
@@ -18,8 +18,12 @@ const sqlParcelas = loadSql("financeiro/financeiro_parcelas.sql");
  * @param {number|string} codEmpresa
  */
 async function getParcelas({ dataIni, dataFim, codEmpresa }) {
-  // mesmo formato de data (YYYY-MM-DD), só mudamos a ordem
-  const params = [codEmpresa, dataIni, dataFim];
+  // ORDEM DOS PARÂMETROS PRECISA COMBINAR COM A QUERY:
+  // where
+  //   fl.cod_empresa = ?
+  //   and fp.datavencimento between ? and ?
+  const params = [Number(codEmpresa), dataIni, dataFim];
+
   const rows = await db.query(sqlParcelas, params);
   return rows;
 }
