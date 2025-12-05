@@ -1,51 +1,29 @@
 // src/services/financeiroService.js
+// Serviço de acesso ao módulo financeiro direto no Firebird
 
-// Mesma base usada nos outros services (vendas, estoque, etc.)
-const BASE_URL =
-  import.meta.env.VITE_FIREBIRD_BRIDGE_BASE_URL ||
-  import.meta.env.VITE_FIREBIRD_BRIDGE_URL ||
-  '';
+const path = require("path");
+const fs = require("fs");
+const { runQuery } = require("../db"); // usa o db/index.js do bridge
 
-if (!BASE_URL) {
-  console.warn(
-    '[FinanceiroService] VITE_FIREBIRD_BRIDGE_BASE_URL não configurada.'
-  );
-}
+// Carrega o SQL da pasta /queries/financeiro
+const sqlParcelas = fs.readFileSync(
+  path.join(__dirname, "..", "queries", "financeiro_parcelas.sql"),
+  "utf8"
+);
 
 /**
- * Busca parcelas financeiras (pagar/receber) por período e empresa.
- *
- * Parâmetros:
- *  - dataIni: 'YYYY-MM-DD'
- *  - dataFim: 'YYYY-MM-DD'
- *  - empresa: código da empresa (número ou string)
+ * Busca parcelas financeiras (pagar/receber) por período e empresa
+ * @param {Object} params
+ * @param {string} params.dataIni - 'YYYY-MM-DD'
+ * @param {string} params.dataFim - 'YYYY-MM-DD'
+ * @param {number|string} params.codEmpresa
  */
-export async function getFinanceiroParcelas({ dataIni, dataFim, empresa }) {
-  const search = new URLSearchParams({
-    dataIni,
-    dataFim,
-    empresa: String(empresa),
-  });
-
-  const url = `${BASE_URL}/api/v1/financeiro/parcelas?${search.toString()}`;
-
-  const res = await fetch(url);
-
-  if (!res.ok) {
-    const text = await res.text();
-    console.error('[FinanceiroService] Erro ao buscar parcelas:', res.status, text);
-    throw new Error(`Erro ao buscar parcelas (${res.status})`);
-  }
-
-  const json = await res.json();
-
-  // Backend está devolvendo { ok, count, rows }
-  if (json && Array.isArray(json.rows)) {
-    return json.rows;
-  }
-
-  // fallback se um dia o formato mudar
-  if (Array.isArray(json)) return json;
-
-  return [];
+async function getParcelas({ dataIni, dataFim, codEmpresa }) {
+  const params = [dataIni, dataFim, codEmpresa];
+  const rows = await runQuery(sqlParcelas, params);
+  return rows;
 }
+
+module.exports = {
+  getParcelas,
+};
