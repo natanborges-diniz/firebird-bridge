@@ -3,14 +3,13 @@ const path = require("path");
 const fs = require("fs");
 const db = require("../db"); // src/db/index.js
 
-function loadSql(relativePath) {
-  // base: /app/src/queries/...
+function loadSql(fileName) {
   const filePath = path.join(__dirname, "..", "queries", "financeiro", fileName);
   return fs.readFileSync(filePath, "utf8");
 }
 
 // aqui mantemos a pasta /financeiro
-const sqlParcelas = loadSql(path.join("financeiro", "financeiro_parcelas.sql"));
+const sqlParcelas = loadSql("financeiro_parcelas.sql");
 
 /**
  * Busca parcelas financeiras (pagar/receber) por período e empresa
