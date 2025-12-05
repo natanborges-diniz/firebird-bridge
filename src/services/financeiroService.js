@@ -5,7 +5,7 @@ const db = require("../db"); // src/db/index.js
 
 function loadSql(relativePath) {
   // base: /app/src/queries/...
-  const filePath = path.join(__dirname, "..", "queries", relativePath);
+  const filePath = path.join(__dirname, "..", "queries", "financeiro", fileName);
   return fs.readFileSync(filePath, "utf8");
 }
 
