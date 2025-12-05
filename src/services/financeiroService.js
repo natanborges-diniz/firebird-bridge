@@ -1,42 +1,51 @@
 // src/services/financeiroService.js
-const path = require("path");
-const fs = require("fs");
-const db = require("../db"); // src/db/index.js
 
-function loadSql(fileName) {
-  const filePath = path.join(__dirname, "..", "..", "queries", fileName);
-  return fs.readFileSync(filePath, "utf8");
-}
+// Mesma base usada nos outros services (vendas, estoque, etc.)
+const BASE_URL =
+  import.meta.env.VITE_FIREBIRD_BRIDGE_BASE_URL ||
+  import.meta.env.VITE_FIREBIRD_BRIDGE_URL ||
+  '';
 
-// Query principal de parcelas
-const sqlParcelas = loadSql("financeiro/financeiro_parcelas.sql");
-
-// Query de DEBUG: resumo por empresa
-const sqlResumoPorEmpresa = loadSql("financeiro/financeiro_resumo_por_empresa.sql");
-
-/**
- * Busca parcelas financeiras (pagar/receber) por período e empresa
- * @param {string} dataIni - 'YYYY-MM-DD'
- * @param {string} dataFim - 'YYYY-MM-DD'
- * @param {number|string} codEmpresa
- */
-async function getParcelas({ dataIni, dataFim, codEmpresa }) {
-  // Ordem dos parâmetros precisa bater com a query:
-  // where fl.cod_empresa = ? and fp.datavencimento between ? and ?
-  const params = [Number(codEmpresa), dataIni, dataFim];
-  const rows = await db.query(sqlParcelas, params);
-  return rows;
+if (!BASE_URL) {
+  console.warn(
+    '[FinanceiroService] VITE_FIREBIRD_BRIDGE_BASE_URL não configurada.'
+  );
 }
 
 /**
- * DEBUG: resumo de parcelas por empresa, com min/max datavencimento
+ * Busca parcelas financeiras (pagar/receber) por período e empresa.
+ *
+ * Parâmetros:
+ *  - dataIni: 'YYYY-MM-DD'
+ *  - dataFim: 'YYYY-MM-DD'
+ *  - empresa: código da empresa (número ou string)
  */
-async function getResumoPorEmpresa() {
-  const rows = await db.query(sqlResumoPorEmpresa, []);
-  return rows;
-}
+export async function getFinanceiroParcelas({ dataIni, dataFim, empresa }) {
+  const search = new URLSearchParams({
+    dataIni,
+    dataFim,
+    empresa: String(empresa),
+  });
 
-module.exports = {
-  getParcelas,
-  getResumoPorEmpresa,
-};
+  const url = `${BASE_URL}/api/v1/financeiro/parcelas?${search.toString()}`;
+
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('[FinanceiroService] Erro ao buscar parcelas:', res.status, text);
+    throw new Error(`Erro ao buscar parcelas (${res.status})`);
+  }
+
+  const json = await res.json();
+
+  // Backend está devolvendo { ok, count, rows }
+  if (json && Array.isArray(json.rows)) {
+    return json.rows;
+  }
+
+  // fallback se um dia o formato mudar
+  if (Array.isArray(json)) return json;
+
+  return [];
+}
