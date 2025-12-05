@@ -4,11 +4,12 @@ const fs = require("fs");
 const db = require("../db"); // src/db/index.js
 
 function loadSql(fileName) {
-  const filePath = path.join(__dirname, "..", "queries", "financeiro", fileName);
+  // sobe de /src/services para /src -> .., depois / -> ..
+  const filePath = path.join(__dirname, "..", "..", "queries", "financeiro", fileName);
   return fs.readFileSync(filePath, "utf8");
 }
 
-// aqui mantemos a pasta /financeiro
+// aqui mantemos a pasta /queries/financeiro
 const sqlParcelas = loadSql("financeiro_parcelas.sql");
 
 /**
@@ -18,10 +19,9 @@ const sqlParcelas = loadSql("financeiro_parcelas.sql");
  * @param {number|string} codEmpresa
  */
 async function getParcelas({ dataIni, dataFim, codEmpresa }) {
-  // ⚠️ A ORDEM DOS PARÂMETROS PRECISA SER
-  // 1) cod_empresa
-  // 2) dataIni
-  // 3) dataFim
+  // ORDEM dos parâmetros precisa bater com o SQL:
+  // where fl.cod_empresa = ?
+  //   and fp.datavencimento between ? and ?
   const params = [codEmpresa, dataIni, dataFim];
 
   const rows = await db.query(sqlParcelas, params);
