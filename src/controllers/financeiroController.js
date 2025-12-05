@@ -2,6 +2,13 @@
 
 const financeiroService = require("../services/financeiroService");
 
+/**
+ * GET /api/v1/financeiro/parcelas
+ * Query params:
+ *  - dataIni (YYYY-MM-DD)
+ *  - dataFim (YYYY-MM-DD)
+ *  - empresa (código da empresa)
+ */
 async function listarParcelas(req, res) {
   try {
     const { dataIni, dataFim, empresa } = req.query;
@@ -31,6 +38,29 @@ async function listarParcelas(req, res) {
   }
 }
 
+/**
+ * GET /api/v1/financeiro/debug/resumo-empresas
+ * Não recebe parâmetros.
+ * Retorna: cod_empresa, empresa_nome, min/max datavencimento, qtd_parcelas
+ */
+async function resumoPorEmpresa(req, res) {
+  try {
+    const rows = await financeiroService.getResumoPorEmpresa();
+
+    return res.json({
+      ok: true,
+      count: rows.length,
+      rows,
+    });
+  } catch (err) {
+    console.error("Erro em resumoPorEmpresa:", err);
+    return res.status(500).json({
+      error: "Erro interno ao gerar resumo por empresa",
+    });
+  }
+}
+
 module.exports = {
   listarParcelas,
+  resumoPorEmpresa,
 };
