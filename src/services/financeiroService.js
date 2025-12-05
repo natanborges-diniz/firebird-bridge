@@ -1,10 +1,22 @@
 // src/services/financeiroService.js
-const db = require("../db"); // src/db/index.js
-const { loadSQL } = require("../utils/loadSQL");
 
-// 👉 Aqui usamos o mesmo padrão dos outros módulos:
-//    /app/queries/financeiro/financeiro_parcelas.sql
-const sqlParcelas = loadSQL("queries/financeiro/financeiro_parcelas.sql");
+const path = require("path");
+const fs = require("fs");
+const db = require("../db"); // src/db/index.js
+
+// Monta o caminho absoluto para /queries/financeiro/financeiro_parcelas.sql
+const sqlParcelasPath = path.join(
+  __dirname,
+  "..",      // -> /app/src
+  "..",      // -> /app
+  "queries",
+  "financeiro",
+  "financeiro_parcelas.sql"
+);
+
+console.log("[FinanceiroService] Usando SQL em:", sqlParcelasPath);
+
+const sqlParcelas = fs.readFileSync(sqlParcelasPath, "utf8");
 
 /**
  * Busca parcelas financeiras (pagar/receber) por período e empresa
@@ -14,14 +26,8 @@ const sqlParcelas = loadSQL("queries/financeiro/financeiro_parcelas.sql");
  */
 async function getParcelas({ dataIni, dataFim, codEmpresa }) {
   const params = [dataIni, dataFim, codEmpresa];
-
-  try {
-    const rows = await db.query(sqlParcelas, params);
-    return rows;
-  } catch (err) {
-    console.error("Erro ao executar sqlParcelas:", err);
-    throw err; // deixa o controller devolver 500
-  }
+  const rows = await db.query(sqlParcelas, params);
+  return rows;
 }
 
 module.exports = {
