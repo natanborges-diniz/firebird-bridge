@@ -1,24 +1,16 @@
+// src/services/financeiroService.js
 const path = require("path");
 const fs = require("fs");
 const db = require("../db"); // src/db/index.js
 
-// 🔹 Caminho correto: /app/queries/financeiro/financeiro_parcelas.sql
-const sqlParcelasPath = path.join(
-  __dirname,      // /app/src/services
-  "..",           // /app/src
-  "..",           // /app
-  "queries",
-  "financeiro",
-  "financeiro_parcelas.sql"
-);
-
-const sqlParcelas = fs.readFileSync(sqlParcelasPath, "utf8");
-
-// helper pra converter "YYYY-MM-DD" em Date (Firebird entende melhor)
-function parseDateYmd(str) {
-  const [y, m, d] = str.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
+function loadSql(relativePath) {
+  // base: /app/src/queries/...
+  const filePath = path.join(__dirname, "..", "queries", relativePath);
+  return fs.readFileSync(filePath, "utf8");
 }
+
+// aqui mantemos a pasta /financeiro
+const sqlParcelas = loadSql(path.join("financeiro", "financeiro_parcelas.sql"));
 
 /**
  * Busca parcelas financeiras (pagar/receber) por período e empresa
@@ -27,11 +19,11 @@ function parseDateYmd(str) {
  * @param {number|string} codEmpresa
  */
 async function getParcelas({ dataIni, dataFim, codEmpresa }) {
-  // 👇 converte string pra Date pra evitar o erro -303 do Firebird
-  const ini = parseDateYmd(dataIni);
-  const fim = parseDateYmd(dataFim);
-
-  const params = [ini, fim, Number(codEmpresa)];
+  // ⚠️ A ORDEM DOS PARÂMETROS PRECISA SER
+  // 1) cod_empresa
+  // 2) dataIni
+  // 3) dataFim
+  const params = [codEmpresa, dataIni, dataFim];
 
   const rows = await db.query(sqlParcelas, params);
   return rows;
