@@ -6,7 +6,7 @@ const financeiroController = require("../controllers/financeiroController");
 // GET /api/v1/financeiro/parcelas
 router.get("/parcelas", financeiroController.listarParcelas);
 
-// DEBUG: GET /api/v1/financeiro/debug/resumo-empresas
-router.get("/debug/resumo-empresas", financeiroController.resumoPorEmpresa);
+// GET /api/v1/financeiro/dre
+router.get("/dre", financeiroController.listarDre);
 
 module.exports = router;
