@@ -1,16 +1,24 @@
-// src/services/financeiroService.js
-
 const path = require("path");
 const fs = require("fs");
-const { runQuery } = require("../db"); // db/index.js
+const db = require("../db"); // src/db/index.js
 
-// Monta o caminho absoluto para /queries/financeiro/financeiro_parcelas.sql
-const sqlParcelas = fs.readFileSync(
-  path.join(__dirname, "..", "queries", "financeiro", "financeiro_parcelas.sql"),
-  "utf8"
+// 🔹 Caminho correto: /app/queries/financeiro/financeiro_parcelas.sql
+const sqlParcelasPath = path.join(
+  __dirname,      // /app/src/services
+  "..",           // /app/src
+  "..",           // /app
+  "queries",
+  "financeiro",
+  "financeiro_parcelas.sql"
 );
 
-console.log("[FinanceiroService] Usando SQL em:", sqlParcelasPath);
+const sqlParcelas = fs.readFileSync(sqlParcelasPath, "utf8");
+
+// helper pra converter "YYYY-MM-DD" em Date (Firebird entende melhor)
+function parseDateYmd(str) {
+  const [y, m, d] = str.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
 
 /**
  * Busca parcelas financeiras (pagar/receber) por período e empresa
@@ -18,25 +26,14 @@ console.log("[FinanceiroService] Usando SQL em:", sqlParcelasPath);
  * @param {string} dataFim - 'YYYY-MM-DD'
  * @param {number|string} codEmpresa
  */
-function parseDateParam(str) {
-  // Espera formato 'YYYY-MM-DD'
-  // Ex: '2025-01-01' → new Date(2025, 0, 1)
-  if (!str) return null;
-  const [year, month, day] = str.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
 async function getParcelas({ dataIni, dataFim, codEmpresa }) {
-  const dataIniDate = parseDateParam(dataIni);
-  const dataFimDate = parseDateParam(dataFim);
+  // 👇 converte string pra Date pra evitar o erro -303 do Firebird
+  const ini = parseDateYmd(dataIni);
+  const fim = parseDateYmd(dataFim);
 
-  const params = [
-    dataIniDate,
-    dataFimDate,
-    Number(codEmpresa), // garante numérico
-  ];
+  const params = [ini, fim, Number(codEmpresa)];
 
-  const rows = await runQuery(sqlParcelas, params);
+  const rows = await db.query(sqlParcelas, params);
   return rows;
 }
 
