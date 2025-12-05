@@ -21,15 +21,12 @@ select
   fp.valorpago                                as parcela_valor_pago,
 
   /* SITUAÇÃO CALCULADA SIMPLES */
-  cast(
-    case
-      when fp.datapagamento is not null then 'PAGA'
-      when fp.datapagamento is null
-           and fp.datavencimento < current_date then 'EM ATRASO'
-      else 'EM ABERTO'
-    end
-    as varchar(15)
-  )                                           as parcela_situacao,
+  case
+    when fp.datapagamento is not null then 'PAGA'
+    when fp.datapagamento is null
+         and fp.datavencimento < current_date then 'EM ATRASO'
+    else 'EM ABERTO'
+  end                                           as parcela_situacao,
 
   /* CLASSIFICAÇÃO CONTÁBIL */
   fcc.cod_contaclassificacao                  as contacla_codigo,
@@ -40,18 +37,15 @@ select
   ffp.cod_formapagamento                      as formapagto_codigo,
   ffp.cod_formapagamentotipo                  as formapagto_tipo_codigo,
 
-  cast(
-    case ffp.cod_formapagamentotipo
-      when 1 then 'DINHEIRO'
-      when 2 then 'CHEQUE'
-      when 3 then 'CARTÃO'
-      when 4 then 'BANCO'
-      when 5 then 'CARNÊ'
-      when 6 then 'CRÉDITO'
-      else '(NÃO DEFINIDA)'
-    end
-    as varchar(15)
-  )                                           as formapagto_tipo_nome
+  case ffp.cod_formapagamentotipo
+    when 1 then 'DINHEIRO'
+    when 2 then 'CHEQUE'
+    when 3 then 'CARTÃO'
+    when 4 then 'BANCO'
+    when 5 then 'CARNÊ'
+    when 6 then 'CRÉDITO'
+    else '(NÃO DEFINIDA)'
+  end                                         as formapagto_tipo_nome
 
 from
   finlancamento fl
@@ -74,7 +68,7 @@ from
 
 where
   fl.cod_empresa = ?
-  and fp.datavencimento between cast(? as date) and cast(? as date)
+  and fp.datavencimento between ? and ?
 
 order by
   fp.datavencimento,
