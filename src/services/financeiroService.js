@@ -2,21 +2,15 @@
 
 const path = require("path");
 const fs = require("fs");
-const db = require("../db"); // src/db/index.js
+const { runQuery } = require("../db"); // db/index.js
 
 // Monta o caminho absoluto para /queries/financeiro/financeiro_parcelas.sql
-const sqlParcelasPath = path.join(
-  __dirname,
-  "..",      // -> /app/src
-  "..",      // -> /app
-  "queries",
-  "financeiro",
-  "financeiro_parcelas.sql"
+const sqlParcelas = fs.readFileSync(
+  path.join(__dirname, "..", "queries", "financeiro", "financeiro_parcelas.sql"),
+  "utf8"
 );
 
 console.log("[FinanceiroService] Usando SQL em:", sqlParcelasPath);
-
-const sqlParcelas = fs.readFileSync(sqlParcelasPath, "utf8");
 
 /**
  * Busca parcelas financeiras (pagar/receber) por período e empresa
