@@ -74,7 +74,7 @@ from
 
 where
   fl.cod_empresa = ?
-  and fp.datavencimento between ? and ?
+  and fp.datavencimento between cast(? as date) and cast(? as date)
 
 order by
   fp.datavencimento,
