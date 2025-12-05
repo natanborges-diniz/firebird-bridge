@@ -4,7 +4,7 @@ const { loadSQL } = require("../utils/loadSQL");
 
 // 👉 Aqui usamos o mesmo padrão dos outros módulos:
 //    /app/queries/financeiro/financeiro_parcelas.sql
-const sqlParcelas = loadSQL("financeiro/financeiro_parcelas.sql");
+const sqlParcelas = loadSQL("queries/financeiro/financeiro_parcelas.sql");
 
 /**
  * Busca parcelas financeiras (pagar/receber) por período e empresa
