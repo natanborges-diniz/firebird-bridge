@@ -5,7 +5,7 @@ const vendasRoutes = require('./vendas.routes');
 const estoqueRoutes = require('./estoque.routes');
 const osRoutes = require('./os.routes');
 const empresasRoutes = require('./empresas.routes');
-const financeiroRoutes = require('./financeiro.routes'); // 👈 ADICIONAR
+const financeiroRoutes = require('./financeiro.routes'); // 👈 NOVO
 
 const router = express.Router();
 
@@ -14,8 +14,11 @@ router.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Empresas
+// Empresas (usado nos filtros dos painéis)
 router.use('/api/v1/empresas', empresasRoutes);
+
+// Financeiro (parcelas, DRE, etc.)
+router.use('/api/v1/financeiro', financeiroRoutes); // 👈 IMPORTANTE
 
 // Vendas
 router.use('/api/v1/vendas', vendasRoutes);
@@ -23,10 +26,7 @@ router.use('/api/v1/vendas', vendasRoutes);
 // Estoque
 router.use('/api/v1/estoque', estoqueRoutes);
 
-// Ordens de Serviço
+// Ordens de Serviço (Monitor de Produção)
 router.use('/api/v1/os', osRoutes);
-
-// Financeiro
-router.use('/api/v1/financeiro', financeiroRoutes); // 👈 ADICIONAR
 
 module.exports = router;
