@@ -18,9 +18,25 @@ console.log("[FinanceiroService] Usando SQL em:", sqlParcelasPath);
  * @param {string} dataFim - 'YYYY-MM-DD'
  * @param {number|string} codEmpresa
  */
+function parseDateParam(str) {
+  // Espera formato 'YYYY-MM-DD'
+  // Ex: '2025-01-01' → new Date(2025, 0, 1)
+  if (!str) return null;
+  const [year, month, day] = str.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 async function getParcelas({ dataIni, dataFim, codEmpresa }) {
-  const params = [dataIni, dataFim, codEmpresa];
-  const rows = await db.query(sqlParcelas, params);
+  const dataIniDate = parseDateParam(dataIni);
+  const dataFimDate = parseDateParam(dataFim);
+
+  const params = [
+    dataIniDate,
+    dataFimDate,
+    Number(codEmpresa), // garante numérico
+  ];
+
+  const rows = await runQuery(sqlParcelas, params);
   return rows;
 }
 
