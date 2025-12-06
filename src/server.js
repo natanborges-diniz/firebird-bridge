@@ -8,12 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check simples
-app.get('/health', (req, res) => {
-  res.json({ ok: true, timestamp: new Date().toISOString() });
-});
-
-// Rotas da API v1
-app.use('/api/v1', apiRoutes);
+// Rotas da API (já prefixadas em src/routes)
+app.use(apiRoutes);
 
 module.exports = app;
