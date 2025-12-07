@@ -34,13 +34,3 @@ function getFirebirdConnectString() {
 
   return `${hostWithPort}:${env.FIREBIRD_DATABASE}`;
 }
-
-// Exporta em CJS e fornece "default" para compatibilizar com imports ESM
-module.exports = {
-  getFirebirdConnectString,
-  requiredKeys,
-  connectStringKeys,
-  buildUppercaseEnvMap
-};
-
-module.exports.default = module.exports;
