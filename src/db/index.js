@@ -22,10 +22,12 @@ function buildConnectString() {
   validateEnv();
 
   const host = process.env.FIREBIRD_HOST;
+  const port = process.env.FIREBIRD_PORT;
   const database = process.env.FIREBIRD_DATABASE;
 
-  // Exemplo: 201.20.35.230:E:\\FTPBackup\\Integracao\\SPOSASCO.DATAWEB.CERT
-  return `${host}:${database}`;
+  // Exemplo: 201.20.35.230/3058:E:\\FTPBackup\\Integracao\\SPOSASCO.DATAWEB.CERT
+  const hostWithPort = port ? `${host}/${port}` : host;
+  return `${hostWithPort}:${database}`;
 }
 
 async function runQuery(sql, params = [], metadata = {}) {

@@ -9,13 +9,15 @@ Bridge HTTP → Firebird para expor consultas consolidadas via Express.
    FIREBIRD_DATABASE=/caminho/do/banco.FDB
    FIREBIRD_USER=SYSDBA
    FIREBIRD_PASSWORD=masterkey
-   PORT=3000
+   PORT=3050
    ```
+
 2. Instale dependências e execute:
    ```bash
 npm install
 npm start
 ```
+
 
 ### Aplicando patches com `git apply` (método “copiar e colar”)
 Se receber um patch por texto (por exemplo, em uma conversa no chat), siga estes passos para aplicá-lo localmente:
@@ -97,3 +99,4 @@ Se preferir atualizar o repositório sem abrir Pull Request, siga estes passos n
 5. Se houver pipeline de deploy configurado, ele será disparado automaticamente após o push. Caso contrário, siga seu processo de publicação habitual.
 
 > Dica: mantenha `work` atualizado com `git pull` antes de mesclar, para garantir que você está levando a versão mais recente.
+
