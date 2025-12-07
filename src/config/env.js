@@ -34,25 +34,3 @@ function getFirebirdConnectString() {
 
   return `${hostWithPort}:${env.FIREBIRD_DATABASE}`;
 }
-
-function resolveGetFirebirdConnectString(moduleLike) {
-  const candidates = [moduleLike, moduleLike?.default];
-
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    if (typeof candidate === 'function') return candidate;
-    if (typeof candidate.getFirebirdConnectString === 'function') return candidate.getFirebirdConnectString;
-  }
-
-  return null;
-}
-
-module.exports = {
-  getFirebirdConnectString,
-  resolveGetFirebirdConnectString,
-  requiredKeys,
-  connectStringKeys,
-  buildUppercaseEnvMap
-};
-
-module.exports.default = module.exports;
