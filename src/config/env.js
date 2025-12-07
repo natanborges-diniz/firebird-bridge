@@ -9,21 +9,6 @@ const connectStringKeys = [
   'FIREBIRD_CONNECTION_STRING'
 ];
 
-function resolveGetFirebirdConnectString(mod) {
-  // Caminha por possíveis aninhamentos de "default" até achar a função exportada
-  const visited = new Set();
-  let current = mod;
-
-  while (current && !visited.has(current)) {
-    visited.add(current);
-    if (typeof current === 'function') return current;
-    if (typeof current?.getFirebirdConnectString === 'function') return current.getFirebirdConnectString;
-    current = current.default;
-  }
-
-  return null;
-}
-
 function buildUppercaseEnvMap() {
   return Object.entries(process.env).reduce((acc, [key, value]) => {
     acc[key.toUpperCase()] = value;
@@ -49,14 +34,3 @@ function getFirebirdConnectString() {
 
   return `${hostWithPort}:${env.FIREBIRD_DATABASE}`;
 }
-
-// Exporta em CJS e fornece "default" para compatibilizar com imports ESM
-module.exports = {
-  getFirebirdConnectString,
-  resolveGetFirebirdConnectString,
-  requiredKeys,
-  connectStringKeys,
-  buildUppercaseEnvMap
-};
-
-module.exports.default = module.exports;
