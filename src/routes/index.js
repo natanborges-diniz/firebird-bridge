@@ -5,14 +5,13 @@ const vendasRoutes = require('./vendas.routes');
 const estoqueRoutes = require('./estoque.routes');
 const osRoutes = require('./os.routes');
 const empresasRoutes = require('./empresas.routes');
-const financeiroRoutes = require('./financeiro.routes'); // 👈 NOVO
+const financeiroRoutes = require('./financeiro.routes');
+const { healthCheck } = require('../controllers/healthController');
 
 const router = express.Router();
 
-// Health check
-router.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
+// Health check (opcionalmente testa o Firebird com ?checkDb=true)
+router.get('/health', healthCheck);
 
 // Empresas (usado nos filtros dos painéis)
 router.use('/api/v1/empresas', empresasRoutes);
