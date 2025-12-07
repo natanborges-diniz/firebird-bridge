@@ -31,6 +31,13 @@ function buildConnectString() {
   return `${hostWithPort}:${database}`;
 }
 
+/**
+ * Função usada pelo validador de env para montar a conexão
+ */
+function getFirebirdConnectString() {
+  return buildConnectString();
+}
+
 async function runQuery(sql, params = [], metadata = {}) {
   const client = await getClient();
   const connectString = getFirebirdConnectString();
@@ -72,6 +79,7 @@ async function pingDatabase() {
 module.exports = {
   runQuery,
   pingDatabase,
+  getFirebirdConnectString,
   // alias pra compatibilizar com outros arquivos que usem "query"
   query: runQuery
 };
