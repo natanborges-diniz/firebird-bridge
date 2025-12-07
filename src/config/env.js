@@ -1,18 +1,15 @@
 // src/config/env.js
 require('dotenv').config();
 
+/**
+ * Chaves obrigatórias "novas"
+ */
 const requiredKeys = ['FIREBIRD_HOST', 'FIREBIRD_DATABASE'];
-const legacyKeys = {
-  FIREBIRD_HOST: 'FB_HOST',
-  FIREBIRD_DATABASE: 'FB_DATABASE'
-};
-const connectStringKeys = [
-  // aceita conexão direta já formatada ex.: 201.20.35.230/3050:/caminho/db.FDB
-  'FIREBIRD_CONNECT_STRING',
-  'FIREBIRD_URL',
-  'FIREBIRD_CONNECTION_STRING'
-];
 
+/**
+ * Chaves legadas que mapeiam para as novas
+ * (caso você ainda use FB_HOST / FB_DATABASE, etc.)
+ */
 const legacyKeyAliases = {
   FB_HOST: 'FIREBIRD_HOST',
   FB_DATABASE: 'FIREBIRD_DATABASE',
@@ -22,6 +19,20 @@ const legacyKeyAliases = {
   FB_CONNECTION_STRING: 'FIREBIRD_CONNECTION_STRING'
 };
 
+/**
+ * Possíveis nomes de variável já com a connect string completa
+ * Ex: 201.20.35.230/3050:E:\\FTPBackup\\Integracao\\SPOSASCO.DATAWEB.CERT
+ */
+const connectStringKeys = [
+  'FIREBIRD_CONNECT_STRING',
+  'FIREBIRD_URL',
+  'FIREBIRD_CONNECTION_STRING'
+];
+
+/**
+ * Constrói um mapa de env todo em maiúsculo
+ * e aplica os aliases legados.
+ */
 function buildUppercaseEnvMap() {
   const env = Object.entries(process.env).reduce((acc, [key, value]) => {
     acc[key.toUpperCase()] = value;
@@ -37,12 +48,21 @@ function buildUppercaseEnvMap() {
   return env;
 }
 
+/**
+ * Retorna a connect string final do Firebird.
+ * 1) Se existir FIREBIRD_CONNECT_STRING (ou sinônimos), usa direto
+ * 2) Senão, monta host[/port]:database a partir de FIREBIRD_HOST / FIREBIRD_DATABASE
+ */
 function getFirebirdConnectString() {
   const env = buildUppercaseEnvMap();
 
-  const directKey = connectStringKeys.find((key) => env[key.toUpperCase()]);
-  if (directKey) return env[directKey.toUpperCase()];
+  // 1) tenta pegar connect string direta
+  const directKey = connectStringKeys.find((key) => env[key]);
+  if (directKey) {
+    return env[directKey];
+  }
 
+  // 2) senão, exige HOST + DATABASE
   const missing = requiredKeys.filter((key) => !env[key]);
   if (missing.length) {
     const extras = `Defina ${connectStringKeys[0]} (ou sinônimos: ${connectStringKeys
@@ -51,7 +71,25 @@ function getFirebirdConnectString() {
     throw new Error(`Variáveis obrigatórias faltando: ${missing.join(', ')}. ${extras}`);
   }
 
-  const hostWithPort = env.FIREBIRD_PORT ? `${env.FIREBIRD_HOST}/${env.FIREBIRD_PORT}` : env.FIREBIRD_HOST;
+  const hostWithPort = env.FIREBIRD_PORT
+    ? `${env.FIREBIRD_HOST}/${env.FIREBIRD_PORT}`
+    : env.FIREBIRD_HOST;
 
   return `${hostWithPort}:${env.FIREBIRD_DATABASE}`;
 }
+
+/**
+ * Opcional: função para ser usada em health-check de env
+ * (se der erro aqui, o deploy falha com uma mensagem clara)
+ */
+function validateEnvForStartup() {
+  // Se não conseguir montar a string, explode aqui
+  const conn = getFirebirdConnectString();
+  console.log('[ENV] Firebird connect string OK:', conn);
+}
+
+module.exports = {
+  getFirebirdConnectString,
+  buildUppercaseEnvMap,
+  validateEnvForStartup
+};
