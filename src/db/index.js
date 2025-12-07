@@ -1,4 +1,5 @@
 const { createNativeClient, getDefaultLibraryFilename } = require('node-firebird-driver-native');
+const { getFirebirdConnectString } = require('../config/env');
 
 let clientPromise = null;
 
@@ -32,7 +33,7 @@ function buildConnectString() {
 
 async function runQuery(sql, params = [], metadata = {}) {
   const client = await getClient();
-  const connectString = buildConnectString();
+  const connectString = getFirebirdConnectString();
 
   const attachment = await client.connect(connectString, {
     username: process.env.FIREBIRD_USER || 'SYSDBA',

@@ -6,7 +6,6 @@ Bridge HTTP → Firebird para expor consultas consolidadas via Express.
 1. Crie um arquivo `.env` (opcional em produção) com:
    ```env
    FIREBIRD_HOST=192.168.0.1
-
    FIREBIRD_PORT=3050 # opcional; usa 3050 por padrão
    FIREBIRD_DATABASE=/caminho/do/banco.FDB
    FIREBIRD_USER=SYSDBA
@@ -18,6 +17,7 @@ Bridge HTTP → Firebird para expor consultas consolidadas via Express.
 npm install
 npm start
 ```
+
 
 ### Aplicando patches com `git apply` (método “copiar e colar”)
 Se receber um patch por texto (por exemplo, em uma conversa no chat), siga estes passos para aplicá-lo localmente:
