@@ -1,17 +1,5 @@
 const { createNativeClient, getDefaultLibraryFilename } = require('node-firebird-driver-native');
-const envModule = require('../config/env');
-
-function resolveGetFirebirdConnectString(mod) {
-  if (typeof mod === 'function') return mod;
-  if (typeof mod?.getFirebirdConnectString === 'function') return mod.getFirebirdConnectString;
-  if (typeof mod?.default === 'function') return mod.default;
-  if (typeof mod?.default?.getFirebirdConnectString === 'function') {
-    return mod.default.getFirebirdConnectString;
-  }
-  return null;
-}
-
-const getFirebirdConnectString = resolveGetFirebirdConnectString(envModule);
+const { getFirebirdConnectString } = require('../config/env');
 
 let clientPromise = null;
 
@@ -22,11 +10,29 @@ function getClient() {
   return clientPromise;
 }
 
+function validateEnv() {
+  const required = ['FIREBIRD_HOST', 'FIREBIRD_DATABASE'];
+  const missing = required.filter((key) => !process.env[key]);
+
+  if (missing.length) {
+    throw new Error(`Variáveis de ambiente ausentes: ${missing.join(', ')}`);
+  }
+}
+
+function buildConnectString() {
+  validateEnv();
+
+  const host = process.env.FIREBIRD_HOST;
+  const port = process.env.FIREBIRD_PORT;
+  const database = process.env.FIREBIRD_DATABASE;
+
+  // Exemplo: 201.20.35.230/3058:E:\\FTPBackup\\Integracao\\SPOSASCO.DATAWEB.CERT
+  const hostWithPort = port ? `${host}/${port}` : host;
+  return `${hostWithPort}:${database}`;
+}
+
 async function runQuery(sql, params = [], metadata = {}) {
   const client = await getClient();
-  if (typeof getFirebirdConnectString !== 'function') {
-    throw new Error('getFirebirdConnectString não foi exportada de src/config/env');
-  }
   const connectString = getFirebirdConnectString();
 
   const attachment = await client.connect(connectString, {
