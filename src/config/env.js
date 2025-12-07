@@ -1,11 +1,5 @@
 // src/config/env.js
-// Carrega variáveis de ambiente, mas tolera ausência do dotenv em builds minimalistas.
-try {
-  // eslint-disable-next-line global-require
-  require('dotenv').config();
-} catch (err) {
-  // Se dotenv não estiver instalado no ambiente de deploy, seguimos usando apenas process.env.
-}
+require('dotenv').config();
 
 const requiredKeys = ['FIREBIRD_HOST', 'FIREBIRD_DATABASE'];
 const connectStringKeys = [
@@ -40,13 +34,3 @@ function getFirebirdConnectString() {
 
   return `${hostWithPort}:${env.FIREBIRD_DATABASE}`;
 }
-
-module.exports = {
-  getFirebirdConnectString,
-  buildUppercaseEnvMap,
-  requiredKeys,
-  connectStringKeys
-};
-
-// Facilita import default (ESM) apontando para a função principal
-module.exports.default = getFirebirdConnectString;
