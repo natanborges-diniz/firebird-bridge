@@ -97,20 +97,3 @@ Se preferir atualizar o repositório sem abrir Pull Request, siga estes passos n
 5. Se houver pipeline de deploy configurado, ele será disparado automaticamente após o push. Caso contrário, siga seu processo de publicação habitual.
 
 > Dica: mantenha `work` atualizado com `git pull` antes de mesclar, para garantir que você está levando a versão mais recente.
-
-## Detalhamento para o Lovable (frontend)
-Use este passo a passo para implementar os dashboards no Lovable, seguindo o padrão já usado no Financeiro:
-
-1. **Aproveite o hook existente**: o arquivo `src/hooks/useFinanceiroDashboard.ts` (no front) já consulta `/api/v1/financeiro/parcelas`, calcula métricas e expõe `filters`, `setFilters`, `loading`, `error`, `metrics`, `dailyFlow`, `parcelas` e `reload`.
-2. **Layout pronto para o Financeiro**: o componente `src/components/financeiro/FinanceiroDashboardLayout.tsx` recebe exatamente essas props e renderiza filtros, cards, tabela de fluxo diário e tabela de parcelas com skeleton e banner de erro. A página `src/pages/FinanceiroDashboard.tsx` apenas conecta o hook ao layout.
-3. **Replicar para outros domínios**:
-   - Crie um hook por domínio (ex.: `useVendasDashboard`, `useEstoqueDashboard`, `useOsDashboard`) que chame os endpoints existentes em `/api/v1/<dominio>/...` conforme o `ARCHITECTURE_GUIDE.md`.
-   - Replique a estrutura de página + layout em `src/pages/<Dominio>Dashboard.tsx` e `src/components/<dominio>/<Dominio>DashboardLayout.tsx`, espelhando o padrão do Financeiro (filtros, `loading`, `error`, `reload`).
-4. **Popular selects de empresa**: consuma `GET /api/v1/empresas` para preencher o seletor de empresa em todos os dashboards. Reaproveite a tipagem/estado já usado no Financeiro.
-5. **Erros e carregamento**: mantenha skeleton/spinner e banners de erro nos novos layouts, garantindo feedback consistente ao usuário.
-6. **Prompts rápidos para o Lovable**:
-   - "Crie `src/components/financeiro/FinanceiroDashboardLayout.tsx` em React/TypeScript com filtros de data/empresa, cards de métricas, tabela de fluxo diário e tabela de parcelas, exibindo `loading` e `error` via skeleton e banner." (já implementado; use como referência)
-   - "Implemente o hook `useVendasDashboard` que chama `/api/v1/vendas/...`, calcula métricas locais e expõe `filters`, `loading`, `error`, `metrics`, `items`, `reload`."
-   - "Crie `VendasDashboardLayout` e `VendasDashboard.tsx` seguindo o mesmo padrão do Financeiro, com filtros, cards e tabela/lista de resultados, usando `reload` para atualizar os dados."
-
-Seguindo estes passos, você terá dashboards consistentes em todos os domínios consumindo os endpoints já expostos pela API.
