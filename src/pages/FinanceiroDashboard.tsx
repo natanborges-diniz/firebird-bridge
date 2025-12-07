@@ -14,6 +14,7 @@ const FinanceiroDashboard: React.FC = () => {
     parcelas,
     metrics,
     dailyFlow,
+    reload,
   } = useFinanceiroDashboard(DEFAULT_EMPRESA);
 
   return (
@@ -30,6 +31,7 @@ const FinanceiroDashboard: React.FC = () => {
           parcelas={parcelas}
           metrics={metrics}
           dailyFlow={dailyFlow}
+          reload={reload}
         />
       </div>
     </div>
