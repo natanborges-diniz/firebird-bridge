@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 try {
   // Valida e monta a string de conexão (aceita connect string direta ou host/database).
   getFirebirdConnectString();
+
 } catch (err) {
   console.error('Falha ao validar variáveis de ambiente:', err.message);
   process.exit(1);
