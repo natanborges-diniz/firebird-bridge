@@ -9,11 +9,28 @@ const connectStringKeys = [
   'FIREBIRD_CONNECTION_STRING'
 ];
 
+const legacyKeyAliases = {
+  FB_HOST: 'FIREBIRD_HOST',
+  FB_DATABASE: 'FIREBIRD_DATABASE',
+  FB_PORT: 'FIREBIRD_PORT',
+  FB_CONNECT_STRING: 'FIREBIRD_CONNECT_STRING',
+  FB_URL: 'FIREBIRD_URL',
+  FB_CONNECTION_STRING: 'FIREBIRD_CONNECTION_STRING'
+};
+
 function buildUppercaseEnvMap() {
-  return Object.entries(process.env).reduce((acc, [key, value]) => {
+  const env = Object.entries(process.env).reduce((acc, [key, value]) => {
     acc[key.toUpperCase()] = value;
     return acc;
   }, {});
+
+  Object.entries(legacyKeyAliases).forEach(([legacyKey, canonicalKey]) => {
+    if (!env[canonicalKey] && env[legacyKey]) {
+      env[canonicalKey] = env[legacyKey];
+    }
+  });
+
+  return env;
 }
 
 function getFirebirdConnectString() {
