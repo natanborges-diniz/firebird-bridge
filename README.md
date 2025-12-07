@@ -16,6 +16,7 @@ Bridge HTTP → Firebird para expor consultas consolidadas via Express.
    - Se o serviço Firebird estiver em porta customizada (ex.: `3058`), defina `FIREBIRD_PORT` para montar a string `HOST/PORT:CAMINHO`.
    - Alternativa: defina **apenas** `FIREBIRD_CONNECT_STRING` (ou `FIREBIRD_URL`/`FIREBIRD_CONNECTION_STRING`) já no formato `HOST/PORT:/caminho/db.FDB`. Se presente, os campos individuais (`FIREBIRD_HOST`/`FIREBIRD_DATABASE`) não são exigidos.
    - Se aparecer o erro `Falha ao validar variáveis de ambiente: Variáveis obrigatórias faltando: FIREBIRD_HOST, FIREBIRD_DATABASE`, garanta que uma das variáveis acima está preenchida. Nomes de env são lidos em maiúsculas, mas o código também aceita letras minúsculas se o provedor as alterar automaticamente.
+
 2. Instale dependências e execute:
    ```bash
 npm install
