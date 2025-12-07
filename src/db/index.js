@@ -9,19 +9,28 @@ function getClient() {
   return clientPromise;
 }
 
-function buildConnectString() {
-  const host = process.env.FIREBIRD_HOST;
-  const database = process.env.FIREBIRD_DATABASE;
+function validateEnv() {
+  const required = ['FIREBIRD_HOST', 'FIREBIRD_DATABASE'];
+  const missing = required.filter((key) => !process.env[key]);
 
-  if (!host || !database) {
-    throw new Error('FIREBIRD_HOST ou FIREBIRD_DATABASE não configurados nas variáveis de ambiente');
+  if (missing.length) {
+    throw new Error(`Variáveis de ambiente ausentes: ${missing.join(', ')}`);
   }
-
-  // Exemplo: 201.20.35.230:E:\FTPBackup\Integracao\SPOSASCO.DATAWEB.CERT
-  return `${host}:${database}`;
 }
 
-async function runQuery(sql, params = []) {
+function buildConnectString() {
+  validateEnv();
+
+  const host = process.env.FIREBIRD_HOST;
+  const port = process.env.FIREBIRD_PORT;
+  const database = process.env.FIREBIRD_DATABASE;
+
+  // Exemplo: 201.20.35.230/3058:E:\\FTPBackup\\Integracao\\SPOSASCO.DATAWEB.CERT
+  const hostWithPort = port ? `${host}/${port}` : host;
+  return `${hostWithPort}:${database}`;
+}
+
+async function runQuery(sql, params = [], metadata = {}) {
   const client = await getClient();
   const connectString = buildConnectString();
 
@@ -31,6 +40,7 @@ async function runQuery(sql, params = []) {
   });
 
   const transaction = await attachment.startTransaction();
+  const startedAt = Date.now();
 
   try {
     const resultSet = await attachment.executeQuery(transaction, sql, params);
@@ -38,6 +48,12 @@ async function runQuery(sql, params = []) {
     await resultSet.close();
     await transaction.commit();
     await attachment.disconnect();
+
+    const duration = Date.now() - startedAt;
+    console.info(
+      `[DB] ${metadata.label || 'query'} ok (${duration}ms) params=${params.length}`
+    );
+
     return rows;
   } catch (err) {
     try { await transaction.rollback(); } catch (_) {}
@@ -47,8 +63,14 @@ async function runQuery(sql, params = []) {
   }
 }
 
+async function pingDatabase() {
+  // Query simples que não depende de tabelas do cliente
+  await runQuery('SELECT 1 AS alive FROM RDB$DATABASE', [], { label: 'healthcheck' });
+}
+
 module.exports = {
   runQuery,
+  pingDatabase,
   // alias pra compatibilizar com outros arquivos que usem "query"
   query: runQuery
 };
