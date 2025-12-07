@@ -6,11 +6,14 @@ Bridge HTTP → Firebird para expor consultas consolidadas via Express.
 1. Crie um arquivo `.env` (opcional em produção) com:
    ```env
    FIREBIRD_HOST=192.168.0.1
+   FIREBIRD_PORT=3050 # opcional; usa 3050 por padrão
    FIREBIRD_DATABASE=/caminho/do/banco.FDB
    FIREBIRD_USER=SYSDBA
    FIREBIRD_PASSWORD=masterkey
    PORT=3000
    ```
+   - Para bancos Windows, use o caminho com barras invertidas (ex.: `E:\\FTPBackup\\Integracao\\SPSOASCO.DATAWEB.CERT`).
+   - Se o serviço Firebird estiver em porta customizada (ex.: `3058`), defina `FIREBIRD_PORT` para montar a string `HOST/PORT:CAMINHO`.
 2. Instale dependências e execute:
    ```bash
 npm install
