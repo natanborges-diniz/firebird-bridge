@@ -34,14 +34,3 @@ function getFirebirdConnectString() {
 
   return `${hostWithPort}:${env.FIREBIRD_DATABASE}`;
 }
-
-const exported = {
-  getFirebirdConnectString,
-  requiredKeys,
-  connectStringKeys,
-  buildUppercaseEnvMap
-};
-
-// Expõe tanto como named exports quanto via "default" para compatibilidade com require/import.
-module.exports = exported;
-module.exports.default = exported;
