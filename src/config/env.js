@@ -13,36 +13,45 @@ const connectStringKeys = [
   'FIREBIRD_CONNECTION_STRING'
 ];
 
+const legacyKeyAliases = {
+  FB_HOST: 'FIREBIRD_HOST',
+  FB_DATABASE: 'FIREBIRD_DATABASE',
+  FB_PORT: 'FIREBIRD_PORT',
+  FB_CONNECT_STRING: 'FIREBIRD_CONNECT_STRING',
+  FB_URL: 'FIREBIRD_URL',
+  FB_CONNECTION_STRING: 'FIREBIRD_CONNECTION_STRING'
+};
+
+function buildUppercaseEnvMap() {
+  const env = Object.entries(process.env).reduce((acc, [key, value]) => {
+    acc[key.toUpperCase()] = value;
+    return acc;
+  }, {});
+
+  Object.entries(legacyKeyAliases).forEach(([legacyKey, canonicalKey]) => {
+    if (!env[canonicalKey] && env[legacyKey]) {
+      env[canonicalKey] = env[legacyKey];
+    }
+  });
+
+  return env;
+}
+
 function getFirebirdConnectString() {
-  const connectString = connectStringKeys
-    .map((key) => process.env[key])
-    .find(Boolean);
+  const env = buildUppercaseEnvMap();
 
-  if (connectString) {
-    return connectString;
-  }
+  const directKey = connectStringKeys.find((key) => env[key.toUpperCase()]);
+  if (directKey) return env[directKey.toUpperCase()];
 
-  const missing = requiredKeys.filter(
-    (key) => !process.env[key] && !process.env[legacyKeys[key]]
-  );
-
+  const missing = requiredKeys.filter((key) => !env[key]);
   if (missing.length) {
     const extras = `Defina ${connectStringKeys[0]} (ou sinônimos: ${connectStringKeys
       .slice(1)
-      .join(', ')}) ou todas as variáveis obrigatórias (aceitamos legadas: FB_HOST/FB_DATABASE).`;
+      .join(', ')}) ou todas as variáveis obrigatórias (FIREBIRD_HOST/FIREBIRD_DATABASE).`;
     throw new Error(`Variáveis obrigatórias faltando: ${missing.join(', ')}. ${extras}`);
   }
 
-  const host = process.env.FIREBIRD_HOST || process.env.FB_HOST;
-  const port = process.env.FIREBIRD_PORT || process.env.FB_PORT;
-  const database = process.env.FIREBIRD_DATABASE || process.env.FB_DATABASE;
-  const hostWithPort = port ? `${host}/${port}` : host;
+  const hostWithPort = env.FIREBIRD_PORT ? `${env.FIREBIRD_HOST}/${env.FIREBIRD_PORT}` : env.FIREBIRD_HOST;
 
-  return `${hostWithPort}:${database}`;
+  return `${hostWithPort}:${env.FIREBIRD_DATABASE}`;
 }
-
-module.exports = {
-  getFirebirdConnectString,
-  requiredKeys,
-  connectStringKeys
-};
