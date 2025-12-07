@@ -6,21 +6,18 @@ Bridge HTTP → Firebird para expor consultas consolidadas via Express.
 1. Crie um arquivo `.env` (opcional em produção) com:
    ```env
    FIREBIRD_HOST=192.168.0.1
-   FIREBIRD_PORT=3050 # opcional; usa 3050 por padrão
    FIREBIRD_DATABASE=/caminho/do/banco.FDB
    FIREBIRD_USER=SYSDBA
    FIREBIRD_PASSWORD=masterkey
-   PORT=3000
+   PORT=3050
    ```
-   - Para bancos Windows, use o caminho com barras invertidas (ex.: `E:\\FTPBackup\\Integracao\\SPSOASCO.DATAWEB.CERT`).
-   - Se o serviço Firebird estiver em porta customizada (ex.: `3058`), defina `FIREBIRD_PORT` para montar a string `HOST/PORT:CAMINHO`.
+
 2. Instale dependências e execute:
    ```bash
 npm install
 npm start
 ```
 
-> **Node suportado**: use Node 20.11.x (recomendado) ou 18.x. O driver nativo do Firebird não compila em versões mais novas (ex.: Node 22). Há um arquivo `.nvmrc` com a versão sugerida; basta rodar `nvm use` antes do `npm install`.
 
 ### Aplicando patches com `git apply` (método “copiar e colar”)
 Se receber um patch por texto (por exemplo, em uma conversa no chat), siga estes passos para aplicá-lo localmente:
@@ -103,19 +100,3 @@ Se preferir atualizar o repositório sem abrir Pull Request, siga estes passos n
 
 > Dica: mantenha `work` atualizado com `git pull` antes de mesclar, para garantir que você está levando a versão mais recente.
 
-## Detalhamento para o Lovable (frontend)
-Use este passo a passo para implementar os dashboards no Lovable, seguindo o padrão já usado no Financeiro:
-
-1. **Aproveite o hook existente**: o arquivo `src/hooks/useFinanceiroDashboard.ts` (no front) já consulta `/api/v1/financeiro/parcelas`, calcula métricas e expõe `filters`, `setFilters`, `loading`, `error`, `metrics`, `dailyFlow`, `parcelas` e `reload`.
-2. **Layout pronto para o Financeiro**: o componente `src/components/financeiro/FinanceiroDashboardLayout.tsx` recebe exatamente essas props e renderiza filtros, cards, tabela de fluxo diário e tabela de parcelas com skeleton e banner de erro. A página `src/pages/FinanceiroDashboard.tsx` apenas conecta o hook ao layout.
-3. **Replicar para outros domínios**:
-   - Crie um hook por domínio (ex.: `useVendasDashboard`, `useEstoqueDashboard`, `useOsDashboard`) que chame os endpoints existentes em `/api/v1/<dominio>/...` conforme o `ARCHITECTURE_GUIDE.md`.
-   - Replique a estrutura de página + layout em `src/pages/<Dominio>Dashboard.tsx` e `src/components/<dominio>/<Dominio>DashboardLayout.tsx`, espelhando o padrão do Financeiro (filtros, `loading`, `error`, `reload`).
-4. **Popular selects de empresa**: consuma `GET /api/v1/empresas` para preencher o seletor de empresa em todos os dashboards. Reaproveite a tipagem/estado já usado no Financeiro.
-5. **Erros e carregamento**: mantenha skeleton/spinner e banners de erro nos novos layouts, garantindo feedback consistente ao usuário.
-6. **Prompts rápidos para o Lovable**:
-   - "Crie `src/components/financeiro/FinanceiroDashboardLayout.tsx` em React/TypeScript com filtros de data/empresa, cards de métricas, tabela de fluxo diário e tabela de parcelas, exibindo `loading` e `error` via skeleton e banner." (já implementado; use como referência)
-   - "Implemente o hook `useVendasDashboard` que chama `/api/v1/vendas/...`, calcula métricas locais e expõe `filters`, `loading`, `error`, `metrics`, `items`, `reload`."
-   - "Crie `VendasDashboardLayout` e `VendasDashboard.tsx` seguindo o mesmo padrão do Financeiro, com filtros, cards e tabela/lista de resultados, usando `reload` para atualizar os dados."
-
-Seguindo estes passos, você terá dashboards consistentes em todos os domínios consumindo os endpoints já expostos pela API.
