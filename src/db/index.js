@@ -10,19 +10,21 @@ function getClient() {
 }
 
 function validateEnv() {
-  const required = ['FIREBIRD_HOST', 'FIREBIRD_DATABASE'];
-  const missing = required.filter((key) => !process.env[key]);
+  const hasFirebird = process.env.FIREBIRD_HOST && process.env.FIREBIRD_DATABASE;
+  const hasLegacy = process.env.FB_HOST && process.env.FB_DATABASE;
 
-  if (missing.length) {
-    throw new Error(`Variáveis de ambiente ausentes: ${missing.join(', ')}`);
+  if (!hasFirebird && !hasLegacy) {
+    throw new Error(
+      'Variáveis de ambiente ausentes: FIREBIRD_HOST/FIREBIRD_DATABASE ou FB_HOST/FB_DATABASE'
+    );
   }
 }
 
 function buildConnectString() {
   validateEnv();
 
-  const host = process.env.FIREBIRD_HOST;
-  const database = process.env.FIREBIRD_DATABASE;
+  const host = process.env.FIREBIRD_HOST || process.env.FB_HOST;
+  const database = process.env.FIREBIRD_DATABASE || process.env.FB_DATABASE;
 
   // Exemplo: 201.20.35.230:E:\\FTPBackup\\Integracao\\SPOSASCO.DATAWEB.CERT
   return `${host}:${database}`;
@@ -33,8 +35,8 @@ async function runQuery(sql, params = [], metadata = {}) {
   const connectString = buildConnectString();
 
   const attachment = await client.connect(connectString, {
-    username: process.env.FIREBIRD_USER || 'SYSDBA',
-    password: process.env.FIREBIRD_PASSWORD || 'masterkey'
+    username: process.env.FIREBIRD_USER || process.env.FB_USER || 'SYSDBA',
+    password: process.env.FIREBIRD_PASSWORD || process.env.FB_PASSWORD || 'masterkey'
   });
 
   const transaction = await attachment.startTransaction();

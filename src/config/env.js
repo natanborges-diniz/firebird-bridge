@@ -2,16 +2,21 @@
 require('dotenv').config();
 
 const requiredKeys = ['FIREBIRD_HOST', 'FIREBIRD_DATABASE'];
+const legacyKeys = ['FB_HOST', 'FB_DATABASE'];
 
 function assertEnv() {
-  const missing = requiredKeys.filter((key) => !process.env[key]);
+  const hasRequired = requiredKeys.every((key) => !!process.env[key]);
+  const hasLegacy = legacyKeys.every((key) => !!process.env[key]);
 
-  if (missing.length) {
-    throw new Error(`Variáveis obrigatórias faltando: ${missing.join(', ')}`);
+  if (!hasRequired && !hasLegacy) {
+    throw new Error(
+      `Variáveis obrigatórias faltando: ${requiredKeys.join(', ')} ou ${legacyKeys.join(', ')}`
+    );
   }
 }
 
 module.exports = {
   assertEnv,
-  requiredKeys
+  requiredKeys,
+  legacyKeys
 };
