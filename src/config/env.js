@@ -2,6 +2,10 @@
 require('dotenv').config();
 
 const requiredKeys = ['FIREBIRD_HOST', 'FIREBIRD_DATABASE'];
+const legacyKeys = {
+  FIREBIRD_HOST: 'FB_HOST',
+  FIREBIRD_DATABASE: 'FB_DATABASE'
+};
 const connectStringKeys = [
   // aceita conexão direta já formatada ex.: 201.20.35.230/3050:/caminho/db.FDB
   'FIREBIRD_CONNECT_STRING',
