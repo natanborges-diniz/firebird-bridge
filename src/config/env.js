@@ -1,3 +1,4 @@
+// src/config/env.js
 require('dotenv').config();
 
 const requiredKeys = ['FIREBIRD_HOST', 'FIREBIRD_DATABASE'];
@@ -8,35 +9,20 @@ const connectStringKeys = [
   'FIREBIRD_CONNECTION_STRING'
 ];
 
-function getEnvValue(keys) {
-  // tenta valor exato e, em seguida, busca case-insensitive (alguns providers
-  // convertem nomes de variáveis inadvertidamente)
-  for (const key of keys) {
-    if (process.env[key]) return process.env[key];
-
-    const foundKey = Object.keys(process.env).find(
-      (k) => k.toUpperCase() === key.toUpperCase()
-    );
-
-    if (foundKey && process.env[foundKey]) return process.env[foundKey];
-  }
-
-  return undefined;
+function buildUppercaseEnvMap() {
+  return Object.entries(process.env).reduce((acc, [key, value]) => {
+    acc[key.toUpperCase()] = value;
+    return acc;
+  }, {});
 }
 
 function getFirebirdConnectString() {
-  const connectString = getEnvValue(connectStringKeys);
+  const env = buildUppercaseEnvMap();
 
-  if (connectString) {
-    return connectString;
-  }
+  const directKey = connectStringKeys.find((key) => env[key.toUpperCase()]);
+  if (directKey) return env[directKey.toUpperCase()];
 
-  const host = getEnvValue(['FIREBIRD_HOST']);
-  const database = getEnvValue(['FIREBIRD_DATABASE']);
-  const port = getEnvValue(['FIREBIRD_PORT']);
-
-  const missing = requiredKeys.filter((key) => !getEnvValue([key]));
-
+  const missing = requiredKeys.filter((key) => !env[key]);
   if (missing.length) {
     const extras = `Defina ${connectStringKeys[0]} (ou sinônimos: ${connectStringKeys
       .slice(1)
@@ -44,8 +30,7 @@ function getFirebirdConnectString() {
     throw new Error(`Variáveis obrigatórias faltando: ${missing.join(', ')}. ${extras}`);
   }
 
-  const hostWithPort = port ? `${host}/${port}` : host;
+  const hostWithPort = env.FIREBIRD_PORT ? `${env.FIREBIRD_HOST}/${env.FIREBIRD_PORT}` : env.FIREBIRD_HOST;
 
-  return `${hostWithPort}:${database}`;
+  return `${hostWithPort}:${env.FIREBIRD_DATABASE}`;
 }
-src/config/env.js
