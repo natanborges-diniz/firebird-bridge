@@ -6,16 +6,24 @@ Bridge HTTP → Firebird para expor consultas consolidadas via Express.
 1. Crie um arquivo `.env` (opcional em produção) com:
    ```env
    FIREBIRD_HOST=192.168.0.1
+   FIREBIRD_PORT=3050 # opcional; usa 3050 por padrão
    FIREBIRD_DATABASE=/caminho/do/banco.FDB
    FIREBIRD_USER=SYSDBA
    FIREBIRD_PASSWORD=masterkey
    PORT=3000
    ```
+   - Para bancos Windows, use o caminho com barras invertidas (ex.: `E:\\FTPBackup\\Integracao\\SPSOASCO.DATAWEB.CERT`).
+   - Se o serviço Firebird estiver em porta customizada (ex.: `3058`), defina `FIREBIRD_PORT` para montar a string `HOST/PORT:CAMINHO`.
+   - Alternativa: defina **apenas** `FIREBIRD_CONNECT_STRING` (ou `FIREBIRD_URL`/`FIREBIRD_CONNECTION_STRING`) já no formato `HOST/PORT:/caminho/db.FDB`. Se presente, os campos individuais (`FIREBIRD_HOST`/`FIREBIRD_DATABASE`) não são exigidos.
+   - Se aparecer o erro `Falha ao validar variáveis de ambiente: Variáveis obrigatórias faltando: FIREBIRD_HOST, FIREBIRD_DATABASE`, garanta que uma das variáveis acima está preenchida. Nomes de env são lidos em maiúsculas, mas o código também aceita letras minúsculas se o provedor as alterar automaticamente.
+
 2. Instale dependências e execute:
    ```bash
 npm install
 npm start
 ```
+
+> **Node suportado**: use Node 20.11.x (recomendado) ou 18.x. O driver nativo do Firebird não compila em versões mais novas (ex.: Node 22). Há um arquivo `.nvmrc` com a versão sugerida; basta rodar `nvm use` antes do `npm install`.
 
 ### Aplicando patches com `git apply` (método “copiar e colar”)
 Se receber um patch por texto (por exemplo, em uma conversa no chat), siga estes passos para aplicá-lo localmente:
@@ -44,6 +52,14 @@ Se o patch não aplicar limpo, o Git mostrará as linhas com conflito; edite os 
 ```bash
 npm test
 ```
+
+### O que fazer se os testes falharem
+- **Confira a versão do Node**: use `node -v` e garanta que está em `18.x` ou `20.11.x` conforme `.nvmrc`. Versões mais novas podem quebrar a instalação do driver Firebird.
+- **Instale/atualize dependências**: rode `npm install` (ou `npm ci` se estiver em CI) antes de repetir o teste.
+- **Veja o log completo**: rerode com `npm test -- --runInBand --verbose` para expor o erro original. Em ambientes com `npm` indisponível, trate a falha como limitação de ambiente e valide apenas o lint/build localmente.
+- **Cheque variáveis de ambiente**: se o erro mencionar `FIREBIRD_*` ou `getFirebirdConnectString`, confirme que `FIREBIRD_CONNECT_STRING` (ou equivalentes) está definido ou que `FIREBIRD_HOST`/`FIREBIRD_DATABASE` existem.
+- **Isolar um teste**: use `npx jest <caminho-do-teste> -t "nome"` para reproduzir rapidamente e iterar na correção.
+- **Quando ajustar o código**: se a falha for de rota ou contrato, revise controllers/services e as queries em `queries/<domínio>/...`; para erros de import, verifique caminhos e exports no helper de env e no cliente do banco.
 
 ## Como abrir um Pull Request no GitHub
 
@@ -97,3 +113,20 @@ Se preferir atualizar o repositório sem abrir Pull Request, siga estes passos n
 5. Se houver pipeline de deploy configurado, ele será disparado automaticamente após o push. Caso contrário, siga seu processo de publicação habitual.
 
 > Dica: mantenha `work` atualizado com `git pull` antes de mesclar, para garantir que você está levando a versão mais recente.
+
+## Detalhamento para o Lovable (frontend)
+Use este passo a passo para implementar os dashboards no Lovable, seguindo o padrão já usado no Financeiro:
+
+1. **Aproveite o hook existente**: o arquivo `src/hooks/useFinanceiroDashboard.ts` (no front) já consulta `/api/v1/financeiro/parcelas`, calcula métricas e expõe `filters`, `setFilters`, `loading`, `error`, `metrics`, `dailyFlow`, `parcelas` e `reload`.
+2. **Layout pronto para o Financeiro**: o componente `src/components/financeiro/FinanceiroDashboardLayout.tsx` recebe exatamente essas props e renderiza filtros, cards, tabela de fluxo diário e tabela de parcelas com skeleton e banner de erro. A página `src/pages/FinanceiroDashboard.tsx` apenas conecta o hook ao layout.
+3. **Replicar para outros domínios**:
+   - Crie um hook por domínio (ex.: `useVendasDashboard`, `useEstoqueDashboard`, `useOsDashboard`) que chame os endpoints existentes em `/api/v1/<dominio>/...` conforme o `ARCHITECTURE_GUIDE.md`.
+   - Replique a estrutura de página + layout em `src/pages/<Dominio>Dashboard.tsx` e `src/components/<dominio>/<Dominio>DashboardLayout.tsx`, espelhando o padrão do Financeiro (filtros, `loading`, `error`, `reload`).
+4. **Popular selects de empresa**: consuma `GET /api/v1/empresas` para preencher o seletor de empresa em todos os dashboards. Reaproveite a tipagem/estado já usado no Financeiro.
+5. **Erros e carregamento**: mantenha skeleton/spinner e banners de erro nos novos layouts, garantindo feedback consistente ao usuário.
+6. **Prompts rápidos para o Lovable**:
+   - "Crie `src/components/financeiro/FinanceiroDashboardLayout.tsx` em React/TypeScript com filtros de data/empresa, cards de métricas, tabela de fluxo diário e tabela de parcelas, exibindo `loading` e `error` via skeleton e banner." (já implementado; use como referência)
+   - "Implemente o hook `useVendasDashboard` que chama `/api/v1/vendas/...`, calcula métricas locais e expõe `filters`, `loading`, `error`, `metrics`, `items`, `reload`."
+   - "Crie `VendasDashboardLayout` e `VendasDashboard.tsx` seguindo o mesmo padrão do Financeiro, com filtros, cards e tabela/lista de resultados, usando `reload` para atualizar os dados."
+
+Seguindo estes passos, você terá dashboards consistentes em todos os domínios consumindo os endpoints já expostos pela API.
