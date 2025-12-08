@@ -1,32 +1,35 @@
 // src/controllers/healthController.js
+
 const { pingDatabase } = require('../db');
+const { success, failure } = require('../utils/apiResponse');
 
-/**
- * GET /health
- * Opcionalmente verifica a conexão com o Firebird.
- */
-async function healthCheck(req, res) {
+async function health(req, res) {
   try {
-    const shouldCheckDb = req.query.checkDb === 'true';
+    const checkDb = req.query.checkDb === 'true';
 
-    if (shouldCheckDb) {
-      await pingDatabase();
+    if (!checkDb) {
+      return success(res, { status: 'UP', db: 'SKIPPED' });
     }
 
-    return res.json({
-      ok: true,
-      checkDb: shouldCheckDb ? 'passed' : 'skipped',
-      timestamp: new Date().toISOString()
+    const dbOk = await pingDatabase();
+    if (dbOk) {
+      return success(res, { status: 'UP', db: 'UP' });
+    }
+
+    return failure(res, {
+      code: 'FIREBIRD_UNAVAILABLE',
+      message: 'Não foi possível conectar ao banco Firebird',
+      status: 503
     });
   } catch (err) {
-    console.error('Erro no healthCheck:', err);
-    return res.status(503).json({
-      ok: false,
-      error: 'Banco indisponível no momento'
+    return failure(res, {
+      code: 'INTERNAL_ERROR',
+      message: 'Erro inesperado ao verificar saúde da aplicação',
+      status: 500
     });
   }
 }
 
 module.exports = {
-  healthCheck
+  health
 };
