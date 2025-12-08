@@ -1,46 +1,67 @@
 // src/controllers/vendasController.js
-const {
-  getResumoEmpresaVendedor,
-  getResumoFormasPagamento
-} = require('../services/vendasService');
+
+const vendasService = require('../services/vendasService');
+const { success, failure, handleControllerError } = require('../utils/apiResponse');
+
+function validatePeriodoQuery(req, res) {
+  const { empresa, dataInicio, dataFim } = req.query;
+
+  const missing = [];
+  if (!empresa) missing.push('empresa');
+  if (!dataInicio) missing.push('dataInicio');
+  if (!dataFim) missing.push('dataFim');
+
+  if (missing.length > 0) {
+    failure(res, {
+      code: 'INVALID_PARAMS',
+      message: 'Parâmetros obrigatórios ausentes',
+      details: { missing },
+      status: 400
+    });
+    return null;
+  }
+
+  return { empresa, dataInicio, dataFim };
+}
 
 async function resumoEmpresaVendedor(req, res) {
   try {
-    const { dataInicio, dataFim } = req.query;
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
 
-    if (!dataInicio || !dataFim) {
-      return res.status(400).json({
-        error: 'Parâmetros obrigatórios: dataInicio e dataFim (YYYY-MM-DD)'
-      });
-    }
-
-    const data = await getResumoEmpresaVendedor({ dataInicio, dataFim });
-    res.json({ data });
+    const rows = await vendasService.getResumoEmpresaVendedor(params);
+    return success(res, rows);
   } catch (err) {
-    console.error('❌ Erro resumoEmpresaVendedor:', err);
-    res.status(500).json({ error: 'Erro interno no bridge' });
+    return handleControllerError(res, err);
   }
 }
 
 async function resumoFormasPagamento(req, res) {
   try {
-    const { dataInicio, dataFim } = req.query;
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
 
-    if (!dataInicio || !dataFim) {
-      return res.status(400).json({
-        error: 'Parâmetros obrigatórios: dataInicio e dataFim (YYYY-MM-DD)'
-      });
-    }
-
-    const data = await getResumoFormasPagamento({ dataInicio, dataFim });
-    res.json({ data });
+    const rows = await vendasService.getResumoFormasPagamento(params);
+    return success(res, rows);
   } catch (err) {
-    console.error('❌ Erro resumoFormasPagamento:', err);
-    res.status(500).json({ error: 'Erro interno no bridge' });
+    return handleControllerError(res, err);
+  }
+}
+
+async function analiseFamiliaVendedor(req, res) {
+  try {
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
+
+    const rows = await vendasService.getAnaliseFamiliaVendedor(params);
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
   }
 }
 
 module.exports = {
   resumoEmpresaVendedor,
-  resumoFormasPagamento
+  resumoFormasPagamento,
+  analiseFamiliaVendedor
 };
