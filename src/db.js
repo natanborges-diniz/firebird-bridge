@@ -3,11 +3,11 @@
 const Firebird = require('node-firebird');
 
 const options = {
-  host: process.env.FB_HOST,
-  port: process.env.FB_PORT || 3050,
-  database: process.env.FB_DATABASE,
-  user: process.env.FB_USER || 'SYSDBA',
-  password: process.env.FB_PASSWORD || 'masterkey',
+  host: process.env.FIREBIRD_HOST,
+  port: process.env.FIREBIRD_PORT || 3050,
+  database: process.env.FIREBIRD_DATABASE,
+  user: process.env.FIREBIRD_USER || 'SYSDBA',
+  password: process.env.FIREBIRD_PASSWORD || 'masterkey',
   lowercase_keys: false,
   role: null,
   pageSize: 8192
