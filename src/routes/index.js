@@ -1,9 +1,9 @@
-const financeiroRoutes = require('./routes/financeiroRoutes');
-const vendasRoutes = require('./routes/vendasRoutes');
-const estoqueRoutes = require('./routes/estoqueRoutes');
-const osRoutes = require('./routes/osRoutes');
-const healthRoutes = require('./routes/healthRoutes');
-const empresaRoutes = require('./routes/empresaRoutes');
+const financeiroRoutes = require('./financeiroRoutes');
+const vendasRoutes = require('./vendasRoutes');
+const estoqueRoutes = require('./estoqueRoutes');
+const osRoutes = require('./osRoutes');
+const healthRoutes = require('./healthRoutes');
+const empresaRoutes = require('./empresaRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 app.use('/api/v1/financeiro', financeiroRoutes);
