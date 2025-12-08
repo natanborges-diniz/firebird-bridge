@@ -23,6 +23,7 @@ async function health(req, res) {
       status: 503
     });
   } catch (err) {
+    console.error('Erro em /health:', err);
     return failure(res, {
       code: 'INTERNAL_ERROR',
       message: 'Erro inesperado ao verificar saúde da aplicação',
