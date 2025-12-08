@@ -1,54 +1,103 @@
+// src/db/index.js
+
 const { createNativeClient, getDefaultLibraryFilename } = require('node-firebird-driver-native');
 const { getFirebirdConnectString } = require('../config/env');
 
 let clientPromise = null;
 
+/**
+ * Garante singleton do client nativo do Firebird
+ */
 function getClient() {
   if (!clientPromise) {
-    clientPromise = Promise.resolve(createNativeClient(getDefaultLibraryFilename()));
+    clientPromise = (async () => {
+      const client = await createNativeClient(getDefaultLibraryFilename());
+      return client;
+    })();
   }
   return clientPromise;
 }
 
-async function runQuery(sql, params = [], metadata = {}) {
+/**
+ * Executa uma query no Firebird.
+ * sql: string com a consulta
+ * params: array opcional de parâmetros
+ */
+async function runQuery(sql, params = []) {
   const client = await getClient();
-  const connectString = getFirebirdConnectString(); // 👈 agora vem do env.js
-
-  const attachment = await client.connect(connectString, {
-    username: process.env.FIREBIRD_USER || 'SYSDBA',
-    password: process.env.FIREBIRD_PASSWORD || 'masterkey'
-  });
-
-  const transaction = await attachment.startTransaction();
-  const startedAt = Date.now();
+  let attachment;
+  let transaction;
 
   try {
-    const resultSet = await attachment.executeQuery(transaction, sql, params);
-    const rows = await resultSet.fetch();
+    const connectString = getFirebirdConnectString();
+
+    attachment = await client.connect(connectString, {
+      user: process.env.FIREBIRD_USER,
+      password: process.env.FIREBIRD_PASSWORD,
+      // ajuste charset se necessário: 'UTF8', 'WIN1252', etc.
+      charset: process.env.FIREBIRD_CHARSET || 'WIN1252'
+    });
+
+    transaction = await attachment.startTransaction();
+
+    const resultSet = await transaction.executeQuery(sql, params);
+    const rows = [];
+
+    for await (const row of resultSet) {
+      rows.push(row);
+    }
+
     await resultSet.close();
     await transaction.commit();
     await attachment.disconnect();
 
-    const duration = Date.now() - startedAt;
-    console.info(
-      `[DB] ${metadata.label || 'query'} ok (${duration}ms) params=${params.length}`
-    );
-
     return rows;
   } catch (err) {
-    try { await transaction.rollback(); } catch (_) {}
-    try { await attachment.disconnect(); } catch (_) {}
-    console.error('Erro ao executar query Firebird:', err);
+    // tentativa de rollback/fechamento
+    if (transaction) {
+      try {
+        await transaction.rollback();
+      } catch (_) {}
+    }
+
+    if (attachment) {
+      try {
+        await attachment.disconnect();
+      } catch (_) {}
+    }
+
+    // aqui poderíamos mapear erros específicos de conexão,
+    // mas para a Issue 02 basta não derrubar o servidor.
     throw err;
   }
 }
 
+/**
+ * Ping simples no banco: true = ok, false = falha
+ */
 async function pingDatabase() {
-  await runQuery('SELECT 1 AS alive FROM RDB$DATABASE', [], { label: 'healthcheck' });
+  const client = await getClient();
+  let attachment;
+
+  try {
+    const connectString = getFirebirdConnectString();
+
+    attachment = await client.connect(connectString, {
+      user: process.env.FIREBIRD_USER,
+      password: process.env.FIREBIRD_PASSWORD,
+      charset: process.env.FIREBIRD_CHARSET || 'WIN1252'
+    });
+
+    await attachment.disconnect();
+    return true;
+  } catch (err) {
+    console.error('Erro ao pingar o banco Firebird:', err.message || err);
+    return false;
+  }
 }
 
 module.exports = {
   runQuery,
   pingDatabase,
-  query: runQuery
+  getClient
 };
