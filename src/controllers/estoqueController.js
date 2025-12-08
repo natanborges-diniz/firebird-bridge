@@ -1,34 +1,41 @@
 // src/controllers/estoqueController.js
-const { getAnaliseEstoqueAcao } = require('../services/estoqueService');
 
-/**
- * GET /api/v1/estoque/analise-acao?codEmpresa=595
- */
-async function analiseEstoqueAcao(req, res) {
+const estoqueService = require('../services/estoqueService');
+const { success, failure, handleControllerError } = require('../utils/apiResponse');
+
+function validatePeriodoQuery(req, res) {
+  const { empresa, dataInicio, dataFim } = req.query;
+
+  const missing = [];
+  if (!empresa) missing.push('empresa');
+  if (!dataInicio) missing.push('dataInicio');
+  if (!dataFim) missing.push('dataFim');
+
+  if (missing.length > 0) {
+    failure(res, {
+      code: 'INVALID_PARAMS',
+      message: 'Parâmetros obrigatórios ausentes',
+      details: { missing },
+      status: 400
+    });
+    return null;
+  }
+
+  return { empresa, dataInicio, dataFim };
+}
+
+async function analiseEstoque(req, res) {
   try {
-    const { codEmpresa } = req.query;
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
 
-    if (!codEmpresa) {
-      return res.status(400).json({
-        error: 'Parametro obrigatorio: codEmpresa (ex: 595)'
-      });
-    }
-
-    const cod = parseInt(codEmpresa, 10);
-    if (Number.isNaN(cod)) {
-      return res.status(400).json({
-        error: 'codEmpresa deve ser um numero inteiro'
-      });
-    }
-
-    const data = await getAnaliseEstoqueAcao({ codEmpresa: cod });
-    res.json({ data });
+    const rows = await estoqueService.getAnaliseEstoque(params);
+    return success(res, rows);
   } catch (err) {
-    console.error('❌ Erro analiseEstoqueAcao:', err);
-    res.status(500).json({ error: 'Erro interno no bridge de estoque' });
+    return handleControllerError(res, err);
   }
 }
 
 module.exports = {
-  analiseEstoqueAcao
+  analiseEstoque
 };
