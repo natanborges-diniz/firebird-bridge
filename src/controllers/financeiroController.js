@@ -1,80 +1,56 @@
 // src/controllers/financeiroController.js
-const financeiroService = require("../services/financeiroService");
 
-/**
- * GET /api/v1/financeiro/parcelas
- * Query params:
- *  - dataIni (YYYY-MM-DD)
- *  - dataFim (YYYY-MM-DD)
- *  - empresa (código da empresa)
- */
+const financeiroService = require('../services/financeiroService');
+const { success, failure, handleControllerError } = require('../utils/apiResponse');
+
+function validatePeriodoQuery(req, res) {
+  const { empresa, dataInicio, dataFim } = req.query;
+
+  const missing = [];
+  if (!empresa) missing.push('empresa');
+  if (!dataInicio) missing.push('dataInicio');
+  if (!dataFim) missing.push('dataFim');
+
+  if (missing.length > 0) {
+    failure(res, {
+      code: 'INVALID_PARAMS',
+      message: 'Parâmetros obrigatórios ausentes',
+      details: { missing },
+      status: 400
+    });
+    return null;
+  }
+
+  return { empresa, dataInicio, dataFim };
+}
+
 async function listarParcelas(req, res) {
   try {
-    const { dataIni, dataFim, empresa } = req.query;
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
 
-    if (!dataIni || !dataFim || !empresa) {
-      return res.status(400).json({
-        error: "Parâmetros obrigatórios: dataIni, dataFim, empresa",
-      });
-    }
+    const rows = await financeiroService.getParcelas(params);
 
-    const parcelas = await financeiroService.getParcelas({
-      dataIni,
-      dataFim,
-      codEmpresa: empresa,
-    });
-
-    return res.json({
-      ok: true,
-      count: parcelas.length,
-      rows: parcelas,
-    });
+    return success(res, rows);
   } catch (err) {
-    console.error("Erro em listarParcelas:", err);
-    return res.status(500).json({
-      error: "Erro interno ao buscar parcelas financeiras",
-    });
+    return handleControllerError(res, err);
   }
 }
 
-/**
- * GET /api/v1/financeiro/dre
- * Query params:
- *  - dataIni (YYYY-MM-DD)
- *  - dataFim (YYYY-MM-DD)
- *  - empresa (código da empresa)
- * Competência = data de emissão (já tratada no SQL)
- */
-async function listarDre(req, res) {
+async function obterDRE(req, res) {
   try {
-    const { dataIni, dataFim, empresa } = req.query;
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
 
-    if (!dataIni || !dataFim || !empresa) {
-      return res.status(400).json({
-        error: "Parâmetros obrigatórios: dataIni, dataFim, empresa",
-      });
-    }
+    const dre = await financeiroService.getDRE(params);
 
-    const dre = await financeiroService.getDre({
-      dataIni,
-      dataFim,
-      codEmpresa: empresa,
-    });
-
-    return res.json({
-      ok: true,
-      count: dre.length,
-      rows: dre,
-    });
+    return success(res, dre);
   } catch (err) {
-    console.error("Erro em listarDre:", err);
-    return res.status(500).json({
-      error: "Erro interno ao montar DRE gerencial",
-    });
+    return handleControllerError(res, err);
   }
 }
 
 module.exports = {
   listarParcelas,
-  listarDre,
+  obterDRE
 };
