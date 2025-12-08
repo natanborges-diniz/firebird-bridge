@@ -67,8 +67,8 @@ from
       on p_cli.cod_pessoa = fl.cod_pessoa
 
 where
-  fl.cod_empresa = ?
-  and fp.datavencimento between ? and ?
+  fl.cod_empresa = cast(? as integer)
+  and fp.datavencimento between cast(? as date) and cast(? as date)
 
 order by
   fp.datavencimento,
