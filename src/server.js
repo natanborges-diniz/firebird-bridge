@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Rotas da API (já prefixadas em src/routes)
-app.use(apiRoutes);
+// Prefixo da API
+app.use('/api/v1', apiRoutes);
 
 module.exports = app;
