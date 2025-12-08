@@ -1,16 +1,14 @@
 // src/controllers/empresaController.js
-const { getEmpresas } = require('../services/empresaService');
 
-/**
- * GET /api/v1/empresas
- */
+const empresaService = require('../services/empresaService');
+const { success, failure, handleControllerError } = require('../utils/apiResponse');
+
 async function listarEmpresas(req, res) {
   try {
-    const data = await getEmpresas();
-    res.json({ data });
+    const empresas = await empresaService.getEmpresas();
+    return success(res, empresas);
   } catch (err) {
-    console.error('❌ Erro listarEmpresas:', err);
-    res.status(500).json({ error: 'Erro ao listar empresas' });
+    return handleControllerError(res, err);
   }
 }
 
