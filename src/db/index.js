@@ -1,97 +1,77 @@
 // src/db/index.js
 
-const { createNativeClient, getDefaultLibraryFilename } = require('node-firebird-driver-native');
-const { getFirebirdConnectString } = require('../config/env');
+const Firebird = require('node-firebird');
 
-let clientPromise = null;
+// Configurações básicas do Firebird vindas do .env
+const options = {
+  host: process.env.FIREBIRD_HOST,
+  port: Number(process.env.FIREBIRD_PORT || 3050),
+  database: process.env.FIREBIRD_DATABASE,
+  user: process.env.FIREBIRD_USER || 'SYSDBA',
+  password: process.env.FIREBIRD_PASSWORD || 'masterkey',
+  role: null,
+  pageSize: 4096,
+  charset: process.env.FIREBIRD_CHARSET || 'WIN1252',
+  lowercase_keys: true // opcional, facilita trabalhar com chaves em minúsculo
+};
+
+// Pool de conexões (ajusta o 5 se quiser mais/menos conexões simultâneas)
+const pool = Firebird.pool(5, options);
 
 /**
- * Singleton do client Firebird
+ * Executa uma query no Firebird usando o pool.
+ * sql: string da query
+ * params: array de parâmetros (opcional)
  */
-function getClient() {
-  if (!clientPromise) {
-    clientPromise = (async () => {
-      const client = await createNativeClient(getDefaultLibraryFilename());
-      return client;
-    })();
-  }
-  return clientPromise;
-}
+function runQuery(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    pool.get((err, db) => {
+      if (err) {
+        console.error('Erro ao obter conexão do pool Firebird:', err);
+        return reject(err);
+      }
 
-/**
- * Executa query genérica
- */
-async function runQuery(sql, params = []) {
-  const client = await getClient();
-  let attachment;
-  let transaction;
+      db.query(sql, params, (queryErr, result) => {
+        // Libera a conexão de volta pro pool
+        db.detach();
 
-  try {
-    const connectString = getFirebirdConnectString();
+        if (queryErr) {
+          console.error('Erro ao executar query no Firebird:', queryErr);
+          return reject(queryErr);
+        }
 
-    attachment = await client.connect(connectString, {
-      user: process.env.FIREBIRD_USER,
-      password: process.env.FIREBIRD_PASSWORD,
-      charset: process.env.FIREBIRD_CHARSET || 'WIN1252'
+        // result normalmente já vem como array de objetos
+        resolve(result);
+      });
     });
-
-    transaction = await attachment.startTransaction();
-
-    const resultSet = await transaction.executeQuery(sql, params);
-    const rows = [];
-
-    for await (const row of resultSet) {
-      rows.push(row);
-    }
-
-    await resultSet.close();
-    await transaction.commit();
-    await attachment.disconnect();
-
-    return rows;
-  } catch (err) {
-    if (transaction) {
-      try { await transaction.rollback(); } catch (_) {}
-    }
-    if (attachment) {
-      try { await attachment.disconnect(); } catch (_) {}
-    }
-    throw err;
-  }
+  });
 }
 
 /**
  * Ping simples no banco.
- * IMPORTANTE: NUNCA joga erro pra fora, só retorna true/false.
+ * NUNCA dispara erro pra fora: retorna true (ok) ou false (falha).
  */
-async function pingDatabase() {
-  let attachment;
+function pingDatabase() {
+  return new Promise((resolve) => {
+    pool.get((err, db) => {
+      if (err) {
+        console.error('Erro ao pingar o banco Firebird (pool.get):', err.message || err);
+        return resolve(false);
+      }
 
-  try {
-    const client = await getClient();
-    const connectString = getFirebirdConnectString();
+      db.detach((detachErr) => {
+        if (detachErr) {
+          console.error('Erro ao liberar conexão no ping do Firebird:', detachErr.message || detachErr);
+          return resolve(false);
+        }
 
-    attachment = await client.connect(connectString, {
-      user: process.env.FIREBIRD_USER,
-      password: process.env.FIREBIRD_PASSWORD,
-      charset: process.env.FIREBIRD_CHARSET || 'WIN1252'
+        resolve(true);
+      });
     });
-
-    await attachment.disconnect();
-    return true;
-  } catch (err) {
-    console.error('Erro ao pingar o banco Firebird:', err && err.message ? err.message : err);
-    // NÃO rethrow aqui – apenas indica falha
-    return false;
-  } finally {
-    if (attachment) {
-      try { await attachment.disconnect(); } catch (_) {}
-    }
-  }
+  });
 }
 
 module.exports = {
   runQuery,
-  pingDatabase,
-  getClient
+  pingDatabase
 };
