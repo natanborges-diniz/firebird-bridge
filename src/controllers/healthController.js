@@ -18,20 +18,18 @@ async function health(req, res) {
     }
 
     return failure(res, {
-      code: 'FIREBIRD_UNAVAILABLE',
-      message: 'Não foi possível conectar ao banco Firebird',
+      code: "FIREBIRD_UNAVAILABLE",
+      message: "Não foi possível conectar ao banco Firebird",
+      details: "Driver returned false (vamos capturar erro no próximo passo)",
       status: 503
     });
+
   } catch (err) {
-    console.error('Erro em /health:', err);
     return failure(res, {
-      code: 'INTERNAL_ERROR',
-      message: 'Erro inesperado ao verificar saúde da aplicação',
+      code: "INTERNAL_ERROR",
+      message: "Erro inesperado ao verificar saúde da aplicação",
+      details: err.message, // 👈 agora aparece o erro real
       status: 500
     });
   }
 }
-
-module.exports = {
-  health
-};
