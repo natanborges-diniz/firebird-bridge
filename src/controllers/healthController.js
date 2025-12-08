@@ -12,6 +12,7 @@ async function health(req, res) {
     }
 
     const dbOk = await pingDatabase();
+
     if (dbOk) {
       return success(res, { status: 'UP', db: 'UP' });
     }
