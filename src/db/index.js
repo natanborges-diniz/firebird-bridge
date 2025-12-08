@@ -70,5 +70,7 @@ function pingDatabase() {
 
 module.exports = {
   runQuery,
-  pingDatabase
+  pingDatabase,
+  // alias pra manter compatibilidade com services antigos
+  query: runQuery
 };
