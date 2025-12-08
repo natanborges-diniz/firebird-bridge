@@ -1,10 +1,9 @@
-// src/routes/empresas.routes.js
+// src/routes/empresaRoutes.js
+
 const express = require('express');
-const { listarEmpresas } = require('../controllers/empresaController');
-
 const router = express.Router();
+const empresaController = require('../controllers/empresaController');
 
-// GET /api/v1/empresas
-router.get('/', listarEmpresas);
+router.get('/', empresaController.listarEmpresas);
 
 module.exports = router;
