@@ -6,7 +6,7 @@ const { getFirebirdConnectString } = require('../config/env');
 let clientPromise = null;
 
 /**
- * Garante singleton do client nativo do Firebird
+ * Singleton do client Firebird
  */
 function getClient() {
   if (!clientPromise) {
@@ -19,9 +19,7 @@ function getClient() {
 }
 
 /**
- * Executa uma query no Firebird.
- * sql: string com a consulta
- * params: array opcional de parâmetros
+ * Executa query genérica
  */
 async function runQuery(sql, params = []) {
   const client = await getClient();
@@ -34,7 +32,6 @@ async function runQuery(sql, params = []) {
     attachment = await client.connect(connectString, {
       user: process.env.FIREBIRD_USER,
       password: process.env.FIREBIRD_PASSWORD,
-      // ajuste charset se necessário: 'UTF8', 'WIN1252', etc.
       charset: process.env.FIREBIRD_CHARSET || 'WIN1252'
     });
 
@@ -53,33 +50,25 @@ async function runQuery(sql, params = []) {
 
     return rows;
   } catch (err) {
-    // tentativa de rollback/fechamento
     if (transaction) {
-      try {
-        await transaction.rollback();
-      } catch (_) {}
+      try { await transaction.rollback(); } catch (_) {}
     }
-
     if (attachment) {
-      try {
-        await attachment.disconnect();
-      } catch (_) {}
+      try { await attachment.disconnect(); } catch (_) {}
     }
-
-    // aqui poderíamos mapear erros específicos de conexão,
-    // mas para a Issue 02 basta não derrubar o servidor.
     throw err;
   }
 }
 
 /**
- * Ping simples no banco: true = ok, false = falha
+ * Ping simples no banco.
+ * IMPORTANTE: NUNCA joga erro pra fora, só retorna true/false.
  */
 async function pingDatabase() {
-  const client = await getClient();
   let attachment;
 
   try {
+    const client = await getClient();
     const connectString = getFirebirdConnectString();
 
     attachment = await client.connect(connectString, {
@@ -91,8 +80,13 @@ async function pingDatabase() {
     await attachment.disconnect();
     return true;
   } catch (err) {
-    console.error('Erro ao pingar o banco Firebird:', err.message || err);
+    console.error('Erro ao pingar o banco Firebird:', err && err.message ? err.message : err);
+    // NÃO rethrow aqui – apenas indica falha
     return false;
+  } finally {
+    if (attachment) {
+      try { await attachment.disconnect(); } catch (_) {}
+    }
   }
 }
 
