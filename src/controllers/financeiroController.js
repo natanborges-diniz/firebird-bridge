@@ -30,7 +30,6 @@ async function listarParcelas(req, res) {
     if (!params) return;
 
     const rows = await financeiroService.getParcelas(params);
-
     return success(res, rows);
   } catch (err) {
     return handleControllerError(res, err);
@@ -43,7 +42,6 @@ async function obterDRE(req, res) {
     if (!params) return;
 
     const dre = await financeiroService.getDRE(params);
-
     return success(res, dre);
   } catch (err) {
     return handleControllerError(res, err);
