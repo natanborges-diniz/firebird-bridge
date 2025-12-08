@@ -1,41 +1,84 @@
 # Vendas
 
 ## Objetivo
-Expor resumos gerenciais de vendas por empresa, vendedor, forma de pagamento e família de produto.
+Apresentar indicadores de vendas por empresa, vendedor, forma de pagamento e família de produtos.
 
-## Endpoints
-- `GET /api/v1/vendas/resumo-empresa-vendedor`
-  - Parâmetros: `dataInicio`, `dataFim` (YYYY-MM-DD).
-  - Controller: `src/controllers/vendasController.js` → `resumoEmpresaVendedor`
-  - Service: `src/services/vendasService.js` → `getResumoEmpresaVendedor`
-  - SQL: `queries/vendas/resumo_empresa_vendedor.sql`
-  - Retorno: `{ data: [{ EMPRESA, VENDEDOR, TOTALORIGINAL, TOTALVENDIDO, TICKETMEDIO, TOTALDEVOLUCAO, QTDTRANSACAO, QTDDEVOLUCAO }] }`
+---
 
-- `GET /api/v1/vendas/resumo-formas-pagamento`
-  - Parâmetros: `dataInicio`, `dataFim` (YYYY-MM-DD) aplicados aos três blocos (vendas, convênio, devolução).
-  - Controller: `src/controllers/vendasController.js` → `resumoFormasPagamento`
-  - Service: `src/services/vendasService.js` → `getResumoFormasPagamento`
-  - SQL: `queries/vendas/formas_pagamento_resumo.sql`
-  - Retorno: `{ data: [{ EMPRESA, VENDEDOR, FORMAPAGAMENTO, TOTALGERAL, QTD_VENDAS }] }`
+# 1. ENDPOINTS
 
-- `GET /api/v1/vendas/analise-familia-vendedor`
-  - Parâmetros: `dataInicio`, `dataFim` (YYYY-MM-DD), `codEmpresa` opcional.
-  - Controller: `src/controllers/vendasAnaliseController.js` → `analiseFamiliaVendedor`
-  - Service: `src/services/vendasAnaliseService.js` → `getAnaliseFamiliaVendedor`
-  - SQL: `queries/vendas/analise_familia_vendedor.sql`
-  - Retorno: `{ data: [{ COD_EMPRESA, EMPRESA, COD_VENDEDOR, VENDEDOR, FAMILIA, QTD_TRANSACAO, QTD_PRODUTOS, TOTAL_VENDIDO }] }`
+## 1.1. Resumo por Empresa e Vendedor
 
-## Fluxo interno
-1. Controllers validam obrigatórios (`dataInicio`, `dataFim`) e fazem cast de `codEmpresa` quando presente.
-2. Services carregam SQL via `loadSQL` e executam com `runQuery` do `src/db/index.js`.
-3. Resposta é envelopada em `{ data }` e enviada ao frontend.
+### Rota
+GET /api/v1/vendas/resumo-empresa-vendedor
 
-## Tabelas/Views consultadas
-- Transações de venda: `transacao`, `transacao_item`, `saida`, `naturezaoperacao`, `pessoa` (empresas e vendedores), `fin` tabelas para formas de pagamento, `transacaoconvenioparcela`, `produtofamilia`.
+### Parâmetros
+- empresa (string, obrigatório)
+- dataInicio (YYYY-MM-DD, obrigatório)
+- dataFim (YYYY-MM-DD, obrigatório)
 
-## Consumo no frontend
-- Frontend Lovable consulta endpoints de resumo para alimentar dashboards de vendas; filtros de data e empresa seguem os parâmetros listados acima. (Não há hook específico versionado aqui, o consumo é direto da API.)
+### Exemplo
+GET /api/v1/vendas/resumo-empresa-vendedor?empresa=206&dataInicio=2025-01-01&dataFim=2025-01-31
 
-## Filtros e métricas
-- Filtros: intervalo de data obrigatório; empresa opcional na análise por família.
-- Métricas principais: total vendido/original, ticket médio, quantidade de transações/devoluções, total por forma de pagamento, volume por família e vendedor.
+### Resposta
+{
+  "ok": true,
+  "data": [
+    {
+      "empresa": "206",
+      "vendedor": "CARLOS",
+      "valor_total": 15800.50,
+      "qtde_vendas": 32,
+      "ticket_medio": 493.75
+    }
+  ],
+  "error": null
+}
+
+---
+
+## 1.2. Resumo por Formas de Pagamento
+
+### Rota
+GET /api/v1/vendas/resumo-formas-pagamento
+
+### Parâmetros
+- empresa
+- dataInicio
+- dataFim
+
+### Resposta
+{
+  "ok": true,
+  "data": [
+    { "forma_pagamento": "PIX", "total": 25000 },
+    { "forma_pagamento": "CREDIÁRIO", "total": 12000 }
+  ],
+  "error": null
+}
+
+---
+
+## 1.3. Análise por Família e Vendedor
+
+### Rota
+GET /api/v1/vendas/analise-familia-vendedor
+
+### Parâmetros
+- empresa
+- dataInicio
+- dataFim
+
+### Resposta
+{
+  "ok": true,
+  "data": [
+    {
+      "familia": "SOLAR",
+      "vendedor": "CARLOS",
+      "qtde": 18,
+      "valor_total": 7200
+    }
+  ],
+  "error": null
+}
