@@ -1,20 +1,10 @@
-// src/routes/vendas.routes.js
+// src/routes/vendasRoutes.js
 const express = require('express');
-const {
-  resumoEmpresaVendedor,
-  resumoFormasPagamento
-} = require('../controllers/vendasController');
-const {
-  analiseFamiliaVendedor
-} = require('../controllers/vendasAnaliseController');
-
 const router = express.Router();
+const vendasController = require('../controllers/vendasController');
 
-// Já existiam:
-router.get('/resumo-empresa-vendedor', resumoEmpresaVendedor);
-router.get('/resumo-formas-pagamento', resumoFormasPagamento);
-
-// NOVO: análise por família e vendedor
-router.get('/analise-familia-vendedor', analiseFamiliaVendedor);
+router.get('/resumo-empresa-vendedor', vendasController.resumoEmpresaVendedor);
+router.get('/resumo-formas-pagamento', vendasController.resumoFormasPagamento);
+router.get('/analise-familia-vendedor', vendasController.analiseFamiliaVendedor);
 
 module.exports = router;
