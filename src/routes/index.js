@@ -1,15 +1,7 @@
-// src/routes/index.js
-
 const express = require('express');
 const router = express.Router();
+const healthRoutes = require('./healthRoutes');
 
-// Endpoint mínimo só pra garantir que a API sobe
-router.get('/health', (req, res) => {
-  return res.json({
-    ok: true,
-    data: { status: 'UP', db: 'SKIPPED' },
-    error: null
-  });
-});
+router.use('/health', healthRoutes);
 
 module.exports = router;
