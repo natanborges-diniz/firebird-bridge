@@ -32,7 +32,7 @@ try {
  * @param {number|string} params.codEmpresa
  */
 async function getParcelas({ dataIni, dataFim, codEmpresa }) {
-  // ORDEM DOS PARÂMETROS PRECISA BATER COM A QUERY:
+  // Ordem dos parâmetros precisa bater com a query:
   // where
   //   fl.cod_empresa not in (3, 5, 7, 8, 11, 12)
   //   and (
@@ -50,7 +50,7 @@ async function getParcelas({ dataIni, dataFim, codEmpresa }) {
 }
 
 /**
- * DRE Gerencial (por competência = data de emissão)
+ * DRE Gerencial (por competência = data de emissão da parcela)
  * @param {Object} params
  * @param {string} params.dataIni    - 'YYYY-MM-DD'
  * @param {string} params.dataFim    - 'YYYY-MM-DD'
@@ -61,9 +61,19 @@ async function getDre({ dataIni, dataFim, codEmpresa }) {
     throw new Error("Arquivo financeiro_dre.sql não encontrado em queries/financeiro");
   }
 
-  // Aqui assumimos que o DRE ainda usa 3 parâmetros: [codEmpresa, dataIni, dataFim]
-  // Ajusta se o SQL do DRE tiver outra assinatura.
-  const params = [codEmpresa, dataIni, dataFim];
+  // Ordem dos parâmetros precisa bater com a query do DRE:
+  // where
+  //   fl.cod_empresa not in (3, 5, 7, 8, 11, 12)
+  //   and (
+  //     fl.cod_empresa = cast(? as integer)
+  //     or (
+  //       cast(? as integer) in (13, 18)
+  //       and fl.cod_empresa in (13, 18)
+  //     )
+  //   )
+  //   and fp.dataemissao between cast(? as date) and cast(? as date)
+  const params = [codEmpresa, codEmpresa, dataIni, dataFim];
+
   const rows = await db.query(sqlDre, params);
   return rows;
 }
