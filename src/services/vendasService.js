@@ -1,7 +1,7 @@
 // src/services/vendasService.js
 const path = require("path");
 const fs = require("fs");
-const db = require("../db"); // src/db/index.js (expõe query/runQuery)
+const db = require("../db");
 
 function loadSql(fileName) {
   const filePath = path.join(__dirname, "..", "..", "queries", "vendas", fileName);
@@ -24,6 +24,7 @@ try {
  * Resumo por empresa x vendedor no período
  */
 async function getResumoEmpresaVendedor({ dataIni, dataFim }) {
+  // 4 parâmetros na SQL: venda_ini, venda_fim, dev_ini, dev_fim
   const params = [dataIni, dataFim, dataIni, dataFim];
   const rows = await db.query(sqlResumoEmpresaVendedor, params);
   return rows;
@@ -33,7 +34,8 @@ async function getResumoEmpresaVendedor({ dataIni, dataFim }) {
  * Resumo por formas de pagamento no período
  */
 async function getResumoFormasPagamento({ dataIni, dataFim }) {
-  const params = [dataIni, dataFim, dataIni, dataFim];
+  // 6 parâmetros na SQL: 3 pares de datas (venda, devolução, etc.)
+  const params = [dataIni, dataFim, dataIni, dataFim, dataIni, dataFim];
   const rows = await db.query(sqlResumoFormasPagamento, params);
   return rows;
 }
@@ -46,7 +48,7 @@ async function getAnaliseFamiliaVendedor({ dataIni, dataFim, codEmpresa }) {
     throw new Error("Arquivo analise_familia_vendedor.sql não encontrado em queries/vendas");
   }
 
-  // Ajuste aqui conforme a quantidade de "?" no analise_familia_vendedor.sql
+  // Ajustar aqui depois conforme quantidade de ? na SQL
   const params = [dataIni, dataFim, codEmpresa ?? null];
   const rows = await db.query(sqlAnaliseFamiliaVendedor, params);
   return rows;
