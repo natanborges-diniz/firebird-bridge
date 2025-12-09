@@ -1,6 +1,17 @@
 select
   fl.cod_empresa                              as cod_empresa,
   pe_emp.nome                                 as empresa_nome,
+  
+  /* CAMPOS LÓGICOS DE EMPRESA (SUPER + SUPER SHOPPING) */
+  case
+    when fl.cod_empresa in (13, 18) then 13
+    else fl.cod_empresa
+  end                                         as empresa_cod_logico,
+
+  case
+    when fl.cod_empresa in (13, 18) then 'DINIZ SUPER'
+    else pe_emp.nome
+  end                                         as empresa_nome_logico,
 
   min(fp.datavencimento)                      as min_datavencimento,
   max(fp.datavencimento)                      as max_datavencimento,
