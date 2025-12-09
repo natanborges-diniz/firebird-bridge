@@ -10,12 +10,12 @@ SELECT
   case
     when fl.cod_empresa in (13, 18) then 13
     else fl.cod_empresa
-  end                                         as empresa_cod_logico,
+  end                         as empresa_cod_logico,
 
   case
     when fl.cod_empresa in (13, 18) then 'DINIZ SUPER'
     else pe_emp.nome
-  end                                         as empresa_nome_logico,
+  end                         as empresa_nome_logico,
   
   vend.COD_PESSOA             AS COD_VENDEDOR,
   vend.NOME                   AS VENDEDOR,
@@ -59,7 +59,7 @@ WHERE
   )
   nat.TIPO = 1
   AND transacao.dataencerramento >= cast(? as date)
-  AND transacao.dataencerramento <= cast(? as date))
+  AND transacao.dataencerramento <= cast(? as date)
   AND (? IS NULL OR t.COD_EMPRESAESTOQUE = ?)
 GROUP BY
   t.COD_EMPRESAESTOQUE,
