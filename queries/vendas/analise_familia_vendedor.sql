@@ -46,6 +46,17 @@ FROM
   JOIN PRODUTOFAMILIA pf
     ON pf.COD_PRODUTOFAMILIA = COALESCE(ti.COD_PRODUTOFAMILIA, p.COD_PRODUTOFAMILIA)
 WHERE
+  /* Ignora empresas lixo */
+  fl.cod_empresa not in (3, 5, 7, 8, 11, 12)
+  and (
+    /* Empresas normais: filtra direto pelo código informado */
+    fl.cod_empresa = cast(? as integer)
+    or (
+      /* Se a empresa pedida for 13 ou 18, traz tanto 13 quanto 18 */
+      cast(? as integer) in (13, 18)
+      and fl.cod_empresa in (13, 18)
+    )
+  )
   nat.TIPO = 1
   AND transacao.dataencerramento >= cast(? as date)
   AND transacao.dataencerramento <= cast(? as date))
