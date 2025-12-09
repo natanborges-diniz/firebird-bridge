@@ -12,6 +12,16 @@ WITH TBEMPRESA AS
   SELECT
     PESSOA.NOME AS EMPRESA,
     EMPRESA.COD_EMPRESA
+  /* CAMPOS LÓGICOS DE EMPRESA (SUPER + SUPER SHOPPING) */
+  case
+    when fl.cod_empresa in (13, 18) then 13
+    else fl.cod_empresa
+  end                                         as empresa_cod_logico,
+
+  case
+    when fl.cod_empresa in (13, 18) then 'DINIZ SUPER'
+    else pe_emp.nome
+  end                                         as empresa_nome_logico,
   FROM
     PESSOA
     JOIN EMPRESA ON (PESSOA.COD_PESSOA = EMPRESA.COD_EMPRESA)
