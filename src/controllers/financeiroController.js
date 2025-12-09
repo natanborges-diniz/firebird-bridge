@@ -29,7 +29,12 @@ async function listarParcelas(req, res) {
     const params = validatePeriodoQuery(req, res);
     if (!params) return;
 
-    const rows = await financeiroService.getParcelas(params);
+    const rows = await financeiroService.getParcelas({
+      codEmpresa: params.empresa,
+      dataIni: params.dataInicio,
+      dataFim: params.dataFim
+    });
+
     return success(res, rows);
   } catch (err) {
     return handleControllerError(res, err);
@@ -41,7 +46,12 @@ async function obterDRE(req, res) {
     const params = validatePeriodoQuery(req, res);
     if (!params) return;
 
-    const dre = await financeiroService.getDRE(params);
+    const dre = await financeiroService.getDre({
+      codEmpresa: params.empresa,
+      dataIni: params.dataInicio,
+      dataFim: params.dataFim
+    });
+
     return success(res, dre);
   } catch (err) {
     return handleControllerError(res, err);
