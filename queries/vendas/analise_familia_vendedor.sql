@@ -35,7 +35,8 @@ FROM
     ON pf.COD_PRODUTOFAMILIA = COALESCE(ti.COD_PRODUTOFAMILIA, p.COD_PRODUTOFAMILIA)
 WHERE
   nat.TIPO = 1
-  AND t.DATAENCERRAMENTO BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+  AND transacao.dataencerramento >= cast(? as date)
+  AND transacao.dataencerramento <= cast(? as date))
   AND (? IS NULL OR t.COD_EMPRESAESTOQUE = ?)
 GROUP BY
   t.COD_EMPRESAESTOQUE,
