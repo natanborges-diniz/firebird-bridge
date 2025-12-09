@@ -43,13 +43,26 @@ async function getResumoFormasPagamento({ dataIni, dataFim }) {
 /**
  * Análise por família x vendedor, com codEmpresa opcional
  */
+/**
+ * Análise por família x vendedor
+ * @param {Object} params
+ * @param {string} params.dataIni    - 'YYYY-MM-DD'
+ * @param {string} params.dataFim    - 'YYYY-MM-DD'
+ * @param {number|string|null} params.codEmpresa - opcional (a SQL atual não usa)
+ */
 async function getAnaliseFamiliaVendedor({ dataIni, dataFim, codEmpresa }) {
   if (!sqlAnaliseFamiliaVendedor) {
     throw new Error("Arquivo analise_familia_vendedor.sql não encontrado em queries/vendas");
   }
 
-  // Ajustar aqui depois conforme quantidade de ? na SQL
-  const params = [dataIni, dataFim, codEmpresa ?? null];
+  // A SQL atual espera 4 parâmetros (? ? ? ?).
+  // Pelo padrão dos outros relatórios, faz sentido serem 2 pares de datas
+  // (ex.: vendas + devoluções). Vamos usar o mesmo intervalo para todos:
+  const params = [dataIni, dataFim, dataIni, dataFim];
+
+  // OBS: por enquanto codEmpresa NÃO está sendo usado.
+  // Se depois você quiser filtrar por empresa,
+  // ajustamos a SQL e este array de params.
   const rows = await db.query(sqlAnaliseFamiliaVendedor, params);
   return rows;
 }
