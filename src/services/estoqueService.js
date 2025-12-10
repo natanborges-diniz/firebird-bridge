@@ -1,20 +1,22 @@
 // src/services/estoqueService.js
-const { runQuery } = require('../db');
-const { loadSQL } = require('../utils/loadSQL');
+const path = require("path");
+const fs = require("fs");
+const db = require("../db"); // expõe db.query
 
-// Carrega o SQL da analise de estoque
-const analiseEstoqueSql = loadSQL('estoque/analise_estoque_acao.sql');
+function loadSql(fileName) {
+  const filePath = path.join(__dirname, "..", "..", "queries", "estoque", fileName);
+  return fs.readFileSync(filePath, "utf8");
+}
+
+const sqlAnaliseEstoqueAcao = loadSql("analise_estoque_acao.sql");
 
 /**
- * Retorna analise de estoque para uma empresa (loja).
- *
- * params:
- *  - codEmpresa: numero inteiro da empresa (ex: 595)
+ * Análise de estoque com ação sugerida por empresa.
+ * @param {number|string} codEmpresa
  */
-async function getAnaliseEstoqueAcao({ codEmpresa }) {
-  // Nossa query tem apenas 1 "?" correspondente a cod_empresa
+async function getAnaliseEstoqueAcao(codEmpresa) {
   const params = [codEmpresa];
-  const rows = await runQuery(analiseEstoqueSql, params);
+  const rows = await db.query(sqlAnaliseEstoqueAcao, params);
   return rows;
 }
 
