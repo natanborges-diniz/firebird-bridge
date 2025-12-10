@@ -1,83 +1,72 @@
-// src/services/vendasService.ts
+// src/services/vendasService.js
+const path = require("path");
+const fs = require("fs");
+const db = require("../db");
 
-import { apiGet } from "@/lib/apiClient";
-
-export interface VendasPeriodoParams {
-  empresa: number | string;
-  dataInicio: string; // 'YYYY-MM-DD'
-  dataFim: string;    // 'YYYY-MM-DD'
+function loadSql(fileName) {
+  const filePath = path.join(__dirname, "..", "..", "queries", "vendas", fileName);
+  return fs.readFileSync(filePath, "utf8");
 }
 
-export interface VendasResumoEmpresaVendedor {
-  empresa_cod_logico: number;
-  empresa_nome_logico: string;
-  cod_vendedor: number;
-  vendedor_nome: string;
-  total_bruto?: number;
-  total_liquido?: number;
-  qtd_vendas?: number;
-  ticket_medio?: number;
-  [key: string]: any;
-}
-
-export interface VendasResumoFormaPagamento {
-  empresa_cod_logico: number;
-  empresa_nome_logico: string;
-  formapagto_tipo_codigo?: number;
-  formapagto_tipo_nome?: string;
-  total_bruto?: number;
-  total_liquido?: number;
-  qtd_vendas?: number;
-  [key: string]: any;
-}
-
-export interface VendasAnaliseFamiliaVendedor {
-  empresa_cod_logico: number;
-  empresa_nome_logico: string;
-  cod_vendedor: number;
-  vendedor_nome: string;
-  familia?: string;
-  qtd_transacao?: number;
-  qtd_produtos?: number;
-  total_vendido?: number;
-  [key: string]: any;
+const sqlResumoEmpresaVendedor   = loadSql("resumo_empresa_vendedor.sql");
+const sqlResumoFormasPagamento   = loadSql("resumo_formas_pagamento.sql");
+let   sqlAnaliseFamiliaVendedor;
+try {
+  sqlAnaliseFamiliaVendedor = loadSql("analise_familia_vendedor.sql");
+} catch (e) {
+  console.warn(
+    "[vendasService] Atenção: analise_familia_vendedor.sql ainda não existe. " +
+      "Endpoint /vendas/analise-familia-vendedor vai falhar até criar o arquivo."
+  );
 }
 
 /**
- * GET /vendas/resumo-empresa-vendedor
+ * Resumo por empresa x vendedor no período
  */
-export async function fetchVendasResumoEmpresaVendedor(
-  params: VendasPeriodoParams
-): Promise<VendasResumoEmpresaVendedor[]> {
-  return apiGet<VendasResumoEmpresaVendedor[]>("/vendas/resumo-empresa-vendedor", {
-    empresa: params.empresa,
-    dataInicio: params.dataInicio,
-    dataFim: params.dataFim,
-  });
+async function getResumoEmpresaVendedor({ dataIni, dataFim }) {
+  // resumo_empresa_vendedor.sql agora espera APENAS:
+  //  1) dataInicio
+  //  2) dataFim
+  const params = [dataIni, dataFim];
+
+  const rows = await db.query(sqlResumoEmpresaVendedor, params);
+  return rows;
 }
 
 /**
- * GET /vendas/resumo-formas-pagamento
+ * Resumo por formas de pagamento no período
  */
-export async function fetchVendasResumoFormasPagamento(
-  params: VendasPeriodoParams
-): Promise<VendasResumoFormaPagamento[]> {
-  return apiGet<VendasResumoFormaPagamento[]>("/vendas/resumo-formas-pagamento", {
-    empresa: params.empresa,
-    dataInicio: params.dataInicio,
-    dataFim: params.dataFim,
-  });
+async function getResumoFormasPagamento({ dataIni, dataFim }) {
+  // 6 parâmetros na SQL: 3 pares de datas (venda, devolução, etc.)
+  const params = [dataIni, dataFim, dataIni, dataFim, dataIni, dataFim];
+  const rows = await db.query(sqlResumoFormasPagamento, params);
+  return rows;
 }
 
 /**
- * GET /vendas/analise-familia-vendedor
+ * Análise por família x vendedor, com codEmpresa opcional
  */
-export async function fetchVendasAnaliseFamiliaVendedor(
-  params: VendasPeriodoParams
-): Promise<VendasAnaliseFamiliaVendedor[]> {
-  return apiGet<VendasAnaliseFamiliaVendedor[]>("/vendas/analise-familia-vendedor", {
-    empresa: params.empresa,
-    dataInicio: params.dataInicio,
-    dataFim: params.dataFim,
-  });
+/**
+ * Análise por família x vendedor
+ * @param {Object} params
+ * @param {string} params.dataIni    - 'YYYY-MM-DD'
+ * @param {string} params.dataFim    - 'YYYY-MM-DD'
+ * @param {number|string|null} params.codEmpresa - opcional (a SQL atual não usa)
+ */
+async function getAnaliseFamiliaVendedor({ dataIni, dataFim /*, codEmpresa*/ }) {
+  if (!sqlAnaliseFamiliaVendedor) {
+    throw new Error("Arquivo analise_familia_vendedor.sql não encontrado em queries/vendas");
+  }
+
+  // A SQL espera 2 parâmetros: dataIni, dataFim
+  const params = [dataIni, dataFim];
+
+  const rows = await db.query(sqlAnaliseFamiliaVendedor, params);
+  return rows;
 }
+
+module.exports = {
+  getResumoEmpresaVendedor,
+  getResumoFormasPagamento,
+  getAnaliseFamiliaVendedor
+};
