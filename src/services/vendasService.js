@@ -24,8 +24,11 @@ try {
  * Resumo por empresa x vendedor no período
  */
 async function getResumoEmpresaVendedor({ dataIni, dataFim }) {
-  // 4 parâmetros na SQL: venda_ini, venda_fim, dev_ini, dev_fim
-  const params = [dataIni, dataFim, dataIni, dataFim];
+  // resumo_empresa_vendedor.sql agora espera APENAS:
+  //  1) dataInicio
+  //  2) dataFim
+  const params = [dataIni, dataFim];
+
   const rows = await db.query(sqlResumoEmpresaVendedor, params);
   return rows;
 }
