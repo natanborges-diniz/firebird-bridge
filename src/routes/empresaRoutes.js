@@ -1,9 +1,8 @@
 // src/routes/empresaRoutes.js
-
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const empresaController = require('../controllers/empresaController');
+const { listarEmpresas } = require("../controllers/empresaController");
 
-router.get('/', empresaController.listarEmpresas);
+router.get("/", listarEmpresas);
 
 module.exports = router;
