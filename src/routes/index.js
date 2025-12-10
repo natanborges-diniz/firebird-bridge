@@ -7,6 +7,7 @@ const healthController  = require('../controllers/healthController');
 const financeiroRoutes  = require('./financeiroRoutes');
 const vendasRoutes      = require('./vendasRoutes');
 const debugRoutes       = require('./debugRoutes');
+const estoqueRoutes     = require('./estoqueRoutes'); // ⬅ novo
 
 // Health check
 router.get('/health', healthController.health);
@@ -19,5 +20,8 @@ router.use('/vendas', vendasRoutes);
 
 // Debug (apenas para testes)
 router.use('/debug', debugRoutes);
+
+// Módulo Estoque
+router.use('/estoque', estoqueRoutes);
 
 module.exports = router;
