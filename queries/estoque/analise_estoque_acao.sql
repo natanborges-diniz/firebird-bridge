@@ -1,24 +1,24 @@
 -- queries/estoque/analise_estoque_acao.sql
 -- Análise de estoque com ação sugerida por item / fornecedor.
--- Filtro: empresa (cod_empresaestoque).
+-- Filtro: empresa (cod_empresa do estoque).
 
 SELECT
   -- Empresa física
-  e.COD_EMPRESAESTOQUE         AS COD_EMPRESA,
-  pesEmp.NOME                  AS EMPRESA,
+  e.COD_EMPRESA               AS COD_EMPRESA,
+  pesEmp.NOME                 AS EMPRESA,
 
   -- Fornecedor (via relacionamento fornecedor_item → pessoa)
-  forn.COD_PESSOA              AS COD_PESSOA,
-  forn.NOME                    AS NOME_FORNECEDOR,
+  forn.COD_PESSOA             AS COD_PESSOA,
+  forn.NOME                   AS NOME_FORNECEDOR,
 
   -- Item / produto
-  it.COD_ITEM                  AS COD_ITEM,
-  it.DESCRICAO                 AS DESCRICAO_ITEM,
+  it.COD_ITEM                 AS COD_ITEM,
+  it.DESCRICAO                AS DESCRICAO_ITEM,
 
   -- Saldo e indicadores de estoque
-  COALESCE(e.SALDO, 0)         AS SALDO_ESTOQUE,
-  COALESCE(e.CAF, 0)           AS CAF,
-  e.DATAULTIMAENTRADA          AS DATA_ULTIMA_ENTRADA,
+  COALESCE(e.SALDO, 0)        AS SALDO_ESTOQUE,
+  COALESCE(e.CAF, 0)          AS CAF,
+  e.DATAULTIMAENTRADA         AS DATA_ULTIMA_ENTRADA,
 
   -- Dias desde a última entrada
   CASE
@@ -26,7 +26,7 @@ SELECT
       THEN NULL
     ELSE
       CURRENT_DATE - e.DATAULTIMAENTRADA
-  END                          AS DIAS_ESTOQUE,
+  END                         AS DIAS_ESTOQUE,
 
   -- Ação sugerida simples, baseada em saldo + dias desde última entrada
   CASE
@@ -35,12 +35,12 @@ SELECT
     WHEN (CURRENT_DATE - e.DATAULTIMAENTRADA) <= 60 THEN 'OK'
     WHEN (CURRENT_DATE - e.DATAULTIMAENTRADA) BETWEEN 61 AND 120 THEN 'ANALISE PARA RECOMPRA'
     ELSE 'LIQUIDA 30%'
-  END                          AS ACAO_SUGERIDA
+  END                         AS ACAO_SUGERIDA
 
 FROM
   ESTOQUE e
   JOIN EMPRESA emp
-    ON emp.COD_EMPRESA = e.COD_EMPRESAESTOQUE
+    ON emp.COD_EMPRESA = e.COD_EMPRESA
   JOIN PESSOA pesEmp
     ON pesEmp.COD_PESSOA = emp.COD_EMPRESA
 
@@ -55,7 +55,7 @@ FROM
 
 WHERE
   -- Filtro da empresa do estoque
-  e.COD_EMPRESAESTOQUE = CAST(? AS INTEGER)
+  e.COD_EMPRESA = CAST(? AS INTEGER)
 
 ORDER BY
   pesEmp.NOME,
