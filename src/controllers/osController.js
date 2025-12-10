@@ -43,6 +43,9 @@ function validatePeriodoQuery(req, res) {
   };
 }
 
+/**
+ * GET /os/monitor?dataInicio=YYYY-MM-DD&dataFim=YYYY-MM-DD&codEmpresa=595
+ */
 async function monitorOs(req, res) {
   try {
     const params = validatePeriodoQuery(req, res);
