@@ -1,14 +1,16 @@
-// src/services/empresaService.js
 const path = require("path");
 const fs = require("fs");
 const db = require("../db");
 
-async function getEmpresas() {
-  const sql = loadSQL('empresas/listarEmpresas.sql');
-  const result = await db.runQuery(sql);
-  return result;
+function loadSQL(relativePath) {
+  const fullPath = path.join(__dirname, "..", "queries", relativePath);
+  return fs.readFileSync(fullPath, "utf-8");
 }
 
-module.exports = {
-  getEmpresas
-};
+async function getEmpresas() {
+  const sql = loadSQL("empresas/listarEmpresas.sql");
+  const rows = await db.runQuery(sql);
+  return rows;
+}
+
+module.exports = { getEmpresas };
