@@ -1,7 +1,6 @@
 // src/controllers/empresaController.js
-
-const empresaService = require('../services/empresaService');
-const { success, failure, handleControllerError } = require('../utils/apiResponse');
+const empresaService = require("../services/empresaService");
+const { success, handleControllerError } = require("../utils/apiResponse");
 
 async function listarEmpresas(req, res) {
   try {
@@ -13,5 +12,5 @@ async function listarEmpresas(req, res) {
 }
 
 module.exports = {
-  listarEmpresas
+  listarEmpresas,
 };
