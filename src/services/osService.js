@@ -1,56 +1,22 @@
-// src/services/osService.ts
+// src/services/osService.js
+const path = require("path");
+const fs = require("fs");
+const db = require("../db");
 
-import { apiGet } from "@/lib/apiClient";
-
-export interface OsMonitorParams {
-  dataInicio: string;       // 'YYYY-MM-DD'
-  dataFim: string;          // 'YYYY-MM-DD'
-  empresa?: number | string; // opcional
+function loadSql(fileName) {
+  const filePath = path.join(__dirname, "..", "..", "queries", "os", fileName);
+  return fs.readFileSync(filePath, "utf8");
 }
 
-export interface OsMonitorLinha {
-  produtos?: string | null;
+const sqlMonitorOs = loadSql("monitor.sql");
 
-  cod_os: number;
-  os: string | number;
-
-  total: number;
-
-  empresa: string;
-  cod_empresa_origem: number;
-  codempresa?: number; // código lógico mapeado na SQL
-
-  dataemissao: string;
-  dataprevisao: string | null;
-
-  cliente: string;
-  codcliente: number;
-  cpf: string | null;
-
-  etapa: string;
-  usuario: string;
-  datahoraentrada: string;
-  datahorasaida: string | null;
-
-  ordemcompra?: string | null;
-
-  telefone: string | null;
-
-  atraso_dias: number | null;
-  status_atraso: string;
-
-  [key: string]: any;
+async function getMonitorOs({ dataInicio, dataFim, codEmpresa }) {
+  const empresaParam = codEmpresa ?? null;
+  const params = [dataInicio, dataFim, empresaParam, empresaParam];
+  const rows = await db.query(sqlMonitorOs, params);
+  return rows;
 }
 
-/**
- * GET /os/monitor
- */
-export async function fetchOsMonitor(
-  params: OsMonitorParams
-): Promise<OsMonitorLinha[]> {
-  return apiGet<OsMonitorLinha[]>("/os/monitor", {
-    dataInicio: params.dataInicio,
-    dataFim: params.dataFim,
-    empresa: params.empresa, // o controller aceita empresa ou codEmpresa
-  });
-}
+module.exports = {
+  getMonitorOs,
+};
