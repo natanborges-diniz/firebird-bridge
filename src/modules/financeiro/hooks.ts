@@ -1,5 +1,3 @@
-// src/modules/financeiro/hooks.ts
-
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { apiGet } from "@/lib/apiClient";
 import type {
@@ -8,9 +6,6 @@ import type {
   FinanceiroDreLinha,
 } from "@/services/financeiroService";
 
-/**
- * Hook para /financeiro/parcelas
- */
 export function useFinanceiroParcelasQuery(params: FinanceiroPeriodoParams) {
   return useApiQuery<FinanceiroParcela[], FinanceiroPeriodoParams>(
     {
@@ -28,9 +23,6 @@ export function useFinanceiroParcelasQuery(params: FinanceiroPeriodoParams) {
   );
 }
 
-/**
- * Hook para /financeiro/dre
- */
 export function useFinanceiroDreQuery(params: FinanceiroPeriodoParams) {
   return useApiQuery<FinanceiroDreLinha[], FinanceiroPeriodoParams>(
     {
