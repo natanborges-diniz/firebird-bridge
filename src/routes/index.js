@@ -9,6 +9,7 @@ const vendasRoutes      = require('./vendasRoutes');
 const debugRoutes       = require('./debugRoutes');
 const estoqueRoutes     = require('./estoqueRoutes'); // ⬅ novo
 const osRoutes          = require('./osRoutes');
+const empresaRoutes     = require('./empresaRoutes');
 
 // Health check
 router.get('/health', healthController.health);
@@ -27,5 +28,8 @@ router.use('/estoque', estoqueRoutes);
 
 // Módulo OS
 router.use('/os', osRoutes);
+
+// Moculo Empresa
+router.use('/empresa', empresaRoutes);
 
 module.exports = router;
