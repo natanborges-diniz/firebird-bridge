@@ -30,6 +30,6 @@ router.use('/estoque', estoqueRoutes);
 router.use('/os', osRoutes);
 
 // Moculo Empresa
-router.use('/empresa', empresaRoutes);
+router.use('/empresas', empresaRoutes);
 
 module.exports = router;
