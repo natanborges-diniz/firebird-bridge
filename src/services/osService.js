@@ -1,26 +1,22 @@
 // src/services/osService.js
-const { runQuery } = require('../db');
-const { loadSQL } = require('../utils/loadSQL');
+const path = require("path");
+const fs = require("fs");
+const db = require("../db");
 
-const monitorProducaoSql = loadSQL('os/monitor_producao.sql');
+function loadSql(fileName) {
+  const filePath = path.join(__dirname, "..", "..", "queries", "os", fileName);
+  return fs.readFileSync(filePath, "utf8");
+}
 
-async function getMonitorProducao({ dataInicio, dataFim, codEmpresa }) {
-  const params = [
-    dataInicio,  // 1º ? -> data inicial
-    dataFim      // 2º ? -> data final
-  ];
+const sqlMonitorOs = loadSql("monitor.sql");
 
-  const rows = await runQuery(monitorProducaoSql, params);
-
-  // Se foi passado codEmpresa, filtra em memória pelo CODEMPRESA
-  if (codEmpresa) {
-    const cod = Number(codEmpresa);
-    return rows.filter((r) => Number(r.CODEMPRESA) === cod);
-  }
-
+async function getMonitorOs({ dataInicio, dataFim, codEmpresa }) {
+  const empresaParam = codEmpresa ?? null;
+  const params = [dataInicio, dataFim, empresaParam, empresaParam];
+  const rows = await db.query(sqlMonitorOs, params);
   return rows;
 }
 
 module.exports = {
-  getMonitorProducao
+  getMonitorOs,
 };
