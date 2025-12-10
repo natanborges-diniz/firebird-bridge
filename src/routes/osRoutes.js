@@ -1,8 +1,10 @@
 // src/routes/osRoutes.js
+
 const express = require('express');
 const router = express.Router();
 const osController = require('../controllers/osController');
 
-router.get('/monitor', osController.monitor);
+// GET /os/monitor
+router.get('/monitor', osController.monitorOs);
 
 module.exports = router;
