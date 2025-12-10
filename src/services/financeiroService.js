@@ -1,77 +1,84 @@
 // src/services/financeiroService.js
-// Serviço de FINANCEIRO no BRIDGE (Node.js + Firebird)
-
-// CommonJS, pois o projeto do bridge usa require/module.exports
-
 const path = require("path");
 const fs = require("fs");
 const db = require("../db"); // src/db/index.js
 
-/**
- * Carrega um arquivo .sql da pasta queries/financeiro
- * Estrutura esperada:
- *   /app
- *     /src
- *       /services/financeiroService.js  (__dirname aqui)
- *     /queries
- *       /financeiro
- *         financeiro_parcelas.sql
- *         financeiro_dre.sql
- */
 function loadSql(fileName) {
+  // __dirname = /app/src/services
+  // ..        = /app/src
+  // ..        = /app
+  // queries/financeiro/fileName = /app/queries/financeiro/fileName
   const filePath = path.join(__dirname, "..", "..", "queries", "financeiro", fileName);
   return fs.readFileSync(filePath, "utf8");
 }
 
-// SQLs externos
+// Arquivos .sql em queries/financeiro/
 const sqlParcelas = loadSql("financeiro_parcelas.sql");
-
 let sqlDre;
 try {
   sqlDre = loadSql("financeiro_dre.sql");
 } catch (e) {
   console.warn(
-    "[financeiroService] Atenção: queries/financeiro/financeiro_dre.sql não encontrado. " +
-      "O endpoint de DRE vai falhar até você criar esse arquivo."
+    "[financeiroService] Atenção: financeiro_dre.sql ainda não existe. " +
+      "DRE vai falhar até criar o arquivo."
   );
 }
 
 /**
  * Busca parcelas financeiras (pagar/receber) por período e empresa
- * Parâmetros vêm do controller já validados:
- *   { empresa, dataInicio, dataFim }
- *
- * A query financeiro_parcelas.sql deve esperar:
- *   where fl.cod_empresa = ?
- *     and fp.datavencimento between ? and ?
+ * @param {Object} params
+ * @param {string} params.dataIni    - 'YYYY-MM-DD'
+ * @param {string} params.dataFim    - 'YYYY-MM-DD'
+ * @param {number|string} params.codEmpresa
  */
-async function getParcelas({ empresa, dataInicio, dataFim }) {
-  const params = [empresa, dataInicio, dataFim];
+async function getParcelas({ dataIni, dataFim, codEmpresa }) {
+  // Ordem dos parâmetros precisa bater com a query:
+  // where
+  //   fl.cod_empresa not in (3, 5, 7, 8, 11, 12)
+  //   and (
+  //     fl.cod_empresa = cast(? as integer)
+  //     or (
+  //       cast(? as integer) in (13, 18)
+  //       and fl.cod_empresa in (13, 18)
+  //     )
+  //   )
+  //   and fp.datavencimento between cast(? as date) and cast(? as date)
+  const params = [codEmpresa, codEmpresa, dataIni, dataFim];
+
   const rows = await db.query(sqlParcelas, params);
   return rows;
 }
 
 /**
- * DRE Gerencial (por competência = data de emissão ou competência da query)
- * Parâmetros:
- *   { empresa, dataInicio, dataFim }
- *
- * A query financeiro_dre.sql deve usar os mesmos três parâmetros nessa ordem.
+ * DRE Gerencial (por competência = data de emissão da parcela)
+ * @param {Object} params
+ * @param {string} params.dataIni    - 'YYYY-MM-DD'
+ * @param {string} params.dataFim    - 'YYYY-MM-DD'
+ * @param {number|string} params.codEmpresa
  */
-async function getDre({ empresa, dataInicio, dataFim }) {
+async function getDre({ dataIni, dataFim, codEmpresa }) {
   if (!sqlDre) {
-    throw new Error(
-      "Arquivo queries/financeiro/financeiro_dre.sql não encontrado. " +
-        "Crie o arquivo para habilitar o endpoint de DRE."
-    );
+    throw new Error("Arquivo financeiro_dre.sql não encontrado em queries/financeiro");
   }
 
-  const params = [empresa, dataInicio, dataFim];
+  // Ordem dos parâmetros precisa bater com a query do DRE:
+  // where
+  //   fl.cod_empresa not in (3, 5, 7, 8, 11, 12)
+  //   and (
+  //     fl.cod_empresa = cast(? as integer)
+  //     or (
+  //       cast(? as integer) in (13, 18)
+  //       and fl.cod_empresa in (13, 18)
+  //     )
+  //   )
+  //   and fp.dataemissao between cast(? as date) and cast(? as date)
+  const params = [codEmpresa, codEmpresa, dataIni, dataFim];
+
   const rows = await db.query(sqlDre, params);
   return rows;
 }
 
 module.exports = {
   getParcelas,
-  getDre,
+  getDre
 };
