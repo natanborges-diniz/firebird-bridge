@@ -7,13 +7,13 @@ SELECT
   e.COD_EMPRESA               AS COD_EMPRESA,
   pesEmp.NOME                 AS EMPRESA,
 
-  -- Fornecedor (via relacionamento fornecedor_item → pessoa)
+  -- Fornecedor (via fornecedor_item → pessoa)
   forn.COD_PESSOA             AS COD_PESSOA,
   forn.NOME                   AS NOME_FORNECEDOR,
 
-  -- Item / produto
-  it.COD_ITEM                 AS COD_ITEM,
-  it.DESCRICAO                AS DESCRICAO_ITEM,
+  -- Produto (usado como "item" lógico)
+  p.COD_PRODUTO               AS COD_ITEM,
+  p.DESCRICAO                 AS DESCRICAO_ITEM,
 
   -- Saldo e indicadores de estoque
   COALESCE(e.SALDO, 0)        AS SALDO_ESTOQUE,
@@ -44,11 +44,13 @@ FROM
   JOIN PESSOA pesEmp
     ON pesEmp.COD_PESSOA = emp.COD_EMPRESA
 
-  JOIN ITEM it
-    ON it.COD_ITEM = e.COD_ITEM
+  -- Produto ligado diretamente ao estoque
+  JOIN PRODUTO p
+    ON p.COD_PRODUTO = e.COD_PRODUTO
 
+  -- Fornecedor principal do produto
   LEFT JOIN FORNECEDOR_ITEM fi
-    ON fi.COD_ITEM = it.COD_ITEM
+    ON fi.COD_PRODUTO = p.COD_PRODUTO
 
   LEFT JOIN PESSOA forn
     ON forn.COD_PESSOA = fi.COD_PESSOA
