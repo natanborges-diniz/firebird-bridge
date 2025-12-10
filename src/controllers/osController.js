@@ -4,10 +4,9 @@ const osService = require('../services/osService');
 const { success, failure, handleControllerError } = require('../utils/apiResponse');
 
 function validatePeriodoQuery(req, res) {
-  const { empresa, dataInicio, dataFim } = req.query;
+  const { dataInicio, dataFim, codEmpresa, empresa } = req.query;
 
   const missing = [];
-  if (!empresa) missing.push('empresa');
   if (!dataInicio) missing.push('dataInicio');
   if (!dataFim) missing.push('dataFim');
 
@@ -16,20 +15,40 @@ function validatePeriodoQuery(req, res) {
       code: 'INVALID_PARAMS',
       message: 'Parâmetros obrigatórios ausentes',
       details: { missing },
-      status: 400
+      status: 400,
     });
     return null;
   }
 
-  return { empresa, dataInicio, dataFim };
+  let codEmpresaNum = null;
+  const rawEmpresa = codEmpresa ?? empresa;
+  if (rawEmpresa !== undefined && rawEmpresa !== null && rawEmpresa !== '') {
+    const num = Number(rawEmpresa);
+    if (!Number.isFinite(num)) {
+      failure(res, {
+        code: 'INVALID_PARAMS',
+        message: 'codEmpresa deve ser numérico',
+        details: { codEmpresa: rawEmpresa },
+        status: 400,
+      });
+      return null;
+    }
+    codEmpresaNum = num;
+  }
+
+  return {
+    dataInicio,
+    dataFim,
+    codEmpresa: codEmpresaNum,
+  };
 }
 
-async function monitor(req, res) {
+async function monitorOs(req, res) {
   try {
     const params = validatePeriodoQuery(req, res);
     if (!params) return;
 
-    const rows = await osService.getMonitor(params);
+    const rows = await osService.getMonitorOs(params);
     return success(res, rows);
   } catch (err) {
     return handleControllerError(res, err);
@@ -37,5 +56,5 @@ async function monitor(req, res) {
 }
 
 module.exports = {
-  monitor
+  monitorOs,
 };
