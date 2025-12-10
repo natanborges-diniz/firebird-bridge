@@ -1,71 +1,77 @@
-// src/services/financeiroService.ts
+// src/services/financeiroService.js
+// Serviço de FINANCEIRO no BRIDGE (Node.js + Firebird)
 
-import { apiGet } from "@/lib/apiClient";
+// CommonJS, pois o projeto do bridge usa require/module.exports
 
-export interface FinanceiroPeriodoParams {
-  empresa: number | string;
-  dataInicio: string; // 'YYYY-MM-DD'
-  dataFim: string;    // 'YYYY-MM-DD'
-}
-
-export interface FinanceiroParcela {
-  cod_empresa: number;
-  empresa_nome: string;
-  cod_lancamento: number;
-  lancamento_pagar: "T" | "F" | string;
-  lancamento_previsao: "T" | "F" | string;
-  lancamento_documento: string | null;
-
-  pessoa_cod_pessoa: number;
-  pessoa_nome: string;
-
-  parcela_id: number;
-  parcela_data_emissao: string | null;
-  parcela_data_vencimento: string | null;
-  parcela_data_pagamento: string | null;
-  parcela_data_recebimento: string | null;
-  parcela_valor: number;
-  parcela_valor_original: number;
-  parcela_valor_pago: number;
-
-  parcela_situacao: string;
-
-  contacla_codigo: number | null;
-  contacla_numero: string | null;
-  contacla_descricao: string | null;
-
-  formapagto_codigo: number | null;
-  formapagto_tipo_codigo: number | null;
-  formapagto_tipo_nome: string | null;
-
-  [key: string]: any;
-}
-
-export type FinanceiroDreLinha = Record<string, any>;
+const path = require("path");
+const fs = require("fs");
+const db = require("../db"); // src/db/index.js
 
 /**
- * GET /financeiro/parcelas
+ * Carrega um arquivo .sql da pasta queries/financeiro
+ * Estrutura esperada:
+ *   /app
+ *     /src
+ *       /services/financeiroService.js  (__dirname aqui)
+ *     /queries
+ *       /financeiro
+ *         financeiro_parcelas.sql
+ *         financeiro_dre.sql
  */
-export async function fetchFinanceiroParcelas(
-  params: FinanceiroPeriodoParams
-): Promise<FinanceiroParcela[]> {
-  return apiGet<FinanceiroParcela[]>("/financeiro/parcelas", {
-    empresa: params.empresa,
-    dataInicio: params.dataInicio,
-    dataFim: params.dataFim,
-  });
+function loadSql(fileName) {
+  const filePath = path.join(__dirname, "..", "..", "queries", "financeiro", fileName);
+  return fs.readFileSync(filePath, "utf8");
+}
+
+// SQLs externos
+const sqlParcelas = loadSql("financeiro_parcelas.sql");
+
+let sqlDre;
+try {
+  sqlDre = loadSql("financeiro_dre.sql");
+} catch (e) {
+  console.warn(
+    "[financeiroService] Atenção: queries/financeiro/financeiro_dre.sql não encontrado. " +
+      "O endpoint de DRE vai falhar até você criar esse arquivo."
+  );
 }
 
 /**
- * GET /financeiro/dre
- * (ajuste o path se estiver diferente no bridge)
+ * Busca parcelas financeiras (pagar/receber) por período e empresa
+ * Parâmetros vêm do controller já validados:
+ *   { empresa, dataInicio, dataFim }
+ *
+ * A query financeiro_parcelas.sql deve esperar:
+ *   where fl.cod_empresa = ?
+ *     and fp.datavencimento between ? and ?
  */
-export async function fetchFinanceiroDre(
-  params: FinanceiroPeriodoParams
-): Promise<FinanceiroDreLinha[]> {
-  return apiGet<FinanceiroDreLinha[]>("/financeiro/dre", {
-    empresa: params.empresa,
-    dataInicio: params.dataInicio,
-    dataFim: params.dataFim,
-  });
+async function getParcelas({ empresa, dataInicio, dataFim }) {
+  const params = [empresa, dataInicio, dataFim];
+  const rows = await db.query(sqlParcelas, params);
+  return rows;
 }
+
+/**
+ * DRE Gerencial (por competência = data de emissão ou competência da query)
+ * Parâmetros:
+ *   { empresa, dataInicio, dataFim }
+ *
+ * A query financeiro_dre.sql deve usar os mesmos três parâmetros nessa ordem.
+ */
+async function getDre({ empresa, dataInicio, dataFim }) {
+  if (!sqlDre) {
+    throw new Error(
+      "Arquivo queries/financeiro/financeiro_dre.sql não encontrado. " +
+        "Crie o arquivo para habilitar o endpoint de DRE."
+    );
+  }
+
+  const params = [empresa, dataInicio, dataFim];
+  const rows = await db.query(sqlDre, params);
+  return rows;
+}
+
+module.exports = {
+  getParcelas,
+  getDre,
+};
