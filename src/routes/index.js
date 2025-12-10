@@ -8,6 +8,7 @@ const financeiroRoutes  = require('./financeiroRoutes');
 const vendasRoutes      = require('./vendasRoutes');
 const debugRoutes       = require('./debugRoutes');
 const estoqueRoutes     = require('./estoqueRoutes'); // ⬅ novo
+const osRoutes          = require('./osRoutes');
 
 // Health check
 router.get('/health', healthController.health);
@@ -23,5 +24,8 @@ router.use('/debug', debugRoutes);
 
 // Módulo Estoque
 router.use('/estoque', estoqueRoutes);
+
+// Módulo OS
+router.use('/os', osRoutes);
 
 module.exports = router;
