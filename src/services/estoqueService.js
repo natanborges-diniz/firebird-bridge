@@ -1,48 +1,25 @@
-// src/services/estoqueService.ts
+// src/services/estoqueService.js
+const path = require("path");
+const fs = require("fs");
+const db = require("../db"); // expõe db.query
 
-import { apiGet } from "@/lib/apiClient";
-
-export interface EstoqueAnaliseParams {
-  empresa: number | string;
+function loadSql(fileName) {
+  const filePath = path.join(__dirname, "..", "..", "queries", "estoque", fileName);
+  return fs.readFileSync(filePath, "utf8");
 }
 
-export interface EstoqueAnaliseItem {
-  cod_empresa?: number;
-  empresa?: string;
-
-  cod_item?: number;
-  descricao_item?: string;
-
-  quantidade_estoque?: number;
-  saldo_estoque?: number;
-  estoque_minimo?: number;
-  estoque_maximo?: number;
-
-  data_ultima_entrada?: string | null;
-  data_ultima_movimentacao?: string | null;
-  dias_estoque?: number | null;
-
-  caf?: number | null;
-  cobertura_minimo?: number | null;
-
-  acao?: string;
-  acao_sugerida?: string;
-
-  fornecedor_cod_pessoa?: number;
-  fornecedor_nome?: string;
-
-  [key: string]: any;
-}
+const sqlAnaliseEstoqueAcao = loadSql("analise_estoque_acao.sql");
 
 /**
- * GET /estoque/analise-acao
+ * Análise de estoque com ação sugerida por empresa.
+ * @param {number|string} codEmpresa
  */
-export async function fetchEstoqueAnaliseAcao(
-  params: EstoqueAnaliseParams
-): Promise<EstoqueAnaliseItem[]> {
-  // no bridge o controller aceita codEmpresa ou empresa;
-  // aqui mandamos codEmpresa explicitamente
-  return apiGet<EstoqueAnaliseItem[]>("/estoque/analise-acao", {
-    codEmpresa: params.empresa,
-  });
+async function getAnaliseEstoqueAcao(codEmpresa) {
+  const params = [codEmpresa];
+  const rows = await db.query(sqlAnaliseEstoqueAcao, params);
+  return rows;
 }
+
+module.exports = {
+  getAnaliseEstoqueAcao
+};
