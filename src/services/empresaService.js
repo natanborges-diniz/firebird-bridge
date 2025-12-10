@@ -1,7 +1,7 @@
 // src/services/empresaService.js
-
-const db = require('../db');
-const loadSQL = require('../utils/loadSQL');
+const path = require("path");
+const fs = require("fs");
+const db = require("../db");
 
 async function getEmpresas() {
   const sql = loadSQL('empresas/listarEmpresas.sql');
