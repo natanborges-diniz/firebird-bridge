@@ -9,7 +9,7 @@ const { getEmpresasLogicas } = require('./empresaService');
  * Helper para carregar SQL da pasta queries/financeiro
  */
 function loadSql(fileName) {
-  const filePath = path.join(__dirname, '..', '..', 'queries', 'financeiro', fileName);
+  const filePath = path.join(__dirname,  '..', 'queries', 'financeiro', fileName);
   return fs.readFileSync(filePath, 'utf8');
 }
 
