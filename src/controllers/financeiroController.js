@@ -7,7 +7,6 @@ function validatePeriodoQuery(req, res) {
   const { empresa, dataInicio, dataFim } = req.query;
 
   const missing = [];
-  if (!empresa) missing.push('empresa');
   if (!dataInicio) missing.push('dataInicio');
   if (!dataFim) missing.push('dataFim');
 
@@ -16,7 +15,7 @@ function validatePeriodoQuery(req, res) {
       code: 'INVALID_PARAMS',
       message: 'Parâmetros obrigatórios ausentes',
       details: { missing },
-      status: 400
+      status: 400,
     });
     return null;
   }
@@ -29,30 +28,21 @@ async function listarParcelas(req, res) {
     const params = validatePeriodoQuery(req, res);
     if (!params) return;
 
-    const rows = await financeiroService.getParcelas({
-      codEmpresa: params.empresa,
-      dataIni: params.dataInicio,
-      dataFim: params.dataFim
-    });
-
+    const rows = await financeiroService.getParcelas(params);
     return success(res, rows);
   } catch (err) {
     return handleControllerError(res, err);
   }
 }
 
+// manter stub de DRE se ainda não estiver pronto
 async function obterDRE(req, res) {
   try {
-    const params = validatePeriodoQuery(req, res);
-    if (!params) return;
-
-    const dre = await financeiroService.getDre({
-      codEmpresa: params.empresa,
-      dataIni: params.dataInicio,
-      dataFim: params.dataFim
+    return failure(res, {
+      code: 'NOT_IMPLEMENTED',
+      message: 'Endpoint DRE ainda não implementado nesta versão',
+      status: 501,
     });
-
-    return success(res, dre);
   } catch (err) {
     return handleControllerError(res, err);
   }
@@ -60,5 +50,5 @@ async function obterDRE(req, res) {
 
 module.exports = {
   listarParcelas,
-  obterDRE
+  obterDRE,
 };
