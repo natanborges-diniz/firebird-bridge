@@ -1,12 +1,10 @@
 // src/utils/apiResponse.js
-const { normalizeEmpresas } = require('./empresaNormalizer');
 
-function success(res, data, status = 200) {
-  const normalizedData = normalizeEmpresas(data);
-  return res.status(status).json({
+function success(res, data) {
+  return res.json({
     ok: true,
-    data: normalizedData,
-    error: null
+    data,
+    error: null,
   });
 }
 
@@ -17,8 +15,8 @@ function failure(res, { code, message, details = null, status = 400 }) {
     error: {
       code,
       message,
-      details
-    }
+      details,
+    },
   });
 }
 
@@ -27,14 +25,14 @@ function handleControllerError(res, err) {
 
   return failure(res, {
     code: 'INTERNAL_ERROR',
-    message: 'Erro inesperado no servidor',
+    message: 'Erro inesperado na aplicação',
     details: null,
-    status: 500
+    status: 500,
   });
 }
 
 module.exports = {
   success,
   failure,
-  handleControllerError
+  handleControllerError,
 };
