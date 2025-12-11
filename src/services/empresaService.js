@@ -8,7 +8,7 @@ function loadSQL(relativePath) {
   // __dirname = /app/src/services
   // ..        = /app/src
   // queries   = /app/src/queries
-  console.log(path.join(__dirname, '..', '..', 'queries', 'empresas', relativePath));
+  console.log(path.join(__dirname, '..', '..', 'queries', 'empresas', fileName));
   return fs.readFileSync(filePath, 'utf8');
 }
 
