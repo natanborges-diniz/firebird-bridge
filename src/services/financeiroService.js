@@ -123,12 +123,68 @@ async function getDreComEmpresas({ empresaFilter, dataInicio, dataFim }) {
   return results.flat();
 }
 
-module.exports = {
-  // single (se precisar em algum lugar específico)
-  getParcelasSingle,
-  getDreSingle,
+/**
+ * 🔁 ALIASES de compatibilidade
+ * Caso algum controller antigo ainda chame:
+ *   financeiroService.getParcelas({ empresa, dataInicio, dataFim })
+ *   financeiroService.getDRE({ empresa, dataInicio, dataFim })
+ */
+async function getParcelas(params) {
+  const { empresa, codEmpresa, dataInicio, dataFim, dataIni } = params || {};
 
-  // multi/all (usado pelos controllers)
+  const emp =
+    empresa != null
+      ? Number(empresa)
+      : codEmpresa != null
+      ? Number(codEmpresa)
+      : undefined;
+
+  if (!emp) {
+    throw new Error('Parâmetro "empresa" é obrigatório em getParcelas() legado.');
+  }
+
+  const inicio = dataInicio || dataIni;
+  const fim = dataFim;
+
+  return getParcelasSingle({
+    empresa: emp,
+    dataInicio: inicio,
+    dataFim: fim,
+  });
+}
+
+async function getDRE(params) {
+  const { empresa, codEmpresa, dataInicio, dataFim, dataIni } = params || {};
+
+  const emp =
+    empresa != null
+      ? Number(empresa)
+      : codEmpresa != null
+      ? Number(codEmpresa)
+      : undefined;
+
+  if (!emp) {
+    throw new Error('Parâmetro "empresa" é obrigatório em getDRE() legado.');
+  }
+
+  const inicio = dataInicio || dataIni;
+  const fim = dataFim;
+
+  return getDreSingle({
+    empresa: emp,
+    dataInicio: inicio,
+    dataFim: fim,
+  });
+}
+
+module.exports = {
+  // novas APIs
+  getParcelasSingle,
   getParcelasComEmpresas,
+  getDreSingle,
   getDreComEmpresas,
+
+  // compatibilidade com código antigo
+  getParcelas,
+  getDRE,
 };
