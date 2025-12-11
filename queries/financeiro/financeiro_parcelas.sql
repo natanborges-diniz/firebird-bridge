@@ -1,3 +1,11 @@
+-- queries/financeiro/financeiro_parcelas.sql
+-- Parcelas financeiras (pagar/receber) por empresa e período
+-- Parâmetros:
+--   1) empresa         (INTEGER)
+--   2) empresa         (INTEGER) - de novo, para regra 13/18
+--   3) dataInicio      (DATE)
+--   4) dataFim         (DATE)
+
 select
   /* EMPRESA / CONTRAPARTE */
   fl.cod_empresa                              as cod_empresa,
