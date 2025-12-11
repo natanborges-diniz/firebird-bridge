@@ -2,65 +2,99 @@
 
 const path = require('path');
 const fs = require('fs');
-const db = require('../db'); // src/db/index.js
-
-function loadSQL(relativePath) {
-  // __dirname = /app/src/services
-  // ..        = /app/src
-  // queries   = /app/src/queries
-  console.log(path.join(__dirname, '..', '..', 'queries', 'empresas', fileName));
-  return fs.readFileSync(filePath, 'utf8');
-}
+const db = require('../db');
 
 /**
- * Retorna as empresas já tratadas conforme regra de negócio:
- * - ignora empresas lixo (3,5,7,8,11,12)
- * - unifica SUPER (13 e 18 → 13, "DINIZ SUPER")
+ * Carrega SQL da pasta /app/queries/empresas
  *
- * Essa lógica deve estar no SQL:
- *   src/queries/empresas/listarEmpresas.sql
- *
- * Exemplo de SQL recomendado:
- *
- *   SELECT
- *     CASE
- *       WHEN e.cod_empresa IN (13,18) THEN 13
- *       ELSE e.cod_empresa
- *     END AS COD_EMPRESA,
- *     CASE
- *       WHEN e.cod_empresa IN (13,18) THEN 'DINIZ SUPER'
- *       ELSE p.nome
- *     END AS EMPRESA_NOME
- *   FROM empresa e
- *   JOIN pessoa p ON p.cod_pessoa = e.cod_empresa
- *   WHERE e.cod_empresa NOT IN (3,5,7,8,11,12)
- *   GROUP BY 1,2
- *   ORDER BY EMPRESA_NOME;
+ * __dirname = /app/src/services
+ * ..        = /app/src
+ * ..        = /app
+ * queries/empresas = /app/queries/empresas
  */
-async function getEmpresasRaw() {
-  const sql = loadSQL('empresas/listarEmpresas.sql');
-  const rows = await db.runQuery(sql, []);
+function loadSql(filename) {
+  const filePath = path.join(__dirname, '..', '..', 'queries', 'empresas', filename);
+
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (err) {
+    console.error(`[EMPRESA] SQL FILE NOT FOUND: ${filePath}`);
+    throw err;
+  }
+}
+
+// SQL principal
+const SQL_LISTAR_EMPRESAS = loadSql('listarEmpresas.sql');
+
+/**
+ * Retorna a lista de empresas “cruas” vinda do Firebird.
+ * Depende do conteúdo de queries/empresas/listarEmpresas.sql
+ */
+async function getEmpresas() {
+  const rows = await db.runQuery(SQL_LISTAR_EMPRESAS);
   return rows;
 }
 
 /**
- * Normaliza o formato para uso interno em outros services.
+ * Helper para pegar um campo independente do nome exato.
+ * Tenta uma lista de candidatos e devolve o primeiro que existir.
  */
-async function getEmpresasLogicas() {
-  const rows = await getEmpresasRaw();
-
-  return rows.map((r) => ({
-    codEmpresa: r.COD_EMPRESA,
-    empresaNome: r.EMPRESA_NOME,
-  }));
+function getField(row, candidates) {
+  for (const c of candidates) {
+    if (Object.prototype.hasOwnProperty.call(row, c)) {
+      return row[c];
+    }
+  }
+  return undefined;
 }
 
 /**
- * Usado pelo controller /api/v1/empresas
- * Retorna os mesmos campos em UPPERCASE que vêm da query.
+ * Empresas lógicas para filtros:
+ *  - Remove empresas “lixo”: 3, 5, 7, 8, 11, 12
+ *  - Une as empresas 13 e 18 em uma só “DINIZ SUPER” (codEmpresa = 13)
+ *
+ * Retorno:
+ * [
+ *   { codEmpresa: 1,  empresaNome: 'DINIZ PRIMITIVA I' },
+ *   { codEmpresa: 9,  empresaNome: 'DINIZ ANTONIO AGU' },
+ *   { codEmpresa: 13, empresaNome: 'DINIZ SUPER' },
+ *   ...
+ * ]
  */
-async function getEmpresas() {
-  return getEmpresasRaw();
+async function getEmpresasLogicas() {
+  const rows = await getEmpresas();
+
+  const lixo = new Set([3, 5, 7, 8, 11, 12]);
+  const map = new Map(); // key = cod_logico, value = { codEmpresa, empresaNome }
+
+  for (const row of rows) {
+    const codOriginal = Number(
+      getField(row, ['COD_EMPRESA', 'EMPRESA', 'EMPRESA_COD', 'EMPRESAID', 'EMPRESA_CODIGO'])
+    );
+
+    if (!codOriginal || Number.isNaN(codOriginal)) continue;
+    if (lixo.has(codOriginal)) continue;
+
+    const nomeOriginal =
+      getField(row, ['EMPRESA_NOME', 'NOME', 'NOME_FANTASIA', 'RAZAO_SOCIAL']) || '';
+
+    let codLogico = codOriginal;
+    let nomeLogico = nomeOriginal;
+
+    if (codOriginal === 13 || codOriginal === 18) {
+      codLogico = 13;
+      nomeLogico = 'DINIZ SUPER';
+    }
+
+    if (!map.has(codLogico)) {
+      map.set(codLogico, {
+        codEmpresa: codLogico,
+        empresaNome: nomeLogico,
+      });
+    }
+  }
+
+  return Array.from(map.values());
 }
 
 module.exports = {
