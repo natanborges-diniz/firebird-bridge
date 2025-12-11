@@ -2,19 +2,14 @@
 
 const path = require('path');
 const fs = require('fs');
-const db = require('../db'); // src/db/index.js
+const db = require('../db');
 const { getEmpresasLogicas } = require('./empresaService');
 
-/**
- * Helper para carregar SQL da pasta queries/financeiro
- */
 function loadSql(fileName) {
-  // __dirname = /app/src/services
   const filePath = path.join(__dirname, '..', '..', 'queries', 'financeiro', fileName);
   return fs.readFileSync(filePath, 'utf8');
 }
 
-// SQLs
 const sqlParcelas = loadSql('financeiro_parcelas.sql');
 
 let sqlDre;
@@ -34,10 +29,13 @@ try {
  * @param {string} dataFim    - 'YYYY-MM-DD'
  */
 async function getParcelasSingle({ empresa, dataInicio, dataFim }) {
-  // Ordem deve bater com a query:
-  // where fl.cod_empresa = ?
-  //   and fp.datavencimento between ? and ?
-  const params = [empresa, dataInicio, dataFim];
+  // ⚠️ IMPORTANTE: a SQL tem 4 "?":
+  //   fl.cod_empresa = cast(? as integer)
+  //   cast(? as integer) in (13,18)
+  //   between cast(? as date) and cast(? as date)
+  //
+  // então precisamos mandar 4 parâmetros:
+  const params = [empresa, empresa, dataInicio, dataFim];
   const rows = await db.runQuery(sqlParcelas, params);
   return rows;
 }
@@ -47,11 +45,6 @@ async function getParcelasSingle({ empresa, dataInicio, dataFim }) {
  * - single: uma empresa
  * - multi: várias empresas
  * - all: todas empresas lógicas válidas
- *
- * @param {object} opts
- * @param {{mode: 'single'|'multi'|'all', empresas: number[]|null}} opts.empresaFilter
- * @param {string} opts.dataInicio
- * @param {string} opts.dataFim
  */
 async function getParcelasComEmpresas({ empresaFilter, dataInicio, dataFim }) {
   if (empresaFilter.mode === 'single') {
@@ -60,11 +53,9 @@ async function getParcelasComEmpresas({ empresaFilter, dataInicio, dataFim }) {
   }
 
   let empresas;
-
   if (empresaFilter.mode === 'multi') {
     empresas = empresaFilter.empresas;
   } else {
-    // mode === 'all' → buscar todas empresas lógicas válidas
     const lista = await getEmpresasLogicas();
     empresas = lista.map((e) => e.codEmpresa);
   }
@@ -79,26 +70,18 @@ async function getParcelasComEmpresas({ empresaFilter, dataInicio, dataFim }) {
 }
 
 /**
- * DRE
- * Busca DRE para UMA empresa (single)
- * @param {number} empresa
- * @param {string} dataInicio - 'YYYY-MM-DD'
- * @param {string} dataFim    - 'YYYY-MM-DD'
+ * DRE (mantém 3 parâmetros, a não ser que sua SQL de DRE também tenha 4 "?")
  */
 async function getDreSingle({ empresa, dataInicio, dataFim }) {
   if (!sqlDre) {
     throw new Error('Arquivo financeiro_dre.sql não encontrado em queries/financeiro');
   }
 
-  // ordem deve bater com a query DRE
   const params = [empresa, dataInicio, dataFim];
   const rows = await db.runQuery(sqlDre, params);
   return rows;
 }
 
-/**
- * DRE com suporte a single/multi/all empresas
- */
 async function getDreComEmpresas({ empresaFilter, dataInicio, dataFim }) {
   if (empresaFilter.mode === 'single') {
     const cod = empresaFilter.empresas[0];
@@ -106,7 +89,6 @@ async function getDreComEmpresas({ empresaFilter, dataInicio, dataFim }) {
   }
 
   let empresas;
-
   if (empresaFilter.mode === 'multi') {
     empresas = empresaFilter.empresas;
   } else {
@@ -123,12 +105,7 @@ async function getDreComEmpresas({ empresaFilter, dataInicio, dataFim }) {
   return results.flat();
 }
 
-/**
- * 🔁 ALIASES de compatibilidade
- * Caso algum controller antigo ainda chame:
- *   financeiroService.getParcelas({ empresa, dataInicio, dataFim })
- *   financeiroService.getDRE({ empresa, dataInicio, dataFim })
- */
+/** Aliases legados (se algum lugar ainda chamar getParcelas/getDRE) */
 async function getParcelas(params) {
   const { empresa, codEmpresa, dataInicio, dataFim, dataIni } = params || {};
 
@@ -178,13 +155,10 @@ async function getDRE(params) {
 }
 
 module.exports = {
-  // novas APIs
   getParcelasSingle,
   getParcelasComEmpresas,
   getDreSingle,
   getDreComEmpresas,
-
-  // compatibilidade com código antigo
   getParcelas,
   getDRE,
 };
