@@ -3,10 +3,22 @@
 const path = require('path');
 const fs = require('fs');
 const db = require('../db');
-const empresaService = require('./empresaService');
+
+// Empresas que nunca entram (lixo)
+const EMPRESAS_LIXO = new Set([3, 5, 7, 8, 11, 12]);
+
+// Para empresa=ALL -> vamos usar essa lista lógica.
+// 13 já cobre 13 e 18 por causa da regra da SQL.
+// (Se quiser, pode ajustar essa lista depois.)
+const EMPRESAS_ALL_LOGICAS = [1, 2, 4, 6, 9, 13, 14, 15, 16, 17];
 
 /**
  * Carrega SQL da pasta /app/queries/financeiro
+ *
+ * __dirname = /app/src/services
+ * ..        = /app/src
+ * ..        = /app
+ * queries/financeiro = /app/queries/financeiro
  */
 function loadSql(filename) {
   const filePath = path.join(__dirname, '..', '..', 'queries', 'financeiro', filename);
@@ -22,8 +34,7 @@ function loadSql(filename) {
 const SQL_PARCELAS = loadSql('financeiro_parcelas.sql');
 
 /**
- * Normaliza lista de empresas a partir da querystring.
- * Ex.: "1, 9,13" -> [1,9,13]
+ * Converte "1, 9,13" -> [1, 9, 13]
  */
 function parseEmpresasLista(empresaStr) {
   if (!empresaStr) return [];
@@ -39,101 +50,94 @@ function parseEmpresasLista(empresaStr) {
 }
 
 /**
- * Extrai campo independente de maiúsculo/alias.
+ * Consulta a SQL de parcelas PARA UMA empresa.
+ *
+ * Ordem dos parâmetros:
+ *   1) cod_empresa
+ *   2) cod_empresa (de novo, para o trecho do 13/18)
+ *   3) dataInicio
+ *   4) dataFim
  */
-function getField(row, candidates) {
-  for (const c of candidates) {
-    if (Object.prototype.hasOwnProperty.call(row, c)) {
-      return row[c];
-    }
-  }
-  return undefined;
+async function getParcelasPorEmpresa(codEmpresa, dataInicio, dataFim) {
+  const params = [codEmpresa, codEmpresa, dataInicio, dataFim];
+  return db.runQuery(SQL_PARCELAS, params);
 }
 
 /**
- * Calcula o "código lógico" da empresa para uma linha:
- * - 3,5,7,8,11,12 -> lixo (retorna null)
- * - 13/18 -> 13  (DINIZ SUPER)
- * - demais -> o próprio código
- */
-function getEmpresaLogicaFromRow(row) {
-  const lixo = new Set([3, 5, 7, 8, 11, 12]);
-
-  const codOriginal = Number(
-    getField(row, ['EMPRESA_COD_LOGICO', 'EMPRESA_CODIGO_LOGICO', 'EMPRESA_CODIGO', 'COD_EMPRESA', 'COD_EMPRESA_LOGICO'])
-  );
-
-  // Se não achar cod_logico, tenta cod_empresa normal:
-  const cod = !Number.isNaN(codOriginal) && codOriginal
-    ? codOriginal
-    : Number(getField(row, ['COD_EMPRESA']));
-
-  if (!cod || Number.isNaN(cod)) return null;
-  if (lixo.has(cod)) return null;
-
-  if (cod === 13 || cod === 18) return 13;
-  return cod;
-}
-
-/**
- * Principal: busca parcelas, filtrando empresas no NODE.
+ * API principal chamada pelo controller.
  *
  * Regras:
- *  - empresa ausente ou "ALL"        -> todas empresas (menos lixo), com SUPER unificada
- *  - empresa = "1"                   -> só empresa lógica 1
- *  - empresa = "1,9,13"              -> empresas lógicas 1, 9 e 13
+ *  - empresa ausente ou "ALL"        -> EMPRESAS_ALL_LOGICAS
+ *  - empresa = "1"                   -> só empresa 1
+ *  - empresa = "1,9,13"              -> 1, 9, 13 (ignorando lixo)
+ *
+ * A SQL continua responsável por:
+ *  - ignorar empresas lixo (3,5,7,8,11,12)
+ *  - unificar 13/18 como "empresa_cod_logico = 13"
  */
 async function getParcelas({ empresa, dataInicio, dataFim }) {
-  // 1) Busca bruto: SQL só filtra por data + remove lixo
-  const params = [dataInicio, dataFim];
-  const rows = await db.runQuery(SQL_PARCELAS, params);
+  const empRaw = (empresa || '').trim();
 
-  if (!rows || rows.length === 0) {
+  // ---------------------------------------------------------------------------
+  // CASO 1: empresa ausente ou ALL -> varre lista padrão
+  // ---------------------------------------------------------------------------
+  if (!empRaw || empRaw.toUpperCase() === 'ALL') {
+    let allRows = [];
+
+    for (const cod of EMPRESAS_ALL_LOGICAS) {
+      try {
+        const rows = await getParcelasPorEmpresa(cod, dataInicio, dataFim);
+        if (rows && rows.length > 0) {
+          allRows = allRows.concat(rows);
+        }
+      } catch (err) {
+        console.error(
+          `[FINANCEIRO] Erro ao buscar parcelas (ALL) para empresa ${cod}:`,
+          err.message || err
+        );
+        // continua nas demais
+      }
+    }
+
+    return allRows;
+  }
+
+  // ---------------------------------------------------------------------------
+  // CASO 2: empresa explícita (1 ou lista "1,9,13")
+  // ---------------------------------------------------------------------------
+  const cods = parseEmpresasLista(empRaw);
+
+  if (cods.length === 0) {
+    // Parâmetro empresa veio, mas não deu pra parsear nada útil
     return [];
   }
 
-  const empRaw = (empresa || '').trim().toUpperCase();
+  let allRows = [];
 
-  // 2) Calcula empresa lógica de cada linha
-  const enriched = rows
-    .map((row) => {
-      const codLogico = getEmpresaLogicaFromRow(row);
-      if (codLogico == null) return null;
+  for (const cod of cods) {
+    // pula lixo já aqui, pra evitar chamadas desnecessárias
+    if (EMPRESAS_LIXO.has(cod)) {
+      continue;
+    }
 
-      // nome lógico se vier da SQL, senão tenta nome normal
-      const nomeLogico =
-        getField(row, ['EMPRESA_NOME_LOGICO', 'EMPRESA_NOME']) || null;
-
-      return {
-        ...row,
-        EMPRESA_COD_LOGICO: codLogico,
-        EMPRESA_NOME_LOGICO: nomeLogico,
-      };
-    })
-    .filter(Boolean);
-
-  if (!empRaw || empRaw === 'ALL') {
-    // Retorna tudo já enriquecido
-    return enriched;
+    try {
+      const rows = await getParcelasPorEmpresa(cod, dataInicio, dataFim);
+      if (rows && rows.length > 0) {
+        allRows = allRows.concat(rows);
+      }
+    } catch (err) {
+      console.error(
+        `[FINANCEIRO] Erro ao buscar parcelas para empresa ${cod}:`,
+        err.message || err
+      );
+    }
   }
 
-  // 3) Se veio uma lista explícita (ex.: "1,9,13"), filtra nela
-  const lista = parseEmpresasLista(empRaw);
-  if (lista.length === 0) {
-    // Nenhum código válido na lista; melhor retornar vazio
-    return [];
-  }
-
-  const set = new Set(lista);
-
-  const filtrado = enriched.filter((row) =>
-    set.has(Number(row.EMPRESA_COD_LOGICO))
-  );
-
-  return filtrado;
+  return allRows;
 }
 
-// DRE: mantém como está, ou implementamos depois com a mesma lógica de ALL
+// Deixo o DRE como stub por enquanto; você pode manter
+// sua implementação antiga aqui, se já estiver funcionando.
 async function getDre(params) {
   throw new Error('getDre ainda não foi reimplementado neste arquivo.');
 }
