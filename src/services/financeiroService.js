@@ -9,7 +9,6 @@ const EMPRESAS_LIXO = new Set([3, 5, 7, 8, 11, 12]);
 
 // Para empresa=ALL -> vamos usar essa lista lógica.
 // 13 já cobre 13 e 18 por causa da regra da SQL.
-// (Se quiser, pode ajustar essa lista depois.)
 const EMPRESAS_ALL_LOGICAS = [1, 2, 4, 6, 9, 13, 14, 15, 16, 17];
 
 /**
@@ -136,8 +135,7 @@ async function getParcelas({ empresa, dataInicio, dataFim }) {
   return allRows;
 }
 
-// Deixo o DRE como stub por enquanto; você pode manter
-// sua implementação antiga aqui, se já estiver funcionando.
+// DRE: stub por enquanto (pode manter sua implementação antiga aqui)
 async function getDre(params) {
   throw new Error('getDre ainda não foi reimplementado neste arquivo.');
 }
