@@ -1,16 +1,16 @@
 // src/routes/vendasRoutes.js
-
 const express = require('express');
 const router = express.Router();
+
 const vendasController = require('../controllers/vendasController');
 
-// GET /vendas/resumo-empresa-vendedor
+// Prefixo já é aplicado em src/routes/index.js (ex: /api/v1/vendas)
 router.get('/resumo-empresa-vendedor', vendasController.resumoEmpresaVendedor);
-
-// GET /vendas/resumo-formas-pagamento
 router.get('/resumo-formas-pagamento', vendasController.resumoFormasPagamento);
 
-// GET /vendas/analise-familia-vendedor
-router.get('/analise-familia-vendedor', vendasController.analiseFamiliaVendedor);
+// se você tiver esse endpoint implementado no controller:
+if (typeof vendasController.analiseFamiliaVendedor === 'function') {
+  router.get('/analise-familia-vendedor', vendasController.analiseFamiliaVendedor);
+}
 
 module.exports = router;
