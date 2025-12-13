@@ -1,39 +1,44 @@
 -- queries/vendas/formas_pagamento_resumo.sql
--- Resumo de vendas por empresa, vendedor e forma de pagamento.
+-- Resumo por empresa/vendedor/forma de pagamento (inclui CONVENIO e DEVOLUCAO)
 -- Parâmetros:
---   1) dataInicio (DATE)
---   2) dataFim (DATE)
---   3) dataInicio (para convênio)
---   4) dataFim (para convênio)
---   5) dataInicio (para devolução)
---   6) dataFim (para devolução)
+--   1) empresa (int)
+--   2) empresa (int) (repetido p/ regra 13/18)
+--   3) dataInicio (date) - vendas (DATAEMISSAO)
+--   4) dataFim (date)    - vendas (DATAEMISSAO)
+--   5) dataInicio (date) - devolução (DATAENCERRAMENTO)
+--   6) dataFim (date)    - devolução (DATAENCERRAMENTO)
 
-WITH TBEMPRESA AS
-(
+WITH
+empresas_filtradas AS (
+  SELECT e.COD_EMPRESA
+  FROM EMPRESA e
+  WHERE e.COD_EMPRESA NOT IN (3, 5, 7, 8, 11, 12)
+    AND (
+      e.COD_EMPRESA = CAST(? AS INTEGER)
+      OR (
+        CAST(? AS INTEGER) IN (13, 18)
+        AND e.COD_EMPRESA IN (13, 18)
+      )
+    )
+),
+tbempresa AS (
   SELECT
-    PESSOA.NOME AS EMPRESA,
-    EMPRESA.COD_EMPRESA
-  /* CAMPOS LÓGICOS DE EMPRESA (SUPER + SUPER SHOPPING) */
-  case
-    when fl.cod_empresa in (13, 18) then 13
-    else fl.cod_empresa
-  end                                         as empresa_cod_logico,
-
-  case
-    when fl.cod_empresa in (13, 18) then 'DINIZ SUPER'
-    else pe_emp.nome
-  end                                         as empresa_nome_logico,
-  FROM
-    PESSOA
-    JOIN EMPRESA ON (PESSOA.COD_PESSOA = EMPRESA.COD_EMPRESA)
+    e.COD_EMPRESA,
+    p.NOME AS EMPRESA,
+    CASE WHEN e.COD_EMPRESA IN (13, 18) THEN 13 ELSE e.COD_EMPRESA END AS empresa_cod_logico,
+    CASE WHEN e.COD_EMPRESA IN (13, 18) THEN 'DINIZ SUPER' ELSE p.NOME END AS empresa_nome_logico
+  FROM EMPRESA e
+  JOIN PESSOA p ON p.COD_PESSOA = e.COD_EMPRESA
+  JOIN empresas_filtradas ef ON ef.COD_EMPRESA = e.COD_EMPRESA
 )
 
--- BLOCO PRINCIPAL: VENDAS NORMAIS, AGRUPADAS POR FORMA DE PAGAMENTO
+-- VENDAS NORMAIS
 SELECT
-  TBEMPRESA.EMPRESA,
-  vendedor.nome AS VENDEDOR,
+  tbempresa.EMPRESA,
+  tbempresa.empresa_cod_logico,
+  tbempresa.empresa_nome_logico,
+  vendedor.NOME AS VENDEDOR,
 
-  -- Tipo consolidado de forma de pagamento
   CASE finformapagamento.cod_formapagamentotipo
     WHEN 1 THEN 'DINHEIRO'
     WHEN 2 THEN 'CHEQUE'
@@ -49,7 +54,6 @@ SELECT
   END AS FORMAPAGAMENTO,
 
   SUM(
-    -- Valor total da parcela (considerando pago ou a vencer)
     COALESCE(
       IIF(finlancamentoparcela.datapagamento IS NULL,
         finlancamentoparcela.valor,
@@ -60,100 +64,103 @@ SELECT
   ) AS TOTALGERAL,
 
   COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS
+
 FROM
   transacao
   JOIN naturezaoperacao
-    ON (transacao.cod_naturezaoperacao = naturezaoperacao.cod_naturezaoperacao)
+    ON naturezaoperacao.cod_naturezaoperacao = transacao.cod_naturezaoperacao
   JOIN saida
-    ON (saida.cod_saida = transacao.cod_transacao AND
-        saida.cod_empresa = transacao.cod_empresa)
+    ON saida.cod_saida = transacao.cod_transacao
+   AND saida.cod_empresa = transacao.cod_empresa
   JOIN pessoa vendedor
-    ON (vendedor.cod_pessoa = saida.cod_vendedor)
-  JOIN TBEMPRESA
-    ON (TBEMPRESA.COD_EMPRESA = transacao.cod_empresaestoque)
+    ON vendedor.cod_pessoa = saida.cod_vendedor
+  JOIN tbempresa
+    ON tbempresa.cod_empresa = transacao.cod_empresaestoque
   JOIN finfaturatransacao
-    ON (finfaturatransacao.cod_faturatransacao = transacao.cod_faturatransacao)
+    ON finfaturatransacao.cod_faturatransacao = transacao.cod_faturatransacao
   JOIN finlancamento
-    ON (finlancamento.cod_faturatransacao = finfaturatransacao.cod_faturatransacao)
+    ON finlancamento.cod_faturatransacao = finfaturatransacao.cod_faturatransacao
   JOIN finlancamentoparcela
-    ON (finlancamentoparcela.cod_lancamento = finlancamento.cod_lancamento)
+    ON finlancamentoparcela.cod_lancamento = finlancamento.cod_lancamento
   JOIN finformapagamento
-    ON (finformapagamento.cod_formapagamento = finlancamentoparcela.cod_formapagamento)
+    ON finformapagamento.cod_formapagamento = finlancamentoparcela.cod_formapagamento
   LEFT JOIN finformapagamentocartao
-    ON (finformapagamentocartao.cod_formapagamentocartao = finformapagamento.cod_formapagamento)
+    ON finformapagamentocartao.cod_formapagamentocartao = finformapagamento.cod_formapagamento
   LEFT JOIN fincartaocreditotipo
-    ON (fincartaocreditotipo.cod_cartaocreditotipo = finformapagamentocartao.cod_cartaocreditotipo)
+    ON fincartaocreditotipo.cod_cartaocreditotipo = finformapagamentocartao.cod_cartaocreditotipo
+
 WHERE
   naturezaoperacao.tipo = 1
-  AND transacao.dataemissao >= ?
-  AND transacao.dataemissao <= ?
+  AND transacao.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+
 GROUP BY
-  TBEMPRESA.EMPRESA,
-  vendedor.nome,
+  tbempresa.EMPRESA,
+  tbempresa.empresa_cod_logico,
+  tbempresa.empresa_nome_logico,
+  vendedor.NOME,
   FORMAPAGAMENTO
 
 UNION ALL
 
--- BLOCO: CONVÊNIO COMO UMA "FORMA DE PAGAMENTO" AGRUPADA
+-- CONVENIO
 SELECT
-  TBEMPRESA.EMPRESA,
-  vendedor.nome AS VENDEDOR,
+  tbempresa.EMPRESA,
+  tbempresa.empresa_cod_logico,
+  tbempresa.empresa_nome_logico,
+  vendedor.NOME AS VENDEDOR,
   'CONVENIO' AS FORMAPAGAMENTO,
   SUM(transacaoconvenioparcela.valor) AS TOTALGERAL,
   COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS
+
 FROM
   transacao
   JOIN transacaoconvenioparcela
-    ON (transacaoconvenioparcela.cod_transacao = transacao.cod_transacao AND
-        transacaoconvenioparcela.cod_empresa = transacao.cod_empresa)
+    ON transacaoconvenioparcela.cod_transacao = transacao.cod_transacao
+   AND transacaoconvenioparcela.cod_empresa = transacao.cod_empresa
   JOIN saida
-    ON (saida.cod_saida = transacao.cod_transacao AND
-        saida.cod_empresa = transacao.cod_empresa)
-  JOIN TBEMPRESA
-    ON (TBEMPRESA.COD_EMPRESA = transacao.cod_empresaestoque)
+    ON saida.cod_saida = transacao.cod_transacao
+   AND saida.cod_empresa = transacao.cod_empresa
   JOIN pessoa vendedor
-    ON (vendedor.cod_pessoa = saida.cod_vendedor)
+    ON vendedor.cod_pessoa = saida.cod_vendedor
+  JOIN tbempresa
+    ON tbempresa.cod_empresa = transacao.cod_empresaestoque
+
 WHERE
-  /* Ignora empresas lixo */
-  fl.cod_empresa not in (3, 5, 7, 8, 11, 12)
-  and (
-    /* Empresas normais: filtra direto pelo código informado */
-    fl.cod_empresa = cast(? as integer)
-    or (
-      /* Se a empresa pedida for 13 ou 18, traz tanto 13 quanto 18 */
-      cast(? as integer) in (13, 18)
-      and fl.cod_empresa in (13, 18)
-    )
-  )
-  transacao.dataemissao >= ?
-  AND transacao.dataemissao <= ?
+  transacao.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+
 GROUP BY
-  TBEMPRESA.EMPRESA,
-  vendedor.nome
+  tbempresa.EMPRESA,
+  tbempresa.empresa_cod_logico,
+  tbempresa.empresa_nome_logico,
+  vendedor.NOME
 
 UNION ALL
 
--- BLOCO: DEVOLUÇÕES AGRUPADAS COMO "DEVOLUCAO"
+-- DEVOLUCAO
 SELECT
-  TBEMPRESA.EMPRESA,
-  vendedor.nome AS VENDEDOR,
+  tbempresa.EMPRESA,
+  tbempresa.empresa_cod_logico,
+  tbempresa.empresa_nome_logico,
+  vendedor.NOME AS VENDEDOR,
   'DEVOLUCAO' AS FORMAPAGAMENTO,
   SUM(transacaodevolucao.total) * -1 AS TOTALGERAL,
   COUNT(DISTINCT transacaodevolucao.cod_transacao) AS QTD_VENDAS
+
 FROM
   transacao transacaodevolucao
   JOIN entradanotafiscaldevolucao
-    ON (
-      transacaodevolucao.cod_transacao = entradanotafiscaldevolucao.cod_entradanotafiscaldevolucao AND
-      transacaodevolucao.cod_empresa = entradanotafiscaldevolucao.cod_empresa
-    )
-  JOIN TBEMPRESA
-    ON (TBEMPRESA.COD_EMPRESA = transacaodevolucao.cod_empresaestoque)
+    ON transacaodevolucao.cod_transacao = entradanotafiscaldevolucao.cod_entradanotafiscaldevolucao
+   AND transacaodevolucao.cod_empresa = entradanotafiscaldevolucao.cod_empresa
   JOIN pessoa vendedor
-    ON (vendedor.cod_pessoa = entradanotafiscaldevolucao.cod_vendedor)
+    ON vendedor.cod_pessoa = entradanotafiscaldevolucao.cod_vendedor
+  JOIN tbempresa
+    ON tbempresa.cod_empresa = transacaodevolucao.cod_empresaestoque
+
 WHERE
-  transacaodevolucao.dataencerramento >= ?
-  AND transacaodevolucao.dataencerramento <= ?
+  transacaodevolucao.dataencerramento BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+
 GROUP BY
-  TBEMPRESA.EMPRESA,
-  vendedor.nome;
+  tbempresa.EMPRESA,
+  tbempresa.empresa_cod_logico,
+  tbempresa.empresa_nome_logico,
+  vendedor.NOME;
