@@ -1,12 +1,14 @@
 -- queries/vendas/formas_pagamento_resumo.sql
 -- Resumo por empresa/vendedor/forma de pagamento (inclui CONVENIO e DEVOLUCAO)
--- Parâmetros:
+-- Parâmetros (8):
 --   1) empresa (int)
---   2) empresa (int) (repetido p/ regra 13/18)
+--   2) empresa (int) repetido p/ regra 13/18
 --   3) dataInicio (date) - vendas (DATAEMISSAO)
 --   4) dataFim (date)    - vendas (DATAEMISSAO)
---   5) dataInicio (date) - devolução (DATAENCERRAMENTO)
---   6) dataFim (date)    - devolução (DATAENCERRAMENTO)
+--   5) dataInicio (date) - convenio (DATAEMISSAO)
+--   6) dataFim (date)    - convenio (DATAEMISSAO)
+--   7) dataInicio (date) - devolucao (DATAENCERRAMENTO)
+--   8) dataFim (date)    - devolucao (DATAENCERRAMENTO)
 
 WITH
 empresas_filtradas AS (
