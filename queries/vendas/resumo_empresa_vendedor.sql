@@ -1,17 +1,28 @@
 -- queries/vendas/resumo_empresa_vendedor.sql
 -- Resumo de vendas por empresa e vendedor
--- Filtro: intervalo de data (DATAENCERRAMENTO da transação)
+-- Parâmetros:
+--   1) empresa (int)
+--   2) empresa (int) (repetido para regra 13/18)
+--   3) dataInicio (date)
+--   4) dataFim (date)
 
 SELECT
-  -- Empresa “física”
   t.COD_EMPRESAESTOQUE        AS COD_EMPRESA,
   pesEmp.NOME                 AS EMPRESA,
 
-  -- Vendedor
+  CASE
+    WHEN emp.COD_EMPRESA IN (13, 18) THEN 13
+    ELSE emp.COD_EMPRESA
+  END                         AS empresa_cod_logico,
+
+  CASE
+    WHEN emp.COD_EMPRESA IN (13, 18) THEN 'DINIZ SUPER'
+    ELSE pesEmp.NOME
+  END                         AS empresa_nome_logico,
+
   vend.COD_PESSOA             AS COD_VENDEDOR,
   vend.NOME                   AS VENDEDOR,
 
-  -- Métricas de vendas
   COUNT(DISTINCT t.COD_TRANSACAO) AS QTD_TRANSACAO,
   SUM(ti.QUANTIDADE)              AS QTD_PRODUTOS,
   SUM(ti.TOTAL - ti.VALORDESCONTO - ti.TOTALIPI) AS TOTAL_VENDIDO
@@ -39,21 +50,26 @@ FROM
     ON pesEmp.COD_PESSOA = emp.COD_EMPRESA
 
 WHERE
-  -- Ignora empresas lixo (regra global de negócio)
   emp.COD_EMPRESA NOT IN (3, 5, 7, 8, 11, 12)
-
-  -- Apenas operações de venda (ajuste se sua regra for diferente)
   AND nat.TIPO = 1
 
-  -- Período (competência = data de encerramento)
-  AND t.DATAENCERRAMENTO BETWEEN cast(? as date) AND cast(? as date)
+  AND (
+    emp.COD_EMPRESA = CAST(? AS INTEGER)
+    OR (
+      CAST(? AS INTEGER) IN (13, 18)
+      AND emp.COD_EMPRESA IN (13, 18)
+    )
+  )
+
+  AND t.DATAENCERRAMENTO BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
 
 GROUP BY
   t.COD_EMPRESAESTOQUE,
   pesEmp.NOME,
+  emp.COD_EMPRESA,
   vend.COD_PESSOA,
   vend.NOME
 
 ORDER BY
-  pesEmp.NOME,
-  vend.NOME;
+  empresa_cod_logico,
+  VENDEDOR;
