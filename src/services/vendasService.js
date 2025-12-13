@@ -28,9 +28,18 @@ async function getResumoEmpresaVendedorPorEmpresa(codEmpresa, dataInicio, dataFi
 }
 
 async function getFormasPagamentoResumoPorEmpresa(codEmpresa, dataInicio, dataFim) {
-  // essa SQL usa 6 placeholders:
-  // (empresa, empresa, dataIni_vendas, dataFim_vendas, dataIni_devolucao, dataFim_devolucao)
-  const params = [codEmpresa, codEmpresa, dataInicio, dataFim, dataInicio, dataFim];
+  // 8 placeholders:
+  // empresa, empresa, vendas (2), convenio (2), devolucao (2)
+  const params = [
+    codEmpresa,
+    codEmpresa,
+    dataInicio,
+    dataFim,
+    dataInicio,
+    dataFim,
+    dataInicio,
+    dataFim,
+  ];
   return db.runQuery(SQL_FORMAS_PAGAMENTO_RESUMO, params);
 }
 
