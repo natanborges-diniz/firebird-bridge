@@ -47,7 +47,29 @@ async function resumoFormasPagamento(req, res) {
   }
 }
 
+async function analiseFamiliaVendedor(req, res) {
+  try {
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
+
+    // opcional: seu service aceita codEmpresaEstoque (se existir)
+    const codEmpresaEstoque = req.query.codEmpresaEstoque
+      ? Number(req.query.codEmpresaEstoque)
+      : null;
+
+    const rows = await vendasService.getAnaliseFamiliaVendedor({
+      ...params,
+      codEmpresaEstoque,
+    });
+
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 module.exports = {
   resumoEmpresaVendedor,
   resumoFormasPagamento,
+  analiseFamiliaVendedor,
 };
