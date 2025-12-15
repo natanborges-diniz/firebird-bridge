@@ -1,10 +1,4 @@
--- queries/os/monitor.sql
--- Monitor de Produção - Ordens de Serviço (OS) por etapa, com dados de cliente, empresa, produtos e telefone
--- Filtros (via bridge):
---   ? = dataInicio (YYYY-MM-DD)
---   ? = dataFim    (YYYY-MM-DD)
---   ? = codEmpresa (opcional, pode ser NULL)
---   ? = codEmpresa (repetido para comparação)
+-- queries/os/monitor.sql (somente ÚLTIMA etapa por OS)
 
 WITH    
     tbordemcompra AS (
@@ -13,12 +7,12 @@ WITH
             LIST(DISTINCT ordemcompra.numeroordemcompra, ', ') AS oc
         FROM
             transacao
-                JOIN ordemcompra
-                    ON (ordemcompra.cod_empresa = transacao.cod_empresa
-                        AND ordemcompra.cod_ordemcompra = transacao.cod_transacao)
-                JOIN ordemcompra_transacaoitem
-                    ON (ordemcompra_transacaoitem.cod_empresa = ordemcompra.cod_empresa
-                        AND ordemcompra_transacaoitem.cod_ordemcompra = ordemcompra.cod_ordemcompra)
+            JOIN ordemcompra
+              ON ordemcompra.cod_empresa = transacao.cod_empresa
+             AND ordemcompra.cod_ordemcompra = transacao.cod_transacao
+            JOIN ordemcompra_transacaoitem
+              ON ordemcompra_transacaoitem.cod_empresa = ordemcompra.cod_empresa
+             AND ordemcompra_transacaoitem.cod_ordemcompra = ordemcompra.cod_ordemcompra
         GROUP BY 1
     ),
 
@@ -32,34 +26,34 @@ WITH
                 ON oc.cod_transacao = ti.cod_transacao
             INNER JOIN item i
                 ON i.cod_item = ti.cod_item
-        GROUP BY 
-            oc.numeroordemservico
+        GROUP BY oc.numeroordemservico
+    ),
+
+    ultlog AS (
+        SELECT
+            l.cod_ordemservicocaixa,
+            MAX(l.datahoraentrada) AS max_datahoraentrada
+        FROM ordemservicocaixalog l
+        GROUP BY l.cod_ordemservicocaixa
     )
 
-SELECT	 
-    -- produtos / itens
+SELECT
     tt.descricao_lista                             AS produtos,
+    ocx.cod_ordemservicocaixa                      AS cod_os,
+    ocx.numeroordemservico                         AS os,
+    ocx.total                                      AS total,
 
-    -- identificação OS
-    ordemservicocaixa.cod_ordemservicocaixa        AS cod_os,
-    ordemservicocaixa.numeroordemservico           AS os,
-    ordemservicocaixa.total                        AS total,
+    pe.nome                                        AS empresa,
+    ocx.cod_empresaorigem                           AS cod_empresa_origem,
 
-    -- empresa
-    pessoaempresa.nome                             AS empresa,
-    ordemservicocaixa.cod_empresaorigem            AS cod_empresa_origem,
+    ocx.dataemissao                                AS dataemissao,
+    ocx.dataprevisao                               AS dataprevisao,
 
-    -- datas principais
-    ordemservicocaixa.dataemissao                  AS dataemissao,
-    ordemservicocaixa.dataprevisao                 AS dataprevisao,
+    pc.nome                                        AS cliente,
+    pc.cod_pessoa                                  AS codcliente,
+    pc.cpf                                         AS cpf,
 
-    -- cliente
-    pessoacliente.nome                             AS cliente,
-    pessoacliente.cod_pessoa                       AS codcliente, 
-    pessoacliente.cpf                              AS cpf,
-
-    -- etapa textual
-    CASE ordemservicocaixalog.cod_etapa
+    CASE l.cod_etapa
         WHEN 00 THEN 'Etapa inicial'
         WHEN 01 THEN 'Ordem de serviço no estoque'
         WHEN 02 THEN 'Translado estoque -> laboratório'
@@ -80,117 +74,82 @@ SELECT
         WHEN 17 THEN 'Serviço forçar finalização'
         WHEN 18 THEN 'Devolver para o laboratório'
         ELSE '<DESCONHECIDA>'
-    END                                             AS etapa,
+    END AS etapa,
 
-    -- usuário e log
-    usuario.username                               AS usuario,
-    ordemservicocaixalog.datahoraentrada           AS datahoraentrada,
-    ordemservicocaixalog.datahorasaida             AS datahorasaida,
+    u.username                                     AS usuario,
+    l.datahoraentrada                              AS datahoraentrada,
+    l.datahorasaida                                AS datahorasaida,
 
-    -- ordem de compra relacionada
     tbordemcompra.oc                               AS ordemcompra,
 
-    -- código lógico da empresa (mapeamento atual que você já usava)
     CASE 
-        WHEN pessoaempresa.nome = 'DINIZ PRIMITIVA I'  THEN 595
-        WHEN pessoaempresa.nome = 'DINIZ PRIMITIVA II' THEN 597
-        WHEN pessoaempresa.nome = 'DINIZ ANTONIO AGU'  THEN 599
-        WHEN pessoaempresa.nome = 'DINIZ STO ANTONIO'  THEN 705
-        WHEN pessoaempresa.nome = 'DINIZ UNIAO'        THEN 601
-        WHEN pessoaempresa.nome = 'DINIZ SUPER'        THEN 603
-        WHEN pessoaempresa.nome = 'DINIZ CARAPICUIBA'  THEN 605
-        WHEN pessoaempresa.nome = 'DINIZ ITAPEVI'      THEN 607
-        WHEN pessoaempresa.nome = 'DINIZ JANDIRA'      THEN 609
-        WHEN pessoaempresa.nome = 'DINIZ BARUERI'      THEN 769
+        WHEN pe.nome = 'DINIZ PRIMITIVA I'  THEN 595
+        WHEN pe.nome = 'DINIZ PRIMITIVA II' THEN 597
+        WHEN pe.nome = 'DINIZ ANTONIO AGU'  THEN 599
+        WHEN pe.nome = 'DINIZ STO ANTONIO'  THEN 705
+        WHEN pe.nome = 'DINIZ UNIAO'        THEN 601
+        WHEN pe.nome = 'DINIZ SUPER'        THEN 603
+        WHEN pe.nome = 'DINIZ CARAPICUIBA'  THEN 605
+        WHEN pe.nome = 'DINIZ ITAPEVI'      THEN 607
+        WHEN pe.nome = 'DINIZ JANDIRA'      THEN 609
+        WHEN pe.nome = 'DINIZ BARUERI'      THEN 769
         ELSE 0
-    END                                             AS codempresa,
+    END AS codempresa,
 
-    -- telefone já higienizado
     COALESCE( 
         CASE  
-            WHEN CHAR_LENGTH(REPLACE(pessoacliente.telefonecelular,'-','')) < 4 THEN NULL
-            WHEN pessoacliente.telefonecelular NOT LIKE '11%' 
-                 AND CHAR_LENGTH(REPLACE(pessoacliente.telefonecelular,'-','')) <= 9 
-                 THEN '11' || REPLACE(pessoacliente.telefonecelular,'-','')
-            ELSE REPLACE(pessoacliente.telefonecelular,'-','')
+            WHEN CHAR_LENGTH(REPLACE(pc.telefonecelular,'-','')) < 4 THEN NULL
+            WHEN pc.telefonecelular NOT LIKE '11%' 
+                 AND CHAR_LENGTH(REPLACE(pc.telefonecelular,'-','')) <= 9 
+                 THEN '11' || REPLACE(pc.telefonecelular,'-','')
+            ELSE REPLACE(pc.telefonecelular,'-','')
         END,
         CASE  
-            WHEN COALESCE(pessoacliente.telefoneresidencial1, pessoacliente.telefonecomercial1) NOT LIKE '11%' 
-                 AND CHAR_LENGTH(REPLACE(COALESCE(pessoacliente.telefoneresidencial1, pessoacliente.telefonecomercial1),'-','')) <= 9 
-                 THEN '11' || REPLACE(COALESCE(pessoacliente.telefoneresidencial1, pessoacliente.telefonecomercial1),'-','')
-            ELSE REPLACE(COALESCE(pessoacliente.telefoneresidencial1, pessoacliente.telefonecomercial1),'-','') 
+            WHEN COALESCE(pc.telefoneresidencial1, pc.telefonecomercial1) NOT LIKE '11%' 
+                 AND CHAR_LENGTH(REPLACE(COALESCE(pc.telefoneresidencial1, pc.telefonecomercial1),'-','')) <= 9 
+                 THEN '11' || REPLACE(COALESCE(pc.telefoneresidencial1, pc.telefonecomercial1),'-','')
+            ELSE REPLACE(COALESCE(pc.telefoneresidencial1, pc.telefonecomercial1),'-','') 
         END
-    )                                               AS telefone,
+    ) AS telefone,
 
-    -------------------------------------------------------------------
-    -- CÁLCULO DE ATRASO E STATUS (ISSUE 07)
-    -------------------------------------------------------------------
-    -- atraso em dias:
-    --  - se etapa 8 (entregue): com base na datahorasaida x dataprevisao
-    --  - senão: dataprevisao x data atual
     CASE
-        WHEN ordemservicocaixa.dataprevisao IS NULL THEN NULL
-        WHEN ordemservicocaixalog.cod_etapa = 8
-             AND ordemservicocaixalog.datahorasaida IS NOT NULL THEN
+        WHEN ocx.dataprevisao IS NULL THEN NULL
+        WHEN l.cod_etapa = 8 AND l.datahorasaida IS NOT NULL THEN
              IIF(
-                 CAST(ordemservicocaixalog.datahorasaida AS DATE) <= ordemservicocaixa.dataprevisao,
+                 CAST(l.datahorasaida AS DATE) <= ocx.dataprevisao,
                  0,
-                 DATEDIFF(DAY FROM ordemservicocaixa.dataprevisao TO CAST(ordemservicocaixalog.datahorasaida AS DATE))
+                 DATEDIFF(DAY FROM ocx.dataprevisao TO CAST(l.datahorasaida AS DATE))
              )
-        WHEN CURRENT_DATE <= ordemservicocaixa.dataprevisao THEN 0
-        ELSE
-             DATEDIFF(DAY FROM ordemservicocaixa.dataprevisao TO CURRENT_DATE)
-    END                                             AS atraso_dias,
+        WHEN CURRENT_DATE <= ocx.dataprevisao THEN 0
+        ELSE DATEDIFF(DAY FROM ocx.dataprevisao TO CURRENT_DATE)
+    END AS atraso_dias,
 
-    -- status de atraso consolidado
     CASE
-        WHEN ordemservicocaixalog.cod_etapa = 8 THEN 'ENTREGUE'
-        WHEN ordemservicocaixa.dataprevisao IS NULL THEN 'SEM_DATA'
-        WHEN CURRENT_DATE <= ordemservicocaixa.dataprevisao THEN 'NO_PRAZO'
-        WHEN DATEDIFF(DAY FROM ordemservicocaixa.dataprevisao TO CURRENT_DATE) BETWEEN 1 AND 7 THEN 'ATRASO_LEVE'
+        WHEN l.cod_etapa = 8 THEN 'ENTREGUE'
+        WHEN ocx.dataprevisao IS NULL THEN 'SEM_DATA'
+        WHEN CURRENT_DATE <= ocx.dataprevisao THEN 'NO_PRAZO'
+        WHEN DATEDIFF(DAY FROM ocx.dataprevisao TO CURRENT_DATE) BETWEEN 1 AND 7 THEN 'ATRASO_LEVE'
         ELSE 'ATRASO'
-    END                                             AS status_atraso
+    END AS status_atraso
 
-FROM
-    ordemservicocaixa
-        JOIN pessoa pessoaempresa
-            ON (pessoaempresa.cod_pessoa = ordemservicocaixa.cod_empresaorigem)
-        JOIN pessoa pessoacliente
-            ON (pessoacliente.cod_pessoa = ordemservicocaixa.cod_cliente)
-        JOIN ordemservicocaixalog
-            ON (ordemservicocaixalog.cod_ordemservicocaixa = ordemservicocaixa.cod_ordemservicocaixa)
-        JOIN usuario
-            ON (usuario.cod_usuario = ordemservicocaixalog.cod_usuario)
-        LEFT JOIN tbordemcompra  
-           ON (tbordemcompra.cod_ordemservicocaixa = ordemservicocaixa.cod_ordemservicocaixa)
-        LEFT JOIN tbitensservico tt 
-           ON tt.numeroordemservico = ordemservicocaixa.numeroordemservico
+FROM ordemservicocaixa ocx
+JOIN pessoa pe ON pe.cod_pessoa = ocx.cod_empresaorigem
+JOIN pessoa pc ON pc.cod_pessoa = ocx.cod_cliente
+
+JOIN ultlog ul
+  ON ul.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
+
+JOIN ordemservicocaixalog l
+  ON l.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
+ AND l.datahoraentrada = ul.max_datahoraentrada
+
+JOIN usuario u ON u.cod_usuario = l.cod_usuario
+
+LEFT JOIN tbordemcompra  ON tbordemcompra.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
+LEFT JOIN tbitensservico tt ON tt.numeroordemservico = ocx.numeroordemservico
+
 WHERE  
-    ordemservicocaixa.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
-    AND (
-        ? IS NULL
-        OR ? = 'ALL'
-        OR ordemservicocaixa.cod_empresaorigem = CAST(? AS INTEGER)
-        OR (
-            CAST(? AS INTEGER) IN (595,597,599,705,601,603,605,607,609,769)
-            AND
-            CASE 
-                WHEN pessoaempresa.nome = 'DINIZ PRIMITIVA I'  THEN 595
-                WHEN pessoaempresa.nome = 'DINIZ PRIMITIVA II' THEN 597
-                WHEN pessoaempresa.nome = 'DINIZ ANTONIO AGU'  THEN 599
-                WHEN pessoaempresa.nome = 'DINIZ STO ANTONIO'  THEN 705
-                WHEN pessoaempresa.nome = 'DINIZ UNIAO'        THEN 601
-                WHEN pessoaempresa.nome = 'DINIZ SUPER'        THEN 603
-                WHEN pessoaempresa.nome = 'DINIZ CARAPICUIBA'  THEN 605
-                WHEN pessoaempresa.nome = 'DINIZ ITAPEVI'      THEN 607
-                WHEN pessoaempresa.nome = 'DINIZ JANDIRA'      THEN 609
-                WHEN pessoaempresa.nome = 'DINIZ BARUERI'      THEN 769
-                ELSE 0
-            END = CAST(? AS INTEGER)
-        )
-    )
+    ocx.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+    AND ( ? IS NULL OR ocx.cod_empresaorigem = CAST(? AS INTEGER) )
 
-ORDER BY
-    pessoaempresa.nome,
-    ordemservicocaixa.dataemissao,
-    ordemservicocaixa.numeroordemservico;
+ORDER BY pe.nome, ocx.dataemissao, ocx.numeroordemservico;
