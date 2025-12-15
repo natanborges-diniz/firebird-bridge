@@ -1,6 +1,18 @@
 // src/controllers/osController.js
 const osService = require('../services/osService');
 const { success, failure, handleControllerError } = require('../utils/apiResponse');
+const COD_EMPRESA_LOGICA_PARA_ORIGEM = {
+  595: 1,   // PRIMITIVA I -> cod_empresaorigem REAL
+  597: 2,   // PRIMITIVA II -> exemplo
+  599: 3,
+  705: 4,
+  601: 5,
+  603: 6,
+  605: 7,
+  607: 8,
+  609: 9,
+  769: 10,
+};
 
 function validatePeriodoQuery(req, res) {
   const { dataInicio, dataFim, codEmpresa, empresa } = req.query;
@@ -16,6 +28,9 @@ function validatePeriodoQuery(req, res) {
       details: { missing },
       status: 400,
     });
+    if (codEmpresaNum !== null) {
+  codEmpresaNum = COD_EMPRESA_LOGICA_PARA_ORIGEM[codEmpresaNum] ?? codEmpresaNum;
+}
     return null;
   }
 
