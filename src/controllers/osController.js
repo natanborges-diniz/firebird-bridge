@@ -61,8 +61,9 @@ async function monitorOs(req, res) {
 
     const rows = await osService.getMonitorOs(params);
     return success(res, rows);
-  } catch (err) {
-    return handleControllerError(res, err);
+  } } catch (err) {
+  console.error("[OS/MONITOR] ERRO:", err);        // <-- isso aqui
+  return handleControllerError(res, err);
   }
 }
 
