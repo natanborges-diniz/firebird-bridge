@@ -1,5 +1,4 @@
 // src/controllers/osController.js
-
 const osService = require('../services/osService');
 const { success, failure, handleControllerError } = require('../utils/apiResponse');
 
@@ -20,15 +19,21 @@ function validatePeriodoQuery(req, res) {
     return null;
   }
 
+  // aceita codEmpresa ou empresa (alias)
+  const raw = (codEmpresa ?? empresa);
+
   let codEmpresaNum = null;
-  const rawEmpresa = codEmpresa ?? empresa;
-  if (rawEmpresa !== undefined && rawEmpresa !== null && rawEmpresa !== '') {
-    const num = Number(rawEmpresa);
+
+  // "ALL" => todas empresas
+  if (raw === undefined || raw === null || raw === '' || String(raw).toUpperCase() === 'ALL') {
+    codEmpresaNum = null;
+  } else {
+    const num = Number(raw);
     if (!Number.isFinite(num)) {
       failure(res, {
         code: 'INVALID_PARAMS',
-        message: 'codEmpresa deve ser numérico',
-        details: { codEmpresa: rawEmpresa },
+        message: 'codEmpresa deve ser numérico ou ALL',
+        details: { codEmpresa: raw },
         status: 400,
       });
       return null;
@@ -36,15 +41,12 @@ function validatePeriodoQuery(req, res) {
     codEmpresaNum = num;
   }
 
-  return {
-    dataInicio,
-    dataFim,
-    codEmpresa: codEmpresaNum,
-  };
+  return { dataInicio, dataFim, codEmpresa: codEmpresaNum };
 }
 
 /**
- * GET /os/monitor?dataInicio=YYYY-MM-DD&dataFim=YYYY-MM-DD&codEmpresa=595
+ * GET /api/v1/os/monitor?dataInicio=YYYY-MM-DD&dataFim=YYYY-MM-DD&codEmpresa=595
+ * GET /api/v1/os/monitor?dataInicio=...&dataFim=...&empresa=ALL
  */
 async function monitorOs(req, res) {
   try {
@@ -58,6 +60,4 @@ async function monitorOs(req, res) {
   }
 }
 
-module.exports = {
-  monitorOs,
-};
+module.exports = { monitorOs };
