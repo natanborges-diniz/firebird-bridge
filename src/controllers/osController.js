@@ -1,3 +1,7 @@
+// src/controllers/osController.js
+const osService = require("../services/osService");
+const { success, failure, handleControllerError } = require("../utils/apiResponse");
+
 function validatePeriodoQuery(req, res) {
   const { dataInicio, dataFim, codEmpresa, empresa } = req.query;
 
@@ -15,9 +19,9 @@ function validatePeriodoQuery(req, res) {
     return null;
   }
 
-  const rawEmpresa = (codEmpresa ?? empresa);
+  const rawEmpresa = codEmpresa ?? empresa;
 
-  // ✅ ALL / vazio -> todas as empresas
+  // ALL/vazio => todas
   if (
     rawEmpresa === undefined ||
     rawEmpresa === null ||
@@ -27,7 +31,6 @@ function validatePeriodoQuery(req, res) {
     return { dataInicio, dataFim, codEmpresa: null };
   }
 
-  // ✅ numérico obrigatório daqui pra frente
   const num = Number(rawEmpresa);
   if (!Number.isFinite(num)) {
     failure(res, {
@@ -39,15 +42,30 @@ function validatePeriodoQuery(req, res) {
     return null;
   }
 
-  // ✅ mapa: código lógico (595) -> código real (cod_empresaorigem)
+  // Mapeia código lógico -> cod_empresaorigem real
   const COD_EMPRESA_LOGICA_PARA_ORIGEM = {
     595: 1, // PRIMITIVA I
-    // 597: <cod_empresaorigem real>,
-    // 599: <cod_empresaorigem real>,
-    // ...
+    // 597: <preencher>,
+    // 599: <preencher>,
   };
 
   const codEmpresaFinal = COD_EMPRESA_LOGICA_PARA_ORIGEM[num] ?? num;
 
   return { dataInicio, dataFim, codEmpresa: codEmpresaFinal };
 }
+
+async function monitorOs(req, res) {
+  try {
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
+
+    const rows = await osService.getMonitorOs(params);
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
+module.exports = {
+  monitorOs,
+};
