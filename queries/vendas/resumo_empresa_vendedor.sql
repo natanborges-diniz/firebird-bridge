@@ -1,5 +1,7 @@
 -- queries/vendas/resumo_empresa_vendedor.sql
+-- Resumo de vendas por empresa e vendedor + devoluções-- queries/vendas/resumo_empresa_vendedor.sql
 -- Resumo de vendas por empresa e vendedor + devoluções
+-- (COM DESCONTO SEPARADO)
 -- Parâmetros (4):
 --   1) empresa (integer)
 --   2) empresa (integer) repetido (regra 13/18)
@@ -44,6 +46,13 @@ SELECT
 
   SUM(x.QTD_TRANSACAO)    AS QTD_TRANSACAO,
   SUM(x.QTD_PRODUTOS)     AS QTD_PRODUTOS,
+
+  /* >>> NOVOS CAMPOS */
+  SUM(x.TOTAL_BRUTO)      AS TOTAL_BRUTO,
+  SUM(x.TOTAL_DESCONTO)   AS TOTAL_DESCONTO,
+  SUM(x.TOTAL_IPI)        AS TOTAL_IPI,
+
+  /* Mantém sua regra de líquido */
   SUM(x.TOTAL_VENDIDO)    AS TOTAL_VENDIDO,
 
   SUM(x.QTD_DEVOLUCAO)    AS QTD_DEVOLUCAO,
@@ -62,7 +71,18 @@ FROM (
 
     COUNT(DISTINCT t.COD_TRANSACAO) AS QTD_TRANSACAO,
     SUM(ti.QUANTIDADE)              AS QTD_PRODUTOS,
-    SUM(ti.TOTAL - ti.VALORDESCONTO - ti.TOTALIPI) AS TOTAL_VENDIDO,
+
+    /* >>> NOVOS CAMPOS */
+    SUM(COALESCE(ti.TOTAL, 0))             AS TOTAL_BRUTO,
+    SUM(COALESCE(ti.VALORDESCONTO, 0))     AS TOTAL_DESCONTO,
+    SUM(COALESCE(ti.TOTALIPI, 0))          AS TOTAL_IPI,
+
+    /* líquido (como você já vinha usando) */
+    SUM(
+      COALESCE(ti.TOTAL, 0)
+      - COALESCE(ti.VALORDESCONTO, 0)
+      - COALESCE(ti.TOTALIPI, 0)
+    ) AS TOTAL_VENDIDO,
 
     0 AS QTD_DEVOLUCAO,
     0 AS TOTAL_DEVOLUCAO
@@ -123,10 +143,16 @@ FROM (
 
     0 AS QTD_TRANSACAO,
     0 AS QTD_PRODUTOS,
+
+    /* >>> NOVOS CAMPOS (zerados aqui) */
+    0 AS TOTAL_BRUTO,
+    0 AS TOTAL_DESCONTO,
+    0 AS TOTAL_IPI,
+
     0 AS TOTAL_VENDIDO,
 
     COUNT(DISTINCT td.COD_TRANSACAO) AS QTD_DEVOLUCAO,
-    SUM(tid.TOTAL)                   AS TOTAL_DEVOLUCAO
+    SUM(COALESCE(tid.TOTAL, 0))      AS TOTAL_DEVOLUCAO
 
   FROM
     P
