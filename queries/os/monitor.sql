@@ -166,9 +166,29 @@ FROM
         LEFT JOIN tbitensservico tt 
            ON tt.numeroordemservico = ordemservicocaixa.numeroordemservico
 WHERE  
-    ordemservicocaixa.dataemissao 
-        BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
-    AND ( ? IS NULL OR ordemservicocaixa.cod_empresaorigem = CAST(? AS INTEGER) )
+    ordemservicocaixa.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+    AND (
+        ? IS NULL
+        OR ? = 'ALL'
+        OR ordemservicocaixa.cod_empresaorigem = CAST(? AS INTEGER)
+        OR (
+            CAST(? AS INTEGER) IN (595,597,599,705,601,603,605,607,609,769)
+            AND
+            CASE 
+                WHEN pessoaempresa.nome = 'DINIZ PRIMITIVA I'  THEN 595
+                WHEN pessoaempresa.nome = 'DINIZ PRIMITIVA II' THEN 597
+                WHEN pessoaempresa.nome = 'DINIZ ANTONIO AGU'  THEN 599
+                WHEN pessoaempresa.nome = 'DINIZ STO ANTONIO'  THEN 705
+                WHEN pessoaempresa.nome = 'DINIZ UNIAO'        THEN 601
+                WHEN pessoaempresa.nome = 'DINIZ SUPER'        THEN 603
+                WHEN pessoaempresa.nome = 'DINIZ CARAPICUIBA'  THEN 605
+                WHEN pessoaempresa.nome = 'DINIZ ITAPEVI'      THEN 607
+                WHEN pessoaempresa.nome = 'DINIZ JANDIRA'      THEN 609
+                WHEN pessoaempresa.nome = 'DINIZ BARUERI'      THEN 769
+                ELSE 0
+            END = CAST(? AS INTEGER)
+        )
+    )
 
 ORDER BY
     pessoaempresa.nome,
