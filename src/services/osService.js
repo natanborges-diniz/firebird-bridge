@@ -13,10 +13,7 @@ const sqlMonitorOs = loadSql("monitor.sql");
 async function getMonitorOs({ dataInicio, dataFim, codEmpresa }) {
   const empresaParam = codEmpresa ?? null;
   const params = [dataInicio, dataFim, empresaParam, empresaParam];
-  const rows = await db.query(sqlMonitorOs, params);
-  return rows;
+  return db.query(sqlMonitorOs, params);
 }
 
-module.exports = {
-  getMonitorOs,
-};
+module.exports = { getMonitorOs };
