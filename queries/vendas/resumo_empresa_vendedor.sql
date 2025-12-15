@@ -1,7 +1,6 @@
 -- queries/vendas/resumo_empresa_vendedor.sql
--- Resumo de vendas por empresa e vendedor + devoluções-- queries/vendas/resumo_empresa_vendedor.sql
 -- Resumo de vendas por empresa e vendedor + devoluções
--- (COM DESCONTO SEPARADO)
+-- (DESCONTO = BRUTO - VENDIDO) e SEM IPI
 -- Parâmetros (4):
 --   1) empresa (integer)
 --   2) empresa (integer) repetido (regra 13/18)
@@ -44,19 +43,29 @@ SELECT
   x.COD_VENDEDOR,
   x.VENDEDOR,
 
-  SUM(x.QTD_TRANSACAO)    AS QTD_TRANSACAO,
-  SUM(x.QTD_PRODUTOS)     AS QTD_PRODUTOS,
+  SUM(x.QTD_TRANSACAO) AS QTD_TRANSACAO,
+  SUM(x.QTD_PRODUTOS)  AS QTD_PRODUTOS,
 
-  /* >>> NOVOS CAMPOS */
-  SUM(x.TOTAL_BRUTO)      AS TOTAL_BRUTO,
-  SUM(x.TOTAL_DESCONTO)   AS TOTAL_DESCONTO,
-  SUM(x.TOTAL_IPI)        AS TOTAL_IPI,
+  /* BRUTO e VENDIDO */
+  SUM(x.TOTAL_BRUTO)   AS TOTAL_BRUTO,
+  SUM(x.TOTAL_VENDIDO) AS TOTAL_VENDIDO,
 
-  /* Mantém sua regra de líquido */
-  SUM(x.TOTAL_VENDIDO)    AS TOTAL_VENDIDO,
+  /* DESCONTO (regra pedida) */
+  (SUM(x.TOTAL_BRUTO) - SUM(x.TOTAL_VENDIDO)) AS TOTAL_DESCONTO,
 
-  SUM(x.QTD_DEVOLUCAO)    AS QTD_DEVOLUCAO,
-  SUM(x.TOTAL_DEVOLUCAO)  AS TOTAL_DEVOLUCAO
+  /* % DESCONTO */
+  CASE
+    WHEN SUM(x.TOTAL_BRUTO) = 0 THEN 0
+    ELSE ((SUM(x.TOTAL_BRUTO) - SUM(x.TOTAL_VENDIDO)) / NULLIF(SUM(x.TOTAL_BRUTO), 0)) * 100
+  END AS PERC_DESCONTO,
+
+  /* DEVOLUÇÕES */
+  SUM(x.QTD_DEVOLUCAO)   AS QTD_DEVOLUCAO,
+  SUM(x.TOTAL_DEVOLUCAO) AS TOTAL_DEVOLUCAO,
+
+  /* LÍQUIDOS PRONTOS PARA DASH */
+  SUM(x.TOTAL_VENDIDO) AS TOTAL_LIQUIDO_SEM_DEVOLUCAO,
+  (SUM(x.TOTAL_VENDIDO) - SUM(x.TOTAL_DEVOLUCAO)) AS TOTAL_LIQUIDO_COM_DEVOLUCAO
 
 FROM (
   /* =========================
@@ -72,18 +81,16 @@ FROM (
     COUNT(DISTINCT t.COD_TRANSACAO) AS QTD_TRANSACAO,
     SUM(ti.QUANTIDADE)              AS QTD_PRODUTOS,
 
-    /* >>> NOVOS CAMPOS */
-    SUM(COALESCE(ti.TOTAL, 0))             AS TOTAL_BRUTO,
-    SUM(COALESCE(ti.VALORDESCONTO, 0))     AS TOTAL_DESCONTO,
-    SUM(COALESCE(ti.TOTALIPI, 0))          AS TOTAL_IPI,
+    /* BRUTO */
+    SUM(COALESCE(ti.TOTAL, 0))      AS TOTAL_BRUTO,
 
-    /* líquido (como você já vinha usando) */
+    /* VENDIDO (SEM IPI) */
     SUM(
       COALESCE(ti.TOTAL, 0)
       - COALESCE(ti.VALORDESCONTO, 0)
-      - COALESCE(ti.TOTALIPI, 0)
     ) AS TOTAL_VENDIDO,
 
+    /* DEVOLUÇÕES (zerado neste bloco) */
     0 AS QTD_DEVOLUCAO,
     0 AS TOTAL_DEVOLUCAO
 
@@ -135,20 +142,17 @@ FROM (
      BLOCO 2: DEVOLUÇÕES (ENTRADANOTAFISCALDEVOLUCAO)
      ========================================== */
   SELECT
-    td.COD_EMPRESAESTOQUE           AS COD_EMPRESA,
-    emp.EMPRESA_NOME                AS EMPRESA,
+    td.COD_EMPRESAESTOQUE            AS COD_EMPRESA,
+    emp.EMPRESA_NOME                 AS EMPRESA,
 
-    vendDev.COD_PESSOA              AS COD_VENDEDOR,
-    vendDev.NOME                    AS VENDEDOR,
+    vendDev.COD_PESSOA               AS COD_VENDEDOR,
+    vendDev.NOME                     AS VENDEDOR,
 
     0 AS QTD_TRANSACAO,
     0 AS QTD_PRODUTOS,
 
-    /* >>> NOVOS CAMPOS (zerados aqui) */
+    /* BRUTO/VENDIDO zerados aqui */
     0 AS TOTAL_BRUTO,
-    0 AS TOTAL_DESCONTO,
-    0 AS TOTAL_IPI,
-
     0 AS TOTAL_VENDIDO,
 
     COUNT(DISTINCT td.COD_TRANSACAO) AS QTD_DEVOLUCAO,
