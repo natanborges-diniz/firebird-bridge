@@ -1,6 +1,5 @@
-// src/controllers/osController.js
-const osService = require("../services/osService");
-const { success, failure, handleControllerError } = require("../utils/apiResponse");
+const osService = require('../services/osService');
+const { success, failure, handleControllerError } = require('../utils/apiResponse');
 
 function validatePeriodoQuery(req, res) {
   const { dataInicio, dataFim, codEmpresa, empresa } = req.query;
@@ -21,7 +20,6 @@ function validatePeriodoQuery(req, res) {
 
   const rawEmpresa = codEmpresa ?? empresa;
 
-  // ALL/vazio => todas
   if (
     rawEmpresa === undefined ||
     rawEmpresa === null ||
@@ -42,16 +40,15 @@ function validatePeriodoQuery(req, res) {
     return null;
   }
 
-  // Mapeia código lógico -> cod_empresaorigem real
   const COD_EMPRESA_LOGICA_PARA_ORIGEM = {
-    595: 1, // PRIMITIVA I
-    // 597: <preencher>,
-    // 599: <preencher>,
+    595: 1,
   };
 
-  const codEmpresaFinal = COD_EMPRESA_LOGICA_PARA_ORIGEM[num] ?? num;
-
-  return { dataInicio, dataFim, codEmpresa: codEmpresaFinal };
+  return {
+    dataInicio,
+    dataFim,
+    codEmpresa: COD_EMPRESA_LOGICA_PARA_ORIGEM[num] ?? num,
+  };
 }
 
 async function monitorOs(req, res) {
@@ -61,13 +58,24 @@ async function monitorOs(req, res) {
 
     const rows = await osService.getMonitorOs(params);
     return success(res, rows);
-    } 
-  catch (err) {
-  console.error("[OS/MONITOR] ERRO:", err);        // <-- isso aqui
-  return handleControllerError(res, err);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
+async function monitorOsUltimaEtapa(req, res) {
+  try {
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
+
+    const rows = await osService.getMonitorOsUltimaEtapa(params);
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
   }
 }
 
 module.exports = {
   monitorOs,
+  monitorOsUltimaEtapa,
 };
