@@ -1,3 +1,4 @@
+// src/controllers/vendasController.js
 const vendasService = require("../services/vendasService");
 const { success, handleControllerError } = require("../utils/apiResponse");
 const { validatePeriodoEmpresaQuery } = require("./_validators");
@@ -31,13 +32,15 @@ async function debugResumoEmpresaVendedor(req, res) {
     const params = validatePeriodoEmpresaQuery(req, res);
     if (!params) return;
 
-    const empresaParam = params.empresa; // número (ou null se ALL)
-    if (empresaParam === null) {
-      // debug precisa de empresa específica
+    // debug precisa de empresa específica (não ALL)
+    if (!params.empresa || String(params.empresa).toUpperCase() === "ALL") {
       return success(res, []);
     }
 
-    const p = [empresaParam, empresaParam, params.dataInicio, params.dataFim];
+    const codEmpresa = parseInt(String(params.empresa), 10);
+    if (!Number.isFinite(codEmpresa)) return success(res, []);
+
+    const p = [codEmpresa, codEmpresa, params.dataInicio, params.dataFim];
     const rows = await vendasService.debugResumoEmpresaVendedor(p);
     return success(res, rows);
   } catch (err) {
