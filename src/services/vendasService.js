@@ -19,6 +19,7 @@ function loadSql(filename) {
 const SQL_RESUMO_EMPRESA_VENDEDOR = loadSql('resumo_empresa_vendedor.sql');
 const SQL_FORMAS_PAGAMENTO_RESUMO = loadSql('formas_pagamento_resumo.sql');
 const SQL_ANALISE_FAMILIA_VENDEDOR = loadSql('analise_familia_vendedor.sql');
+const sqlDebug = loadSql("debug_resumo_empresa_vendedor.sql");
 
 // --------- QUERIES POR EMPRESA (executadas dentro do loop) ---------
 
@@ -48,6 +49,9 @@ async function getAnaliseFamiliaVendedorPorEmpresa(codEmpresa, dataInicio, dataF
   return db.runQuery(SQL_ANALISE_FAMILIA_VENDEDOR, params);
 }
 
+async function debugResumoEmpresaVendedor(params) {
+  return db.query(sqlDebug, params);
+}
 // --------- APIS PRINCIPAIS (empresa=ALL / múltiplas / única) ---------
 
 async function getResumoEmpresaVendedor({ empresa, dataInicio, dataFim }) {
@@ -102,4 +106,5 @@ module.exports = {
   getResumoEmpresaVendedor,
   getFormasPagamentoResumo,
   getAnaliseFamiliaVendedor,
+  debugResumoEmpresaVendedor,
 };
