@@ -1,3 +1,4 @@
+// src/controllers/_validators.js
 const { failure } = require("../utils/apiResponse");
 
 function validatePeriodoEmpresaQuery(req, res) {
@@ -19,29 +20,18 @@ function validatePeriodoEmpresaQuery(req, res) {
 
   const rawEmpresa = codEmpresa ?? empresa;
 
-  const isAll =
+  // ALL / vazio
+  if (
     rawEmpresa === undefined ||
     rawEmpresa === null ||
     rawEmpresa === "" ||
-    String(rawEmpresa).toUpperCase() === "ALL";
-
-  let empresaNum = null;
-
-  if (!isAll) {
-    const n = Number(rawEmpresa);
-    if (!Number.isFinite(n)) {
-      failure(res, {
-        code: "INVALID_PARAMS",
-        message: "empresa/codEmpresa deve ser numérico ou ALL",
-        details: { empresa: rawEmpresa },
-        status: 400,
-      });
-      return null;
-    }
-    empresaNum = n;
+    String(rawEmpresa).toUpperCase() === "ALL"
+  ) {
+    return { dataInicio, dataFim, empresa: "ALL" };
   }
 
-  return { dataInicio, dataFim, empresa: empresaNum };
+  // mantém string (pode vir "1,9,13")
+  return { dataInicio, dataFim, empresa: String(rawEmpresa) };
 }
 
 module.exports = { validatePeriodoEmpresaQuery };
