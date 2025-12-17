@@ -1,7 +1,7 @@
 -- queries/vendas/resumo_empresa_vendedor.sql
 -- Resumo por empresa e vendedor
 -- DESCONTO = BRUTO - VENDIDO (SEM IPI)
--- NOVO: TOTAL_CREDITOS (forma pagto tipo 6) e TOTAL_VENDIDO_SEM_CREDITOS
+-- TOTAL_CREDITOS (forma pagto tipo 6) e TOTAL_VENDIDO_SEM_CREDITOS
 -- Parâmetros (4):
 --   1) empresa (int)
 --   2) empresa (int) repetido (regra 13/18)
@@ -18,21 +18,19 @@ P AS (
   FROM RDB$DATABASE
 ),
 
+/* Filtra empresas válidas + regra 13/18 (aqui não existe TRANSACAO ainda) */
 empresas_filtradas AS (
   SELECT e.COD_EMPRESA
   FROM EMPRESA e
+  JOIN P ON 1=1
   WHERE e.COD_EMPRESA NOT IN (3, 5, 7, 8, 11, 12)
     AND (
-  t.COD_EMPRESAESTOQUE = P.P_EMPRESA
-  OR t.COD_EMPRESA = P.P_EMPRESA
-  OR (
-    P.P_EMPRESA2 IN (13, 18)
-    AND (
-      t.COD_EMPRESAESTOQUE IN (13, 18)
-      OR t.COD_EMPRESA IN (13, 18)
+      e.COD_EMPRESA = P.P_EMPRESA
+      OR (
+        P.P_EMPRESA2 IN (13, 18)
+        AND e.COD_EMPRESA IN (13, 18)
+      )
     )
-  )
-)
 ),
 
 tbempresa AS (
@@ -46,7 +44,7 @@ tbempresa AS (
   JOIN empresas_filtradas ef ON ef.COD_EMPRESA = e.COD_EMPRESA
 ),
 
--- (A) Itens: bruto, vendido, qtd vendas, qtd produtos, por vendedor
+/* (A) Itens: bruto, vendido, qtd transações, qtd produtos, por vendedor */
 itens AS (
   SELECT
     t.COD_EMPRESAESTOQUE AS COD_EMPRESA,
@@ -66,17 +64,26 @@ itens AS (
   FROM
     P
     JOIN TRANSACAO t ON 1=1
-    JOIN tbempresa emp ON emp.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+
+    /* garante que só pega transações das empresas filtradas */
+    JOIN tbempresa emp
+      ON emp.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+
     JOIN NATUREZAOPERACAO nat
       ON nat.COD_NATUREZAOPERACAO = t.COD_NATUREZAOPERACAO
+
+    /* >>> NÃO usar t.COD_EMPRESA (não existe). Use COD_EMPRESAESTOQUE */
     JOIN SAIDA s
       ON s.COD_SAIDA   = t.COD_TRANSACAO
-     AND s.COD_EMPRESA = t.COD_EMPRESA
+     AND s.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+
     JOIN PESSOA pv
       ON pv.COD_PESSOA = s.COD_VENDEDOR
+
+    /* >>> NÃO usar t.COD_EMPRESA (não existe). Use COD_EMPRESAESTOQUE */
     JOIN TRANSACAO_ITEM ti
       ON ti.COD_TRANSACAO = t.COD_TRANSACAO
-     AND ti.COD_EMPRESA   = t.COD_EMPRESA
+     AND ti.COD_EMPRESA   = t.COD_EMPRESAESTOQUE
 
   WHERE
     nat.TIPO = 1
@@ -88,7 +95,7 @@ itens AS (
     pv.NOME
 ),
 
--- (B) Financeiro: total pago em CREDITOS por vendedor
+/* (B) Financeiro: total pago em CREDITOS por vendedor */
 creditos AS (
   SELECT
     t.COD_EMPRESAESTOQUE AS COD_EMPRESA,
@@ -104,18 +111,26 @@ creditos AS (
   FROM
     P
     JOIN TRANSACAO t ON 1=1
-    JOIN tbempresa emp ON emp.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+    JOIN tbempresa emp
+      ON emp.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+
     JOIN NATUREZAOPERACAO nat
       ON nat.COD_NATUREZAOPERACAO = t.COD_NATUREZAOPERACAO
+
+    /* >>> aqui também */
     JOIN SAIDA s
       ON s.COD_SAIDA   = t.COD_TRANSACAO
-     AND s.COD_EMPRESA = t.COD_EMPRESA
+     AND s.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+
     JOIN FINFATURATRANSACAO fft
       ON fft.COD_FATURATRANSACAO = t.COD_FATURATRANSACAO
+
     JOIN FINLANCAMENTO fl
       ON fl.COD_FATURATRANSACAO = fft.COD_FATURATRANSACAO
+
     JOIN FINLANCAMENTOPARCELA flp
       ON flp.COD_LANCAMENTO = fl.COD_LANCAMENTO
+
     JOIN FINFORMAPAGAMENTO ffp
       ON ffp.COD_FORMAPAGAMENTO = flp.COD_FORMAPAGAMENTO
 
