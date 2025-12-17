@@ -47,6 +47,21 @@ async function resumoFormasPagamento(req, res) {
   }
 }
 
+async function debugResumoEmpresaVendedor(req, res) {
+  try {
+    const params = validatePeriodoEmpresaQuery(req, res); // mesma validação do outro
+    if (!params) return;
+
+    const empresaParam = params.empresa; // precisa ser número
+    const p = [empresaParam, empresaParam, params.dataInicio, params.dataFim];
+
+    const rows = await vendasService.debugResumoEmpresaVendedor(p);
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 async function analiseFamiliaVendedor(req, res) {
   try {
     const params = validatePeriodoQuery(req, res);
