@@ -1,57 +1,11 @@
-// src/controllers/vendasController.js
-
-const vendasService = require('../services/vendasService');
-const { success, failure, handleControllerError } = require('../utils/apiResponse');
+const vendasService = require("../services/vendasService");
+const { success, handleControllerError } = require("../utils/apiResponse");
 const { validatePeriodoEmpresaQuery } = require("./_validators");
-
-function validatePeriodoEmpresaQuery(req, res) {
-  const { dataInicio, dataFim, empresa, codEmpresa } = req.query;
-
-  const missing = [];
-  if (!dataInicio) missing.push("dataInicio");
-  if (!dataFim) missing.push("dataFim");
-
-  if (missing.length) {
-    failure(res, {
-      code: "INVALID_PARAMS",
-      message: "Parâmetros obrigatórios ausentes",
-      details: { missing },
-      status: 400,
-    });
-    return null;
-  }
-
-  const rawEmpresa = codEmpresa ?? empresa;
-
-  // aceita ALL/vazio => todas
-  const isAll =
-    rawEmpresa === undefined ||
-    rawEmpresa === null ||
-    rawEmpresa === "" ||
-    String(rawEmpresa).toUpperCase() === "ALL";
-
-  let empresaNum = null;
-  if (!isAll) {
-    const n = Number(rawEmpresa);
-    if (!Number.isFinite(n)) {
-      failure(res, {
-        code: "INVALID_PARAMS",
-        message: "empresa/codEmpresa deve ser numérico ou ALL",
-        details: { empresa: rawEmpresa },
-        status: 400,
-      });
-      return null;
-    }
-    empresaNum = n;
-  }
-
-  return { dataInicio, dataFim, empresa: empresaNum };
-}
 
 async function resumoEmpresaVendedor(req, res) {
   try {
     const params = validatePeriodoEmpresaQuery(req, res);
-if (!params) return;
+    if (!params) return;
 
     const rows = await vendasService.getResumoEmpresaVendedor(params);
     return success(res, rows);
@@ -63,7 +17,7 @@ if (!params) return;
 async function resumoFormasPagamento(req, res) {
   try {
     const params = validatePeriodoEmpresaQuery(req, res);
-if (!params) return;
+    if (!params) return;
 
     const rows = await vendasService.getFormasPagamentoResumo(params);
     return success(res, rows);
@@ -74,12 +28,16 @@ if (!params) return;
 
 async function debugResumoEmpresaVendedor(req, res) {
   try {
-    const params = validatePeriodoEmpresaQuery(req, res); // mesma validação do outro
+    const params = validatePeriodoEmpresaQuery(req, res);
     if (!params) return;
 
-    const empresaParam = params.empresa; // precisa ser número
-    const p = [empresaParam, empresaParam, params.dataInicio, params.dataFim];
+    const empresaParam = params.empresa; // número (ou null se ALL)
+    if (empresaParam === null) {
+      // debug precisa de empresa específica
+      return success(res, []);
+    }
 
+    const p = [empresaParam, empresaParam, params.dataInicio, params.dataFim];
     const rows = await vendasService.debugResumoEmpresaVendedor(p);
     return success(res, rows);
   } catch (err) {
@@ -90,9 +48,8 @@ async function debugResumoEmpresaVendedor(req, res) {
 async function analiseFamiliaVendedor(req, res) {
   try {
     const params = validatePeriodoEmpresaQuery(req, res);
-if (!params) return;
+    if (!params) return;
 
-    // opcional: seu service aceita codEmpresaEstoque (se existir)
     const codEmpresaEstoque = req.query.codEmpresaEstoque
       ? Number(req.query.codEmpresaEstoque)
       : null;
