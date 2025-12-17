@@ -2,11 +2,6 @@
 const vendasService = require("../services/vendasService");
 const { success, handleControllerError } = require("../utils/apiResponse");
 const { validatePeriodoEmpresaQuery } = require("./_validators");
-const sqlCreateIndexes = loadSql("debug_create_indexes.sql");
-
-async function debugCreateIndexes() {
-  return db.query(sqlCreateIndexes);
-}
 
 async function resumoEmpresaVendedor(req, res) {
   try {
@@ -78,5 +73,4 @@ module.exports = {
   resumoFormasPagamento,
   analiseFamiliaVendedor,
   debugResumoEmpresaVendedor,
-  debugCreateIndexes,
 };
