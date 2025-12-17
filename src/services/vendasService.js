@@ -1,46 +1,32 @@
 // src/services/vendasService.js
-
-const path = require('path');
-const fs = require('fs');
-const db = require('../db');
-const { parseEmpresasParam } = require('../utils/empresaHelper');
+const path = require("path");
+const fs = require("fs");
+const db = require("../db");
+const { parseEmpresasParam } = require("../utils/empresaHelper");
 
 function loadSql(filename) {
-  const filePath = path.join(__dirname, '..', '..', 'queries', 'vendas', filename);
-
+  const filePath = path.join(__dirname, "..", "..", "queries", "vendas", filename);
   try {
-    return fs.readFileSync(filePath, 'utf8');
+    return fs.readFileSync(filePath, "utf8");
   } catch (err) {
     console.error(`[VENDAS] SQL FILE NOT FOUND: ${filePath}`);
     throw err;
   }
 }
 
-const SQL_RESUMO_EMPRESA_VENDEDOR = loadSql('resumo_empresa_vendedor.sql');
-const SQL_FORMAS_PAGAMENTO_RESUMO = loadSql('formas_pagamento_resumo.sql');
-const SQL_ANALISE_FAMILIA_VENDEDOR = loadSql('analise_familia_vendedor.sql');
-const sqlDebug = loadSql("debug_resumo_empresa_vendedor.sql");
+const SQL_RESUMO_EMPRESA_VENDEDOR = loadSql("resumo_empresa_vendedor.sql");
+const SQL_FORMAS_PAGAMENTO_RESUMO = loadSql("formas_pagamento_resumo.sql");
+const SQL_ANALISE_FAMILIA_VENDEDOR = loadSql("analise_familia_vendedor.sql");
+const SQL_DEBUG = loadSql("debug_resumo_empresa_vendedor.sql");
 
-// --------- QUERIES POR EMPRESA (executadas dentro do loop) ---------
-
+// --------- QUERIES POR EMPRESA ---------
 async function getResumoEmpresaVendedorPorEmpresa(codEmpresa, dataInicio, dataFim) {
   const params = [codEmpresa, codEmpresa, dataInicio, dataFim];
   return db.runQuery(SQL_RESUMO_EMPRESA_VENDEDOR, params);
 }
 
 async function getFormasPagamentoResumoPorEmpresa(codEmpresa, dataInicio, dataFim) {
-  // 8 placeholders:
-  // empresa, empresa, vendas (2), convenio (2), devolucao (2)
-  const params = [
-    codEmpresa,
-    codEmpresa,
-    dataInicio,
-    dataFim,
-    dataInicio,
-    dataFim,
-    dataInicio,
-    dataFim,
-  ];
+  const params = [codEmpresa, codEmpresa, dataInicio, dataFim, dataInicio, dataFim, dataInicio, dataFim];
   return db.runQuery(SQL_FORMAS_PAGAMENTO_RESUMO, params);
 }
 
@@ -50,10 +36,10 @@ async function getAnaliseFamiliaVendedorPorEmpresa(codEmpresa, dataInicio, dataF
 }
 
 async function debugResumoEmpresaVendedor(params) {
-  return db.query(sqlDebug, params);
+  return db.runQuery(SQL_DEBUG, params);
 }
-// --------- APIS PRINCIPAIS (empresa=ALL / múltiplas / única) ---------
 
+// --------- APIS PRINCIPAIS ---------
 async function getResumoEmpresaVendedor({ empresa, dataInicio, dataFim }) {
   const empresas = parseEmpresasParam(empresa);
   let allRows = [];
@@ -66,7 +52,6 @@ async function getResumoEmpresaVendedor({ empresa, dataInicio, dataFim }) {
       console.error(`[VENDAS] resumo-empresa-vendedor empresa ${cod}:`, err.message || err);
     }
   }
-
   return allRows;
 }
 
@@ -82,7 +67,6 @@ async function getFormasPagamentoResumo({ empresa, dataInicio, dataFim }) {
       console.error(`[VENDAS] resumo-formas-pagamento empresa ${cod}:`, err.message || err);
     }
   }
-
   return allRows;
 }
 
@@ -98,7 +82,6 @@ async function getAnaliseFamiliaVendedor({ empresa, dataInicio, dataFim }) {
       console.error(`[VENDAS] analise-familia-vendedor empresa ${cod}:`, err.message || err);
     }
   }
-
   return allRows;
 }
 
