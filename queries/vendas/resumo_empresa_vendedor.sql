@@ -23,12 +23,16 @@ empresas_filtradas AS (
   FROM EMPRESA e
   WHERE e.COD_EMPRESA NOT IN (3, 5, 7, 8, 11, 12)
     AND (
-      e.COD_EMPRESA = P.P_EMPRESA
-      OR (
-        P.P_EMPRESA2 IN (13, 18)
-        AND e.COD_EMPRESA IN (13, 18)
-      )
+  t.COD_EMPRESAESTOQUE = P.P_EMPRESA
+  OR t.COD_EMPRESA = P.P_EMPRESA
+  OR (
+    P.P_EMPRESA2 IN (13, 18)
+    AND (
+      t.COD_EMPRESAESTOQUE IN (13, 18)
+      OR t.COD_EMPRESA IN (13, 18)
     )
+  )
+)
 ),
 
 tbempresa AS (
