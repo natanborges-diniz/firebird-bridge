@@ -87,4 +87,5 @@ module.exports = {
   resumoEmpresaVendedor,
   resumoFormasPagamento,
   analiseFamiliaVendedor,
+  debugResumoEmpresaVendedor,
 };
