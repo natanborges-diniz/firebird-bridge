@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const db = require("../db");
 const { parseEmpresasParam } = require("../utils/empresaHelper");
+const sqlCreateIndexes = loadSql("debug_create_indexes.sql");
 
 function loadSql(filename) {
   const filePath = path.join(__dirname, "..", "..", "queries", "vendas", filename);
@@ -83,6 +84,9 @@ async function getAnaliseFamiliaVendedor({ empresa, dataInicio, dataFim }) {
     }
   }
   return allRows;
+}
+async function debugCreateIndexes() {
+  return db.query(sqlCreateIndexes);
 }
 
 module.exports = {
