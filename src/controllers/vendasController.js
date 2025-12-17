@@ -3,24 +3,48 @@
 const vendasService = require('../services/vendasService');
 const { success, failure, handleControllerError } = require('../utils/apiResponse');
 
-function validatePeriodoQuery(req, res) {
-  const { empresa, dataInicio, dataFim } = req.query;
+function validatePeriodoEmpresaQuery(req, res) {
+  const { dataInicio, dataFim, empresa, codEmpresa } = req.query;
 
   const missing = [];
-  if (!dataInicio) missing.push('dataInicio');
-  if (!dataFim) missing.push('dataFim');
+  if (!dataInicio) missing.push("dataInicio");
+  if (!dataFim) missing.push("dataFim");
 
-  if (missing.length > 0) {
+  if (missing.length) {
     failure(res, {
-      code: 'INVALID_PARAMS',
-      message: 'Parâmetros obrigatórios ausentes',
+      code: "INVALID_PARAMS",
+      message: "Parâmetros obrigatórios ausentes",
       details: { missing },
       status: 400,
     });
     return null;
   }
 
-  return { empresa, dataInicio, dataFim };
+  const rawEmpresa = codEmpresa ?? empresa;
+
+  // aceita ALL/vazio => todas
+  const isAll =
+    rawEmpresa === undefined ||
+    rawEmpresa === null ||
+    rawEmpresa === "" ||
+    String(rawEmpresa).toUpperCase() === "ALL";
+
+  let empresaNum = null;
+  if (!isAll) {
+    const n = Number(rawEmpresa);
+    if (!Number.isFinite(n)) {
+      failure(res, {
+        code: "INVALID_PARAMS",
+        message: "empresa/codEmpresa deve ser numérico ou ALL",
+        details: { empresa: rawEmpresa },
+        status: 400,
+      });
+      return null;
+    }
+    empresaNum = n;
+  }
+
+  return { dataInicio, dataFim, empresa: empresaNum };
 }
 
 async function resumoEmpresaVendedor(req, res) {
