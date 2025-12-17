@@ -1,9 +1,10 @@
 -- queries/vendas/resumo_empresa_vendedor.sql
--- Resumo de vendas por empresa e vendedor + devoluções
--- (DESCONTO = BRUTO - VENDIDO) e SEM IPI
+-- Resumo por empresa e vendedor
+-- DESCONTO = BRUTO - VENDIDO (SEM IPI)
+-- NOVO: TOTAL_CREDITOS (forma pagto tipo 6) e TOTAL_VENDIDO_SEM_CREDITOS
 -- Parâmetros (4):
---   1) empresa (integer)
---   2) empresa (integer) repetido (regra 13/18)
+--   1) empresa (int)
+--   2) empresa (int) repetido (regra 13/18)
 --   3) dataInicio (date)
 --   4) dataFim (date)
 
@@ -17,192 +18,147 @@ P AS (
   FROM RDB$DATABASE
 ),
 
-TBEMPRESA AS (
+empresas_filtradas AS (
+  SELECT e.COD_EMPRESA
+  FROM EMPRESA e
+  WHERE e.COD_EMPRESA NOT IN (3, 5, 7, 8, 11, 12)
+    AND (
+      e.COD_EMPRESA = P.P_EMPRESA
+      OR (
+        P.P_EMPRESA2 IN (13, 18)
+        AND e.COD_EMPRESA IN (13, 18)
+      )
+    )
+),
+
+tbempresa AS (
   SELECT
-    EMPRESA.COD_EMPRESA,
-    PESSOA.NOME AS EMPRESA_NOME
-  FROM EMPRESA
-  JOIN PESSOA ON PESSOA.COD_PESSOA = EMPRESA.COD_EMPRESA
-)
+    e.COD_EMPRESA,
+    pe.NOME AS EMPRESA,
+    CASE WHEN e.COD_EMPRESA IN (13, 18) THEN 13 ELSE e.COD_EMPRESA END AS EMPRESA_COD_LOGICO,
+    CASE WHEN e.COD_EMPRESA IN (13, 18) THEN 'DINIZ SUPER' ELSE pe.NOME END AS EMPRESA_NOME_LOGICO
+  FROM EMPRESA e
+  JOIN PESSOA pe ON pe.COD_PESSOA = e.COD_EMPRESA
+  JOIN empresas_filtradas ef ON ef.COD_EMPRESA = e.COD_EMPRESA
+),
 
-SELECT
-  x.COD_EMPRESA,
-  x.EMPRESA,
-
-  /* CAMPOS LÓGICOS (SUPER + SUPER SHOPPING) */
-  CASE
-    WHEN x.COD_EMPRESA IN (13, 18) THEN 13
-    ELSE x.COD_EMPRESA
-  END AS EMPRESA_COD_LOGICO,
-
-  CASE
-    WHEN x.COD_EMPRESA IN (13, 18) THEN 'DINIZ SUPER'
-    ELSE x.EMPRESA
-  END AS EMPRESA_NOME_LOGICO,
-
-  x.COD_VENDEDOR,
-  x.VENDEDOR,
-
-  SUM(x.QTD_TRANSACAO) AS QTD_TRANSACAO,
-  SUM(x.QTD_PRODUTOS)  AS QTD_PRODUTOS,
-
-  /* BRUTO e VENDIDO */
-  SUM(x.TOTAL_BRUTO)   AS TOTAL_BRUTO,
-  SUM(x.TOTAL_VENDIDO) AS TOTAL_VENDIDO,
-
-  /* DESCONTO (regra pedida) */
-  (SUM(x.TOTAL_BRUTO) - SUM(x.TOTAL_VENDIDO)) AS TOTAL_DESCONTO,
-
-  /* % DESCONTO */
-  CASE
-    WHEN SUM(x.TOTAL_BRUTO) = 0 THEN 0
-    ELSE ((SUM(x.TOTAL_BRUTO) - SUM(x.TOTAL_VENDIDO)) / NULLIF(SUM(x.TOTAL_BRUTO), 0)) * 100
-  END AS PERC_DESCONTO,
-
-  /* DEVOLUÇÕES */
-  SUM(x.QTD_DEVOLUCAO)   AS QTD_DEVOLUCAO,
-  SUM(x.TOTAL_DEVOLUCAO) AS TOTAL_DEVOLUCAO,
-
-  /* LÍQUIDOS PRONTOS PARA DASH */
-  SUM(x.TOTAL_VENDIDO) AS TOTAL_LIQUIDO_SEM_DEVOLUCAO,
-  (SUM(x.TOTAL_VENDIDO) - SUM(x.TOTAL_DEVOLUCAO)) AS TOTAL_LIQUIDO_COM_DEVOLUCAO
-
-FROM (
-  /* =========================
-     BLOCO 1: VENDAS (TIPO=1)
-     ========================= */
+-- (A) Itens: bruto, vendido, qtd vendas, qtd produtos, por vendedor
+itens AS (
   SELECT
-    t.COD_EMPRESAESTOQUE            AS COD_EMPRESA,
-    emp.EMPRESA_NOME                AS EMPRESA,
-
-    vend.COD_PESSOA                 AS COD_VENDEDOR,
-    vend.NOME                       AS VENDEDOR,
+    t.COD_EMPRESAESTOQUE AS COD_EMPRESA,
+    s.COD_VENDEDOR       AS COD_VENDEDOR,
+    pv.NOME              AS VENDEDOR,
 
     COUNT(DISTINCT t.COD_TRANSACAO) AS QTD_TRANSACAO,
     SUM(ti.QUANTIDADE)              AS QTD_PRODUTOS,
 
-    /* BRUTO */
-    SUM(COALESCE(ti.TOTAL, 0))      AS TOTAL_BRUTO,
+    SUM(COALESCE(ti.TOTAL, 0)) AS TOTAL_BRUTO,
 
-    /* VENDIDO (SEM IPI) */
     SUM(
       COALESCE(ti.TOTAL, 0)
       - COALESCE(ti.VALORDESCONTO, 0)
-    ) AS TOTAL_VENDIDO,
-
-    /* DEVOLUÇÕES (zerado neste bloco) */
-    0 AS QTD_DEVOLUCAO,
-    0 AS TOTAL_DEVOLUCAO
+    ) AS TOTAL_VENDIDO
 
   FROM
     P
-    JOIN TRANSACAO t
-      ON 1=1
-    JOIN TRANSACAO_ITEM ti
-      ON t.COD_TRANSACAO = ti.COD_TRANSACAO
-     AND t.COD_EMPRESA   = ti.COD_EMPRESA
+    JOIN TRANSACAO t ON 1=1
+    JOIN tbempresa emp ON emp.COD_EMPRESA = t.COD_EMPRESAESTOQUE
     JOIN NATUREZAOPERACAO nat
-      ON ti.COD_NATUREZAOPERACAO = nat.COD_NATUREZAOPERACAO
+      ON nat.COD_NATUREZAOPERACAO = t.COD_NATUREZAOPERACAO
     JOIN SAIDA s
-      ON s.COD_SAIDA    = t.COD_TRANSACAO
-     AND s.COD_EMPRESA  = t.COD_EMPRESA
-    JOIN PESSOA vend
-      ON vend.COD_PESSOA = s.COD_VENDEDOR
-    JOIN TBEMPRESA emp
-      ON emp.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+      ON s.COD_SAIDA   = t.COD_TRANSACAO
+     AND s.COD_EMPRESA = t.COD_EMPRESA
+    JOIN PESSOA pv
+      ON pv.COD_PESSOA = s.COD_VENDEDOR
+    JOIN TRANSACAO_ITEM ti
+      ON ti.COD_TRANSACAO = t.COD_TRANSACAO
+     AND ti.COD_EMPRESA   = t.COD_EMPRESA
 
   WHERE
-    /* Regra global: ignora empresas lixo */
-    emp.COD_EMPRESA NOT IN (3, 5, 7, 8, 11, 12)
-
-    /* Filtra empresa (inclui regra 13/18) */
-    AND (
-      t.COD_EMPRESAESTOQUE = P.P_EMPRESA
-      OR (
-        P.P_EMPRESA2 IN (13, 18)
-        AND t.COD_EMPRESAESTOQUE IN (13, 18)
-      )
-    )
-
-    /* Vendas */
-    AND nat.TIPO = 1
-
-    /* Período */
+    nat.TIPO = 1
     AND t.DATAENCERRAMENTO BETWEEN P.P_DATA_INI AND P.P_DATA_FIM
 
   GROUP BY
     t.COD_EMPRESAESTOQUE,
-    emp.EMPRESA_NOME,
-    vend.COD_PESSOA,
-    vend.NOME
+    s.COD_VENDEDOR,
+    pv.NOME
+),
 
-  UNION ALL
-
-  /* ==========================================
-     BLOCO 2: DEVOLUÇÕES (ENTRADANOTAFISCALDEVOLUCAO)
-     ========================================== */
+-- (B) Financeiro: total pago em CREDITOS por vendedor
+creditos AS (
   SELECT
-    td.COD_EMPRESAESTOQUE            AS COD_EMPRESA,
-    emp.EMPRESA_NOME                 AS EMPRESA,
+    t.COD_EMPRESAESTOQUE AS COD_EMPRESA,
+    s.COD_VENDEDOR       AS COD_VENDEDOR,
 
-    vendDev.COD_PESSOA               AS COD_VENDEDOR,
-    vendDev.NOME                     AS VENDEDOR,
-
-    0 AS QTD_TRANSACAO,
-    0 AS QTD_PRODUTOS,
-
-    /* BRUTO/VENDIDO zerados aqui */
-    0 AS TOTAL_BRUTO,
-    0 AS TOTAL_VENDIDO,
-
-    COUNT(DISTINCT td.COD_TRANSACAO) AS QTD_DEVOLUCAO,
-    SUM(COALESCE(tid.TOTAL, 0))      AS TOTAL_DEVOLUCAO
+    SUM(
+      COALESCE(
+        IIF(flp.DATAPAGAMENTO IS NULL, flp.VALOR, flp.VALORPAGO),
+        0
+      )
+    ) AS TOTAL_CREDITOS
 
   FROM
     P
-    JOIN TRANSACAO td
-      ON 1=1
-    JOIN ENTRADANOTAFISCALDEVOLUCAO dev
-      ON td.COD_TRANSACAO = dev.COD_ENTRADANOTAFISCALDEVOLUCAO
-     AND td.COD_EMPRESA   = dev.COD_EMPRESA
-    JOIN TRANSACAO_ITEM tid
-      ON tid.COD_TRANSACAO = td.COD_TRANSACAO
-     AND tid.COD_EMPRESA   = td.COD_EMPRESA
-    JOIN TBEMPRESA emp
-      ON emp.COD_EMPRESA = td.COD_EMPRESAESTOQUE
-    JOIN PESSOA vendDev
-      ON vendDev.COD_PESSOA = dev.COD_VENDEDOR
+    JOIN TRANSACAO t ON 1=1
+    JOIN tbempresa emp ON emp.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+    JOIN NATUREZAOPERACAO nat
+      ON nat.COD_NATUREZAOPERACAO = t.COD_NATUREZAOPERACAO
+    JOIN SAIDA s
+      ON s.COD_SAIDA   = t.COD_TRANSACAO
+     AND s.COD_EMPRESA = t.COD_EMPRESA
+    JOIN FINFATURATRANSACAO fft
+      ON fft.COD_FATURATRANSACAO = t.COD_FATURATRANSACAO
+    JOIN FINLANCAMENTO fl
+      ON fl.COD_FATURATRANSACAO = fft.COD_FATURATRANSACAO
+    JOIN FINLANCAMENTOPARCELA flp
+      ON flp.COD_LANCAMENTO = fl.COD_LANCAMENTO
+    JOIN FINFORMAPAGAMENTO ffp
+      ON ffp.COD_FORMAPAGAMENTO = flp.COD_FORMAPAGAMENTO
 
   WHERE
-    /* Regra global: ignora empresas lixo */
-    emp.COD_EMPRESA NOT IN (3, 5, 7, 8, 11, 12)
-
-    /* Filtra empresa (inclui regra 13/18) */
-    AND (
-      td.COD_EMPRESAESTOQUE = P.P_EMPRESA
-      OR (
-        P.P_EMPRESA2 IN (13, 18)
-        AND td.COD_EMPRESAESTOQUE IN (13, 18)
-      )
-    )
-
-    /* Período */
-    AND td.DATAENCERRAMENTO BETWEEN P.P_DATA_INI AND P.P_DATA_FIM
+    nat.TIPO = 1
+    AND t.DATAEMISSAO BETWEEN P.P_DATA_INI AND P.P_DATA_FIM
+    AND ffp.COD_FORMAPAGAMENTOTIPO = 6  -- CREDITOS
 
   GROUP BY
-    td.COD_EMPRESAESTOQUE,
-    emp.EMPRESA_NOME,
-    vendDev.COD_PESSOA,
-    vendDev.NOME
+    t.COD_EMPRESAESTOQUE,
+    s.COD_VENDEDOR
+)
 
-) x
+SELECT
+  emp.COD_EMPRESA,
+  emp.EMPRESA,
+  emp.EMPRESA_COD_LOGICO,
+  emp.EMPRESA_NOME_LOGICO,
 
-GROUP BY
-  x.COD_EMPRESA,
-  x.EMPRESA,
-  x.COD_VENDEDOR,
-  x.VENDEDOR
+  i.COD_VENDEDOR,
+  i.VENDEDOR,
+
+  i.QTD_TRANSACAO,
+  i.QTD_PRODUTOS,
+
+  i.TOTAL_BRUTO,
+  i.TOTAL_VENDIDO,
+
+  (i.TOTAL_BRUTO - i.TOTAL_VENDIDO) AS TOTAL_DESCONTO,
+
+  CASE
+    WHEN i.TOTAL_BRUTO = 0 THEN 0
+    ELSE ((i.TOTAL_BRUTO - i.TOTAL_VENDIDO) / NULLIF(i.TOTAL_BRUTO, 0)) * 100
+  END AS PERC_DESCONTO,
+
+  COALESCE(c.TOTAL_CREDITOS, 0) AS TOTAL_CREDITOS,
+
+  (i.TOTAL_VENDIDO - COALESCE(c.TOTAL_CREDITOS, 0)) AS TOTAL_VENDIDO_SEM_CREDITOS
+
+FROM
+  itens i
+  JOIN tbempresa emp
+    ON emp.COD_EMPRESA = i.COD_EMPRESA
+  LEFT JOIN creditos c
+    ON c.COD_EMPRESA = i.COD_EMPRESA
+   AND c.COD_VENDEDOR = i.COD_VENDEDOR
 
 ORDER BY
-  EMPRESA_COD_LOGICO,
-  VENDEDOR;
+  emp.EMPRESA_COD_LOGICO,
+  i.VENDEDOR;
