@@ -2,6 +2,7 @@
 
 const vendasService = require('../services/vendasService');
 const { success, failure, handleControllerError } = require('../utils/apiResponse');
+const { validatePeriodoEmpresaQuery } = require("./_validators");
 
 function validatePeriodoEmpresaQuery(req, res) {
   const { dataInicio, dataFim, empresa, codEmpresa } = req.query;
@@ -49,8 +50,8 @@ function validatePeriodoEmpresaQuery(req, res) {
 
 async function resumoEmpresaVendedor(req, res) {
   try {
-    const params = validatePeriodoQuery(req, res);
-    if (!params) return;
+    const params = validatePeriodoEmpresaQuery(req, res);
+if (!params) return;
 
     const rows = await vendasService.getResumoEmpresaVendedor(params);
     return success(res, rows);
@@ -61,8 +62,8 @@ async function resumoEmpresaVendedor(req, res) {
 
 async function resumoFormasPagamento(req, res) {
   try {
-    const params = validatePeriodoQuery(req, res);
-    if (!params) return;
+    const params = validatePeriodoEmpresaQuery(req, res);
+if (!params) return;
 
     const rows = await vendasService.getFormasPagamentoResumo(params);
     return success(res, rows);
@@ -88,8 +89,8 @@ async function debugResumoEmpresaVendedor(req, res) {
 
 async function analiseFamiliaVendedor(req, res) {
   try {
-    const params = validatePeriodoQuery(req, res);
-    if (!params) return;
+    const params = validatePeriodoEmpresaQuery(req, res);
+if (!params) return;
 
     // opcional: seu service aceita codEmpresaEstoque (se existir)
     const codEmpresaEstoque = req.query.codEmpresaEstoque
