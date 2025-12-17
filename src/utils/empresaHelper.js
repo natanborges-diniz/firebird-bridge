@@ -16,7 +16,19 @@ const EMPRESAS_ALL_LOGICAS = [1, 2, 4, 6, 9, 13, 14, 15, 16, 17];
  *  - lixo (3,5,7,8,11,12) é automaticamente removido
  */
 function parseEmpresasParam(empresaParam) {
-  const raw = (empresaParam || '').trim();
+  // null / undefined / vazio → ALL
+  if (empresaParam === undefined || empresaParam === null || empresaParam === '') {
+    return [...EMPRESAS_ALL_LOGICAS];
+  }
+
+  // number → empresa única
+  if (typeof empresaParam === 'number') {
+    if (EMPRESAS_LIXO.has(empresaParam)) return [];
+    return [empresaParam];
+  }
+
+  // garante string
+  const raw = String(empresaParam).trim();
 
   if (!raw || raw.toUpperCase() === 'ALL') {
     return [...EMPRESAS_ALL_LOGICAS];
@@ -27,7 +39,7 @@ function parseEmpresasParam(empresaParam) {
       raw
         .split(',')
         .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => !Number.isNaN(n) && !EMPRESAS_LIXO.has(n))
+        .filter((n) => Number.isFinite(n) && !EMPRESAS_LIXO.has(n))
     )
   );
 
