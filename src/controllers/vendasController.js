@@ -29,18 +29,18 @@ async function resumoFormasPagamento(req, res) {
 
 async function debugResumoEmpresaVendedor(req, res) {
   try {
+    if (req.query.action === "create-indexes") {
+      await vendasService.debugCreateIndexes();
+      return success(res, { message: "Índices criados" });
+    }
+
     const params = validatePeriodoEmpresaQuery(req, res);
     if (!params) return;
 
-    // debug precisa de empresa específica (não ALL)
-    if (!params.empresa || String(params.empresa).toUpperCase() === "ALL") {
-      return success(res, []);
-    }
+    const empresaParam = params.empresa;
+    if (empresaParam === null) return success(res, []);
 
-    const codEmpresa = parseInt(String(params.empresa), 10);
-    if (!Number.isFinite(codEmpresa)) return success(res, []);
-
-    const p = [codEmpresa, codEmpresa, params.dataInicio, params.dataFim];
+    const p = [empresaParam, empresaParam, params.dataInicio, params.dataFim];
     const rows = await vendasService.debugResumoEmpresaVendedor(p);
     return success(res, rows);
   } catch (err) {
