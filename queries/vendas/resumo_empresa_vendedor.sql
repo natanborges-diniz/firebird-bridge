@@ -72,18 +72,24 @@ itens AS (
     JOIN NATUREZAOPERACAO nat
       ON nat.COD_NATUREZAOPERACAO = t.COD_NATUREZAOPERACAO
 
-    /* >>> NÃO usar t.COD_EMPRESA (não existe). Use COD_EMPRESAESTOQUE */
+    /* JOIN tolerante (alguns bancos usam COD_EMPRESA diferente do estoque) */
     JOIN SAIDA s
-      ON s.COD_SAIDA   = t.COD_TRANSACAO
-     AND s.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+      ON s.COD_SAIDA = t.COD_TRANSACAO
+     AND (
+       s.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+       OR (t.COD_EMPRESA IS NOT NULL AND s.COD_EMPRESA = t.COD_EMPRESA)
+     )
 
     JOIN PESSOA pv
       ON pv.COD_PESSOA = s.COD_VENDEDOR
 
-    /* >>> NÃO usar t.COD_EMPRESA (não existe). Use COD_EMPRESAESTOQUE */
+    /* JOIN tolerante idem */
     JOIN TRANSACAO_ITEM ti
       ON ti.COD_TRANSACAO = t.COD_TRANSACAO
-     AND ti.COD_EMPRESA   = t.COD_EMPRESAESTOQUE
+     AND (
+       ti.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+       OR (t.COD_EMPRESA IS NOT NULL AND ti.COD_EMPRESA = t.COD_EMPRESA)
+     )
 
   WHERE
     nat.TIPO = 1
@@ -111,16 +117,19 @@ creditos AS (
   FROM
     P
     JOIN TRANSACAO t ON 1=1
+
     JOIN tbempresa emp
       ON emp.COD_EMPRESA = t.COD_EMPRESAESTOQUE
 
     JOIN NATUREZAOPERACAO nat
       ON nat.COD_NATUREZAOPERACAO = t.COD_NATUREZAOPERACAO
 
-    /* >>> aqui também */
     JOIN SAIDA s
-      ON s.COD_SAIDA   = t.COD_TRANSACAO
-     AND s.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+      ON s.COD_SAIDA = t.COD_TRANSACAO
+     AND (
+       s.COD_EMPRESA = t.COD_EMPRESAESTOQUE
+       OR (t.COD_EMPRESA IS NOT NULL AND s.COD_EMPRESA = t.COD_EMPRESA)
+     )
 
     JOIN FINFATURATRANSACAO fft
       ON fft.COD_FATURATRANSACAO = t.COD_FATURATRANSACAO
