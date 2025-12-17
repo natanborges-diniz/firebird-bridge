@@ -13,4 +13,6 @@ router.get('/resumo-formas-pagamento', vendasController.resumoFormasPagamento);
 // GET /api/v1/vendas/analise-familia-vendedor
 router.get('/analise-familia-vendedor', vendasController.analiseFamiliaVendedor);
 
+router.get('/resumo-empresa-vendedor/debug', vendasController.debugResumoEmpresaVendedor);
+
 module.exports = router;
