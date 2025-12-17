@@ -94,4 +94,5 @@ module.exports = {
   getFormasPagamentoResumo,
   getAnaliseFamiliaVendedor,
   debugResumoEmpresaVendedor,
+  debugCreateIndexes,
 };
