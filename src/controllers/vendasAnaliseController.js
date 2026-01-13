@@ -11,10 +11,15 @@ async function analiseFamiliaVendedor(req, res) {
         .json({ error: 'Parâmetros dataInicio e dataFim são obrigatórios' });
     }
 
+    const useCache = req.query.cache !== '0' && req.query.cache !== 'false';
+    const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
+
     const rows = await getAnaliseFamiliaVendedor({
       dataInicio,
       dataFim,
-      codEmpresa: codEmpresa ? Number(codEmpresa) : null
+      codEmpresa: codEmpresa ? Number(codEmpresa) : null,
+      useCache,
+      cacheTtlMs,
     });
 
     res.json({ data: rows });
