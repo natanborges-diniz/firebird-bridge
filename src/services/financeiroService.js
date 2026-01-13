@@ -3,6 +3,7 @@
 const path = require('path');
 const fs = require('fs');
 const db = require('../db');
+const { DEFAULT_TTL_MS, getCachedOrFetch, getRangeTtlMs } = require('../utils/queryCache');
 
 // Empresas que nunca entram (lixo)
 const EMPRESAS_LIXO = new Set([3, 5, 7, 8, 11, 12]);
@@ -57,9 +58,17 @@ function parseEmpresasLista(empresaStr) {
  *   3) dataInicio
  *   4) dataFim
  */
-async function getParcelasPorEmpresa(codEmpresa, dataInicio, dataFim) {
+async function getParcelasPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
   const params = [codEmpresa, codEmpresa, dataInicio, dataFim];
-  return db.runQuery(SQL_PARCELAS, params);
+  const cacheLabel = 'financeiro.parcelas';
+  const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
+  return getCachedOrFetch({
+    label: cacheLabel,
+    params,
+    ttlMs,
+    enabled: options.useCache !== false,
+    fetcher: () => db.runQuery(SQL_PARCELAS, params),
+  });
 }
 
 /**
@@ -74,7 +83,7 @@ async function getParcelasPorEmpresa(codEmpresa, dataInicio, dataFim) {
  *  - ignorar empresas lixo (3,5,7,8,11,12)
  *  - unificar 13/18 como "empresa_cod_logico = 13"
  */
-async function getParcelas({ empresa, dataInicio, dataFim }) {
+async function getParcelas({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
   const empRaw = (empresa || '').trim();
 
   // ---------------------------------------------------------------------------
@@ -85,7 +94,7 @@ async function getParcelas({ empresa, dataInicio, dataFim }) {
 
     for (const cod of EMPRESAS_ALL_LOGICAS) {
       try {
-        const rows = await getParcelasPorEmpresa(cod, dataInicio, dataFim);
+        const rows = await getParcelasPorEmpresa(cod, dataInicio, dataFim, { useCache, cacheTtlMs });
         if (rows && rows.length > 0) {
           allRows = allRows.concat(rows);
         }
@@ -120,7 +129,7 @@ async function getParcelas({ empresa, dataInicio, dataFim }) {
     }
 
     try {
-      const rows = await getParcelasPorEmpresa(cod, dataInicio, dataFim);
+      const rows = await getParcelasPorEmpresa(cod, dataInicio, dataFim, { useCache, cacheTtlMs });
       if (rows && rows.length > 0) {
         allRows = allRows.concat(rows);
       }
