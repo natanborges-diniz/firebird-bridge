@@ -3,6 +3,7 @@
 const path = require('path');
 const fs = require('fs');
 const db = require('../db');
+const { LONG_TTL_MS, getCachedOrFetch } = require('../utils/queryCache');
 
 /**
  * Carrega SQL da pasta /app/queries/empresas
@@ -30,9 +31,16 @@ const SQL_LISTAR_EMPRESAS = loadSql('listarEmpresas.sql');
  * Retorna a lista de empresas “cruas” vinda do Firebird.
  * Depende do conteúdo de queries/empresas/listarEmpresas.sql
  */
-async function getEmpresas() {
-  const rows = await db.runQuery(SQL_LISTAR_EMPRESAS);
-  return rows;
+async function getEmpresas(options = {}) {
+  const params = [];
+  const cacheLabel = 'empresa.listar';
+  return getCachedOrFetch({
+    label: cacheLabel,
+    params,
+    ttlMs: options.cacheTtlMs ?? LONG_TTL_MS,
+    enabled: options.useCache !== false,
+    fetcher: () => db.runQuery(SQL_LISTAR_EMPRESAS),
+  });
 }
 
 /**
@@ -61,8 +69,8 @@ function getField(row, candidates) {
  *   ...
  * ]
  */
-async function getEmpresasLogicas() {
-  const rows = await getEmpresas();
+async function getEmpresasLogicas(options = {}) {
+  const rows = await getEmpresas(options);
 
   const lixo = new Set([3, 5, 7, 8, 11, 12]);
   const map = new Map(); // key = cod_logico, value = { codEmpresa, empresaNome }
