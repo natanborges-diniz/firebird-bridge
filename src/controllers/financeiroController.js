@@ -28,7 +28,14 @@ async function listarParcelas(req, res) {
     const params = validatePeriodoQuery(req, res);
     if (!params) return;
 
-    const rows = await financeiroService.getParcelas(params);
+    const useCache = req.query.cache !== '0' && req.query.cache !== 'false';
+    const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
+
+    const rows = await financeiroService.getParcelas({
+      ...params,
+      useCache,
+      cacheTtlMs,
+    });
     return success(res, rows);
   } catch (err) {
     return handleControllerError(res, err);
