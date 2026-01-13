@@ -32,6 +32,17 @@ tbempresa AS (
   FROM EMPRESA e
   JOIN PESSOA p ON p.COD_PESSOA = e.COD_EMPRESA
   JOIN empresas_filtradas ef ON ef.COD_EMPRESA = e.COD_EMPRESA
+),
+itens_por_transacao AS (
+  SELECT
+    ti.COD_TRANSACAO,
+    ti.COD_EMPRESA,
+    SUM(COALESCE(ti.VALORORIGINAL, 0) * COALESCE(ti.QUANTIDADE, 0)) AS TOTAL_BRUTO,
+    SUM(COALESCE(ti.TOTAL, 0) - COALESCE(ti.TOTALIPI, 0)) AS TOTAL_VENDIDO
+  FROM TRANSACAO_ITEM ti
+  GROUP BY
+    ti.COD_TRANSACAO,
+    ti.COD_EMPRESA
 )
 
 -- VENDAS NORMAIS
@@ -65,7 +76,17 @@ SELECT
     )
   ) AS TOTALGERAL,
 
-  COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS
+  COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS,
+
+  SUM(COALESCE(itens.TOTAL_BRUTO, 0)) AS TOTAL_BRUTO,
+  SUM(COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0)) AS TOTAL_DESCONTO,
+  CASE
+    WHEN SUM(COALESCE(itens.TOTAL_BRUTO, 0)) = 0 THEN 0
+    ELSE (
+      SUM(COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0))
+      / NULLIF(SUM(COALESCE(itens.TOTAL_BRUTO, 0)), 0)
+    ) * 100
+  END AS PERC_DESCONTO
 
 FROM
   transacao
@@ -86,6 +107,9 @@ FROM
     ON finlancamentoparcela.cod_lancamento = finlancamento.cod_lancamento
   JOIN finformapagamento
     ON finformapagamento.cod_formapagamento = finlancamentoparcela.cod_formapagamento
+  LEFT JOIN itens_por_transacao itens
+    ON itens.COD_TRANSACAO = transacao.COD_TRANSACAO
+   AND itens.COD_EMPRESA = transacao.COD_EMPRESA
   LEFT JOIN finformapagamentocartao
     ON finformapagamentocartao.cod_formapagamentocartao = finformapagamento.cod_formapagamento
   LEFT JOIN fincartaocreditotipo
@@ -112,7 +136,16 @@ SELECT
   vendedor.NOME AS VENDEDOR,
   'CONVENIO' AS FORMAPAGAMENTO,
   SUM(transacaoconvenioparcela.valor) AS TOTALGERAL,
-  COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS
+  COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS,
+  SUM(COALESCE(itens.TOTAL_BRUTO, 0)) AS TOTAL_BRUTO,
+  SUM(COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0)) AS TOTAL_DESCONTO,
+  CASE
+    WHEN SUM(COALESCE(itens.TOTAL_BRUTO, 0)) = 0 THEN 0
+    ELSE (
+      SUM(COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0))
+      / NULLIF(SUM(COALESCE(itens.TOTAL_BRUTO, 0)), 0)
+    ) * 100
+  END AS PERC_DESCONTO
 
 FROM
   transacao
@@ -126,6 +159,9 @@ FROM
     ON vendedor.cod_pessoa = saida.cod_vendedor
   JOIN tbempresa
     ON tbempresa.cod_empresa = transacao.cod_empresaestoque
+  LEFT JOIN itens_por_transacao itens
+    ON itens.COD_TRANSACAO = transacao.COD_TRANSACAO
+   AND itens.COD_EMPRESA = transacao.COD_EMPRESA
 
 WHERE
   transacao.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
@@ -146,7 +182,16 @@ SELECT
   vendedor.NOME AS VENDEDOR,
   'DEVOLUCAO' AS FORMAPAGAMENTO,
   SUM(transacaodevolucao.total) * -1 AS TOTALGERAL,
-  COUNT(DISTINCT transacaodevolucao.cod_transacao) AS QTD_VENDAS
+  COUNT(DISTINCT transacaodevolucao.cod_transacao) AS QTD_VENDAS,
+  SUM(COALESCE(itens.TOTAL_BRUTO, 0)) * -1 AS TOTAL_BRUTO,
+  SUM(COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0)) * -1 AS TOTAL_DESCONTO,
+  CASE
+    WHEN SUM(COALESCE(itens.TOTAL_BRUTO, 0)) = 0 THEN 0
+    ELSE (
+      SUM(COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0))
+      / NULLIF(SUM(COALESCE(itens.TOTAL_BRUTO, 0)), 0)
+    ) * 100
+  END AS PERC_DESCONTO
 
 FROM
   transacao transacaodevolucao
@@ -157,6 +202,9 @@ FROM
     ON vendedor.cod_pessoa = entradanotafiscaldevolucao.cod_vendedor
   JOIN tbempresa
     ON tbempresa.cod_empresa = transacaodevolucao.cod_empresaestoque
+  LEFT JOIN itens_por_transacao itens
+    ON itens.COD_TRANSACAO = transacaodevolucao.COD_TRANSACAO
+   AND itens.COD_EMPRESA = transacaodevolucao.COD_EMPRESA
 
 WHERE
   transacaodevolucao.dataencerramento BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
