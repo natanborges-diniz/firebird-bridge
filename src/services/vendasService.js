@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const db = require("../db");
 const { parseEmpresasParam } = require("../utils/empresaHelper");
-const { DEFAULT_TTL_MS, getCachedOrFetch } = require("../utils/queryCache");
+const { DEFAULT_TTL_MS, getCachedOrFetch, getRangeTtlMs } = require("../utils/queryCache");
 const sqlCreateIndexes = loadSql("debug_create_indexes.sql");
 
 function loadSql(filename) {
@@ -25,10 +25,11 @@ const SQL_DEBUG = loadSql("debug_resumo_empresa_vendedor.sql");
 async function getResumoEmpresaVendedorPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
   const params = [codEmpresa, codEmpresa, dataInicio, dataFim];
   const cacheLabel = "vendas.resumo_empresa_vendedor";
+  const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
   return getCachedOrFetch({
     label: cacheLabel,
     params,
-    ttlMs: options.cacheTtlMs ?? DEFAULT_TTL_MS,
+    ttlMs,
     enabled: options.useCache !== false,
     fetcher: () => db.runQuery(SQL_RESUMO_EMPRESA_VENDEDOR, params),
   });
@@ -37,10 +38,11 @@ async function getResumoEmpresaVendedorPorEmpresa(codEmpresa, dataInicio, dataFi
 async function getFormasPagamentoResumoPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
   const params = [codEmpresa, codEmpresa, dataInicio, dataFim, dataInicio, dataFim, dataInicio, dataFim];
   const cacheLabel = "vendas.formas_pagamento_resumo";
+  const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
   return getCachedOrFetch({
     label: cacheLabel,
     params,
-    ttlMs: options.cacheTtlMs ?? DEFAULT_TTL_MS,
+    ttlMs,
     enabled: options.useCache !== false,
     fetcher: () => db.runQuery(SQL_FORMAS_PAGAMENTO_RESUMO, params),
   });
@@ -49,10 +51,11 @@ async function getFormasPagamentoResumoPorEmpresa(codEmpresa, dataInicio, dataFi
 async function getAnaliseFamiliaVendedorPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
   const params = [codEmpresa, codEmpresa, dataInicio, dataFim];
   const cacheLabel = "vendas.analise_familia_vendedor";
+  const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
   return getCachedOrFetch({
     label: cacheLabel,
     params,
-    ttlMs: options.cacheTtlMs ?? DEFAULT_TTL_MS,
+    ttlMs,
     enabled: options.useCache !== false,
     fetcher: () => db.runQuery(SQL_ANALISE_FAMILIA_VENDEDOR, params),
   });
