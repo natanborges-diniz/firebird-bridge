@@ -41,8 +41,26 @@ async function getResumoEmpresaVendedorPorEmpresa(
   });
 }
 
-async function getFormasPagamentoResumoPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
-  const params = [codEmpresa, codEmpresa, dataInicio, dataFim, dataInicio, dataFim, dataInicio, dataFim];
+async function getFormasPagamentoResumoPorEmpresa(
+  codEmpresa,
+  dataInicio,
+  dataFim,
+  excluirCreditos,
+  incluirDevolucoes,
+  options = {}
+) {
+  const params = [
+    codEmpresa,
+    codEmpresa,
+    dataInicio,
+    dataFim,
+    dataInicio,
+    dataFim,
+    dataInicio,
+    dataFim,
+    excluirCreditos ? 1 : 0,
+    incluirDevolucoes ? 1 : 0,
+  ];
   const cacheLabel = "vendas.formas_pagamento_resumo";
   const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
   return getCachedOrFetch({
@@ -97,16 +115,31 @@ async function getResumoEmpresaVendedor({
   return allRows;
 }
 
-async function getFormasPagamentoResumo({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
+async function getFormasPagamentoResumo({
+  empresa,
+  dataInicio,
+  dataFim,
+  excluirCreditos,
+  incluirDevolucoes,
+  useCache,
+  cacheTtlMs,
+}) {
   const empresas = parseEmpresasParam(empresa);
   let allRows = [];
 
   for (const cod of empresas) {
     try {
-      const rows = await getFormasPagamentoResumoPorEmpresa(cod, dataInicio, dataFim, {
-        useCache,
-        cacheTtlMs,
-      });
+      const rows = await getFormasPagamentoResumoPorEmpresa(
+        cod,
+        dataInicio,
+        dataFim,
+        excluirCreditos,
+        incluirDevolucoes,
+        {
+          useCache,
+          cacheTtlMs,
+        }
+      );
       if (rows && rows.length) allRows = allRows.concat(rows);
     } catch (err) {
       console.error(`[VENDAS] resumo-formas-pagamento empresa ${cod}:`, err.message || err);
