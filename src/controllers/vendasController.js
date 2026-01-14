@@ -8,11 +8,13 @@ async function resumoEmpresaVendedor(req, res) {
     const params = validatePeriodoEmpresaQuery(req, res);
     if (!params) return;
 
+    const excluirCreditos = req.query.excluirCreditos === "1" || req.query.excluirCreditos === "true";
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
     const rows = await vendasService.getResumoEmpresaVendedor({
       ...params,
+      excluirCreditos,
       useCache,
       cacheTtlMs,
     });
