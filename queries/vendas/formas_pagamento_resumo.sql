@@ -1,6 +1,6 @@
 -- queries/vendas/formas_pagamento_resumo.sql
 -- Resumo por empresa/vendedor/forma de pagamento (inclui CONVENIO e DEVOLUCAO)
--- Parâmetros (8):
+-- Parâmetros (10):
 --   1) empresa (int)
 --   2) empresa (int) repetido p/ regra 13/18
 --   3) dataInicio (date) - vendas (DATAEMISSAO)
@@ -9,16 +9,33 @@
 --   6) dataFim (date)    - convenio (DATAEMISSAO)
 --   7) dataInicio (date) - devolucao (DATAENCERRAMENTO)
 --   8) dataFim (date)    - devolucao (DATAENCERRAMENTO)
+--   9) excluirCreditos (int: 0/1)
+--  10) incluirDevolucoes (int: 0/1)
 
 WITH
+P AS (
+  SELECT
+    CAST(? AS INTEGER) AS P_EMPRESA,
+    CAST(? AS INTEGER) AS P_EMPRESA2,
+    CAST(? AS DATE)    AS P_DATA_VENDAS_INI,
+    CAST(? AS DATE)    AS P_DATA_VENDAS_FIM,
+    CAST(? AS DATE)    AS P_DATA_CONVENIO_INI,
+    CAST(? AS DATE)    AS P_DATA_CONVENIO_FIM,
+    CAST(? AS DATE)    AS P_DATA_DEVOLUCAO_INI,
+    CAST(? AS DATE)    AS P_DATA_DEVOLUCAO_FIM,
+    CAST(? AS INTEGER) AS P_EXCLUI_CREDITOS,
+    CAST(? AS INTEGER) AS P_INCLUI_DEVOLUCOES
+  FROM RDB$DATABASE
+),
 empresas_filtradas AS (
   SELECT e.COD_EMPRESA
   FROM EMPRESA e
+  JOIN P ON 1=1
   WHERE e.COD_EMPRESA NOT IN (3, 5, 7, 8, 11, 12)
     AND (
-      e.COD_EMPRESA = CAST(? AS INTEGER)
+      e.COD_EMPRESA = P.P_EMPRESA
       OR (
-        CAST(? AS INTEGER) IN (13, 18)
+        P.P_EMPRESA2 IN (13, 18)
         AND e.COD_EMPRESA IN (13, 18)
       )
     )
@@ -43,6 +60,45 @@ itens_por_transacao AS (
   GROUP BY
     ti.COD_TRANSACAO,
     ti.COD_EMPRESA
+),
+pagamentos_por_transacao AS (
+  SELECT
+    transacao.COD_TRANSACAO,
+    transacao.COD_EMPRESA,
+    finformapagamento.cod_formapagamentotipo AS COD_FORMAPAGAMENTOTIPO,
+    SUM(
+      COALESCE(
+        IIF(finlancamentoparcela.datapagamento IS NULL,
+          finlancamentoparcela.valor,
+          finlancamentoparcela.valorpago
+        ),
+        0
+      )
+    ) AS TOTAL_PAGO_FORMA
+  FROM
+    transacao
+    JOIN finfaturatransacao
+      ON finfaturatransacao.cod_faturatransacao = transacao.cod_faturatransacao
+    JOIN finlancamento
+      ON finlancamento.cod_faturatransacao = finfaturatransacao.cod_faturatransacao
+    JOIN finlancamentoparcela
+      ON finlancamentoparcela.cod_lancamento = finlancamento.cod_lancamento
+    JOIN finformapagamento
+      ON finformapagamento.cod_formapagamento = finlancamentoparcela.cod_formapagamento
+  GROUP BY
+    transacao.COD_TRANSACAO,
+    transacao.COD_EMPRESA,
+    finformapagamento.cod_formapagamentotipo
+),
+pagamentos_totais AS (
+  SELECT
+    COD_TRANSACAO,
+    COD_EMPRESA,
+    SUM(TOTAL_PAGO_FORMA) AS TOTAL_PAGO_TRANSACAO
+  FROM pagamentos_por_transacao
+  GROUP BY
+    COD_TRANSACAO,
+    COD_EMPRESA
 )
 
 -- VENDAS NORMAIS
@@ -78,13 +134,32 @@ SELECT
 
   COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS,
 
-  SUM(COALESCE(itens.TOTAL_BRUTO, 0)) AS TOTAL_BRUTO,
-  SUM(COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0)) AS TOTAL_DESCONTO,
+  SUM(
+    COALESCE(itens.TOTAL_BRUTO, 0)
+    * COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0)
+    / NULLIF(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0), 0)
+  ) AS TOTAL_BRUTO,
+  SUM(
+    (COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0))
+    * COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0)
+    / NULLIF(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0), 0)
+  ) AS TOTAL_DESCONTO,
   CASE
     WHEN SUM(COALESCE(itens.TOTAL_BRUTO, 0)) = 0 THEN 0
     ELSE (
-      SUM(COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0))
-      / NULLIF(SUM(COALESCE(itens.TOTAL_BRUTO, 0)), 0)
+      SUM(
+        (COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0))
+        * COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0)
+        / NULLIF(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0), 0)
+      )
+      / NULLIF(
+        SUM(
+          COALESCE(itens.TOTAL_BRUTO, 0)
+          * COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0)
+          / NULLIF(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0), 0)
+        ),
+        0
+      )
     ) * 100
   END AS PERC_DESCONTO
 
@@ -107,6 +182,13 @@ FROM
     ON finlancamentoparcela.cod_lancamento = finlancamento.cod_lancamento
   JOIN finformapagamento
     ON finformapagamento.cod_formapagamento = finlancamentoparcela.cod_formapagamento
+  JOIN pagamentos_por_transacao pagamentos
+    ON pagamentos.COD_TRANSACAO = transacao.COD_TRANSACAO
+   AND pagamentos.COD_EMPRESA = transacao.COD_EMPRESA
+   AND pagamentos.COD_FORMAPAGAMENTOTIPO = finformapagamento.cod_formapagamentotipo
+  JOIN pagamentos_totais pagamentos_totais
+    ON pagamentos_totais.COD_TRANSACAO = transacao.COD_TRANSACAO
+   AND pagamentos_totais.COD_EMPRESA = transacao.COD_EMPRESA
   LEFT JOIN itens_por_transacao itens
     ON itens.COD_TRANSACAO = transacao.COD_TRANSACAO
    AND itens.COD_EMPRESA = transacao.COD_EMPRESA
@@ -117,7 +199,11 @@ FROM
 
 WHERE
   naturezaoperacao.tipo = 1
-  AND transacao.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+  AND transacao.dataemissao BETWEEN P.P_DATA_VENDAS_INI AND P.P_DATA_VENDAS_FIM
+  AND (
+    P.P_EXCLUI_CREDITOS = 0
+    OR finformapagamento.cod_formapagamentotipo <> 6
+  )
 
 GROUP BY
   tbempresa.EMPRESA,
@@ -164,7 +250,7 @@ FROM
    AND itens.COD_EMPRESA = transacao.COD_EMPRESA
 
 WHERE
-  transacao.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+  transacao.dataemissao BETWEEN P.P_DATA_CONVENIO_INI AND P.P_DATA_CONVENIO_FIM
 
 GROUP BY
   tbempresa.EMPRESA,
@@ -207,7 +293,8 @@ FROM
    AND itens.COD_EMPRESA = transacaodevolucao.COD_EMPRESA
 
 WHERE
-  transacaodevolucao.dataencerramento BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+  P.P_INCLUI_DEVOLUCOES = 1
+  AND transacaodevolucao.dataencerramento BETWEEN P.P_DATA_DEVOLUCAO_INI AND P.P_DATA_DEVOLUCAO_FIM
 
 GROUP BY
   tbempresa.EMPRESA,
