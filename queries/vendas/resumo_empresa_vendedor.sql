@@ -2,11 +2,12 @@
 -- Resumo por empresa e vendedor
 -- DESCONTO = BRUTO - VENDIDO (SEM IPI)
 -- TOTAL_CREDITOS (forma pagto tipo 6) e TOTAL_VENDIDO_SEM_CREDITOS
--- Parâmetros (4):
+-- Parâmetros (5):
 --   1) empresa (int)
 --   2) empresa (int) repetido (regra 13/18)
 --   3) dataInicio (date)
 --   4) dataFim (date)
+--   5) excluirCreditos (int: 0/1)
 
 WITH
 P AS (
@@ -14,7 +15,8 @@ P AS (
     CAST(? AS INTEGER) AS P_EMPRESA,
     CAST(? AS INTEGER) AS P_EMPRESA2,
     CAST(? AS DATE)    AS P_DATA_INI,
-    CAST(? AS DATE)    AS P_DATA_FIM
+    CAST(? AS DATE)    AS P_DATA_FIM,
+    CAST(? AS INTEGER) AS P_EXCLUI_CREDITOS
   FROM RDB$DATABASE
 ),
 
@@ -78,9 +80,6 @@ itens AS (
     JOIN tbempresa emp
       ON emp.COD_EMPRESA = t.COD_EMPRESAESTOQUE
 
-    JOIN NATUREZAOPERACAO nat
-      ON nat.COD_NATUREZAOPERACAO = t.COD_NATUREZAOPERACAO
-
     /* JOIN tolerante (alguns bancos usam COD_EMPRESA diferente do estoque) */
     JOIN SAIDA s
       ON s.COD_SAIDA = t.COD_TRANSACAO
@@ -99,10 +98,27 @@ itens AS (
        ti.COD_EMPRESA = t.COD_EMPRESAESTOQUE
        OR (t.COD_EMPRESA IS NOT NULL AND ti.COD_EMPRESA = t.COD_EMPRESA)
      )
+    JOIN NATUREZAOPERACAO nat
+      ON nat.COD_NATUREZAOPERACAO = ti.COD_NATUREZAOPERACAO
 
   WHERE
     nat.TIPO = 1
     AND t.DATAENCERRAMENTO BETWEEN P.P_DATA_INI AND P.P_DATA_FIM
+    AND (
+      P.P_EXCLUI_CREDITOS = 0
+      OR NOT EXISTS (
+        SELECT 1
+        FROM FINFATURATRANSACAO fft
+        JOIN FINLANCAMENTO fl
+          ON fl.COD_FATURATRANSACAO = fft.COD_FATURATRANSACAO
+        JOIN FINLANCAMENTOPARCELA flp
+          ON flp.COD_LANCAMENTO = fl.COD_LANCAMENTO
+        JOIN FINFORMAPAGAMENTO ffp
+          ON ffp.COD_FORMAPAGAMENTO = flp.COD_FORMAPAGAMENTO
+        WHERE fft.COD_FATURATRANSACAO = t.COD_FATURATRANSACAO
+          AND ffp.COD_FORMAPAGAMENTOTIPO = 6
+      )
+    )
 
   GROUP BY
     t.COD_EMPRESAESTOQUE,
@@ -156,6 +172,7 @@ creditos AS (
     nat.TIPO = 1
     AND t.DATAEMISSAO BETWEEN P.P_DATA_INI AND P.P_DATA_FIM
     AND ffp.COD_FORMAPAGAMENTOTIPO = 6  -- CREDITOS
+    AND P.P_EXCLUI_CREDITOS = 0
 
   GROUP BY
     t.COD_EMPRESAESTOQUE,
