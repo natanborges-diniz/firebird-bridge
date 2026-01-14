@@ -304,3 +304,4 @@ GROUP BY
   tbempresa.empresa_cod_logico,
   tbempresa.empresa_nome_logico,
   vendedor.NOME;
+
