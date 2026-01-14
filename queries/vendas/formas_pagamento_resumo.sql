@@ -135,28 +135,28 @@ SELECT
   COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS,
 
   SUM(
-    COALESCE(itens.TOTAL_BRUTO, 0)
-    * COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0)
-    / NULLIF(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0), 0)
+    CAST(COALESCE(itens.TOTAL_BRUTO, 0) AS DECIMAL(18, 4))
+    * CAST(COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0) AS DECIMAL(18, 4))
+    / NULLIF(CAST(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0) AS DECIMAL(18, 4)), 0)
   ) AS TOTAL_BRUTO,
   SUM(
-    (COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0))
-    * COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0)
-    / NULLIF(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0), 0)
+    CAST((COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0)) AS DECIMAL(18, 4))
+    * CAST(COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0) AS DECIMAL(18, 4))
+    / NULLIF(CAST(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0) AS DECIMAL(18, 4)), 0)
   ) AS TOTAL_DESCONTO,
   CASE
     WHEN SUM(COALESCE(itens.TOTAL_BRUTO, 0)) = 0 THEN 0
     ELSE (
       SUM(
-        (COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0))
-        * COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0)
-        / NULLIF(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0), 0)
+        CAST((COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0)) AS DECIMAL(18, 4))
+        * CAST(COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0) AS DECIMAL(18, 4))
+        / NULLIF(CAST(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0) AS DECIMAL(18, 4)), 0)
       )
       / NULLIF(
         SUM(
-          COALESCE(itens.TOTAL_BRUTO, 0)
-          * COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0)
-          / NULLIF(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0), 0)
+          CAST(COALESCE(itens.TOTAL_BRUTO, 0) AS DECIMAL(18, 4))
+          * CAST(COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0) AS DECIMAL(18, 4))
+          / NULLIF(CAST(COALESCE(pagamentos_totais.TOTAL_PAGO_TRANSACAO, 0) AS DECIMAL(18, 4)), 0)
         ),
         0
       )
