@@ -164,7 +164,8 @@ SELECT
   END AS PERC_DESCONTO
 
 FROM
-  transacao
+  P
+  JOIN transacao ON 1=1
   JOIN naturezaoperacao
     ON naturezaoperacao.cod_naturezaoperacao = transacao.cod_naturezaoperacao
   JOIN saida
@@ -234,7 +235,8 @@ SELECT
   END AS PERC_DESCONTO
 
 FROM
-  transacao
+  P
+  JOIN transacao ON 1=1
   JOIN transacaoconvenioparcela
     ON transacaoconvenioparcela.cod_transacao = transacao.cod_transacao
    AND transacaoconvenioparcela.cod_empresa = transacao.cod_empresa
@@ -280,7 +282,8 @@ SELECT
   END AS PERC_DESCONTO
 
 FROM
-  transacao transacaodevolucao
+  P
+  JOIN transacao transacaodevolucao ON 1=1
   JOIN entradanotafiscaldevolucao
     ON transacaodevolucao.cod_transacao = entradanotafiscaldevolucao.cod_entradanotafiscaldevolucao
    AND transacaodevolucao.cod_empresa = entradanotafiscaldevolucao.cod_empresa
@@ -301,4 +304,3 @@ GROUP BY
   tbempresa.empresa_cod_logico,
   tbempresa.empresa_nome_logico,
   vendedor.NOME;
-
