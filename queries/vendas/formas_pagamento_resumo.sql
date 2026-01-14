@@ -66,6 +66,7 @@ pagamentos_por_transacao AS (
     transacao.COD_TRANSACAO,
     transacao.COD_EMPRESA,
     finformapagamento.cod_formapagamentotipo AS COD_FORMAPAGAMENTOTIPO,
+    fincartaocreditotipo.credito AS CARTAO_CREDITO,
     SUM(
       COALESCE(
         IIF(finlancamentoparcela.datapagamento IS NULL,
@@ -85,10 +86,15 @@ pagamentos_por_transacao AS (
       ON finlancamentoparcela.cod_lancamento = finlancamento.cod_lancamento
     JOIN finformapagamento
       ON finformapagamento.cod_formapagamento = finlancamentoparcela.cod_formapagamento
+    LEFT JOIN finformapagamentocartao
+      ON finformapagamentocartao.cod_formapagamentocartao = finformapagamento.cod_formapagamento
+    LEFT JOIN fincartaocreditotipo
+      ON fincartaocreditotipo.cod_cartaocreditotipo = finformapagamentocartao.cod_cartaocreditotipo
   GROUP BY
     transacao.COD_TRANSACAO,
     transacao.COD_EMPRESA,
-    finformapagamento.cod_formapagamentotipo
+    finformapagamento.cod_formapagamentotipo,
+    fincartaocreditotipo.credito
 ),
 pagamentos_totais AS (
   SELECT
@@ -108,12 +114,12 @@ SELECT
   tbempresa.empresa_nome_logico,
   vendedor.NOME AS VENDEDOR,
 
-  CASE finformapagamento.cod_formapagamentotipo
+  CASE pagamentos.cod_formapagamentotipo
     WHEN 1 THEN 'DINHEIRO'
     WHEN 2 THEN 'CHEQUE'
     WHEN 3 THEN
       CASE
-        WHEN fincartaocreditotipo.credito = 'T' THEN 'CARTAO CREDITO'
+        WHEN pagamentos.cartao_credito = 'T' THEN 'CARTAO CREDITO'
         ELSE 'CARTAO DEBITO'
       END
     WHEN 4 THEN 'BANCO'
@@ -122,15 +128,7 @@ SELECT
     ELSE 'OUTROS'
   END AS FORMAPAGAMENTO,
 
-  SUM(
-    COALESCE(
-      IIF(finlancamentoparcela.datapagamento IS NULL,
-        finlancamentoparcela.valor,
-        finlancamentoparcela.valorpago
-      ),
-      0
-    )
-  ) AS TOTALGERAL,
+  SUM(COALESCE(pagamentos.TOTAL_PAGO_FORMA, 0)) AS TOTALGERAL,
 
   COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS,
 
@@ -175,35 +173,21 @@ FROM
     ON vendedor.cod_pessoa = saida.cod_vendedor
   JOIN tbempresa
     ON tbempresa.cod_empresa = transacao.cod_empresaestoque
-  JOIN finfaturatransacao
-    ON finfaturatransacao.cod_faturatransacao = transacao.cod_faturatransacao
-  JOIN finlancamento
-    ON finlancamento.cod_faturatransacao = finfaturatransacao.cod_faturatransacao
-  JOIN finlancamentoparcela
-    ON finlancamentoparcela.cod_lancamento = finlancamento.cod_lancamento
-  JOIN finformapagamento
-    ON finformapagamento.cod_formapagamento = finlancamentoparcela.cod_formapagamento
   JOIN pagamentos_por_transacao pagamentos
     ON pagamentos.COD_TRANSACAO = transacao.COD_TRANSACAO
    AND pagamentos.COD_EMPRESA = transacao.COD_EMPRESA
-   AND pagamentos.COD_FORMAPAGAMENTOTIPO = finformapagamento.cod_formapagamentotipo
   JOIN pagamentos_totais pagamentos_totais
     ON pagamentos_totais.COD_TRANSACAO = transacao.COD_TRANSACAO
    AND pagamentos_totais.COD_EMPRESA = transacao.COD_EMPRESA
   LEFT JOIN itens_por_transacao itens
     ON itens.COD_TRANSACAO = transacao.COD_TRANSACAO
    AND itens.COD_EMPRESA = transacao.COD_EMPRESA
-  LEFT JOIN finformapagamentocartao
-    ON finformapagamentocartao.cod_formapagamentocartao = finformapagamento.cod_formapagamento
-  LEFT JOIN fincartaocreditotipo
-    ON fincartaocreditotipo.cod_cartaocreditotipo = finformapagamentocartao.cod_cartaocreditotipo
-
 WHERE
   naturezaoperacao.tipo = 1
   AND transacao.dataemissao BETWEEN P.P_DATA_VENDAS_INI AND P.P_DATA_VENDAS_FIM
   AND (
     P.P_EXCLUI_CREDITOS = 0
-    OR finformapagamento.cod_formapagamentotipo <> 6
+    OR pagamentos.cod_formapagamentotipo <> 6
   )
 
 GROUP BY
