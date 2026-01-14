@@ -22,8 +22,14 @@ const SQL_ANALISE_FAMILIA_VENDEDOR = loadSql("analise_familia_vendedor.sql");
 const SQL_DEBUG = loadSql("debug_resumo_empresa_vendedor.sql");
 
 // --------- QUERIES POR EMPRESA ---------
-async function getResumoEmpresaVendedorPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
-  const params = [codEmpresa, codEmpresa, dataInicio, dataFim];
+async function getResumoEmpresaVendedorPorEmpresa(
+  codEmpresa,
+  dataInicio,
+  dataFim,
+  excluirCreditos,
+  options = {}
+) {
+  const params = [codEmpresa, codEmpresa, dataInicio, dataFim, excluirCreditos ? 1 : 0];
   const cacheLabel = "vendas.resumo_empresa_vendedor";
   const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
   return getCachedOrFetch({
@@ -66,13 +72,20 @@ async function debugResumoEmpresaVendedor(params) {
 }
 
 // --------- APIS PRINCIPAIS ---------
-async function getResumoEmpresaVendedor({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
+async function getResumoEmpresaVendedor({
+  empresa,
+  dataInicio,
+  dataFim,
+  excluirCreditos,
+  useCache,
+  cacheTtlMs,
+}) {
   const empresas = parseEmpresasParam(empresa);
   let allRows = [];
 
   for (const cod of empresas) {
     try {
-      const rows = await getResumoEmpresaVendedorPorEmpresa(cod, dataInicio, dataFim, {
+      const rows = await getResumoEmpresaVendedorPorEmpresa(cod, dataInicio, dataFim, excluirCreditos, {
         useCache,
         cacheTtlMs,
       });
