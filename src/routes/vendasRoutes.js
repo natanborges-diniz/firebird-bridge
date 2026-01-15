@@ -10,6 +10,9 @@ router.get('/resumo-empresa-vendedor', vendasController.resumoEmpresaVendedor);
 // GET /api/v1/vendas/resumo-formas-pagamento
 router.get('/resumo-formas-pagamento', vendasController.resumoFormasPagamento);
 
+// GET /api/v1/vendas/auditoria-formas-pagamento
+router.get('/auditoria-formas-pagamento', vendasController.auditoriaFormasPagamento);
+
 // GET /api/v1/vendas/analise-familia-vendedor
 router.get('/analise-familia-vendedor', vendasController.analiseFamiliaVendedor);
 
