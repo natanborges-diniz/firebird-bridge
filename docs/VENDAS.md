@@ -70,6 +70,8 @@ GET /api/v1/vendas/auditoria-formas-pagamento
 - dataInicio
 - dataFim
 - excluirCreditos (opcional, 0/1)
+- page (opcional)
+- pageSize (opcional, máx 1000)
 
 ### Resposta
 {
@@ -95,7 +97,40 @@ GET /api/v1/vendas/auditoria-formas-pagamento
 
 ---
 
-## 1.4. Análise por Família e Vendedor
+## 1.4. Auditoria por Formas de Pagamento (light)
+
+### Rota
+GET /api/v1/vendas/auditoria-formas-pagamento-light
+
+### Parâmetros
+- empresa
+- dataInicio
+- dataFim
+- excluirCreditos (opcional, 0/1)
+- page (opcional)
+- pageSize (opcional, máx 1000)
+
+### Resposta
+{
+  "ok": true,
+  "data": [
+    {
+      "empresa": "206",
+      "vendedor": "CARLOS",
+      "cod_transacao": 12345,
+      "dataemissao": "2025-11-05",
+      "formapagamento": "CARTAO CREDITO",
+      "total_vendido": 140.00,
+      "total_desconto": 10.00,
+      "total_pago_forma": 140.00
+    }
+  ],
+  "error": null
+}
+
+---
+
+## 1.5. Análise por Família e Vendedor
 
 ### Rota
 GET /api/v1/vendas/analise-familia-vendedor
