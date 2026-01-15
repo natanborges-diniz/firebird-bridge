@@ -51,12 +51,41 @@ async function auditoriaFormasPagamento(req, res) {
     if (!params) return;
 
     const excluirCreditos = req.query.excluirCreditos === "1" || req.query.excluirCreditos === "true";
+    const page = req.query.page ? Number(req.query.page) : undefined;
+    const pageSize = req.query.pageSize ? Number(req.query.pageSize) : undefined;
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
     const rows = await vendasService.getFormasPagamentoAuditoria({
       ...params,
       excluirCreditos,
+      page,
+      pageSize,
+      useCache,
+      cacheTtlMs,
+    });
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
+async function auditoriaFormasPagamentoLight(req, res) {
+  try {
+    const params = validatePeriodoEmpresaQuery(req, res);
+    if (!params) return;
+
+    const excluirCreditos = req.query.excluirCreditos === "1" || req.query.excluirCreditos === "true";
+    const page = req.query.page ? Number(req.query.page) : undefined;
+    const pageSize = req.query.pageSize ? Number(req.query.pageSize) : undefined;
+    const useCache = req.query.cache !== "0" && req.query.cache !== "false";
+    const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
+
+    const rows = await vendasService.getFormasPagamentoAuditoriaLight({
+      ...params,
+      excluirCreditos,
+      page,
+      pageSize,
       useCache,
       cacheTtlMs,
     });
@@ -116,6 +145,7 @@ module.exports = {
   resumoEmpresaVendedor,
   resumoFormasPagamento,
   auditoriaFormasPagamento,
+  auditoriaFormasPagamentoLight,
   analiseFamiliaVendedor,
   debugResumoEmpresaVendedor,
 };
