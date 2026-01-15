@@ -1,11 +1,13 @@
 -- queries/vendas/formas_pagamento_auditoria.sql
 -- Auditoria de vendas por forma de pagamento (vendas normais)
--- Parâmetros (5):
+-- Parâmetros (7):
 --   1) empresa (int)
 --   2) empresa (int) repetido p/ regra 13/18
 --   3) dataInicio (date) - vendas (DATAEMISSAO)
 --   4) dataFim (date)    - vendas (DATAEMISSAO)
 --   5) excluirCreditos (int: 0/1)
+--   6) rowStart (int) - paginação
+--   7) rowEnd (int) - paginação
 
 WITH
 P AS (
@@ -162,9 +164,4 @@ WHERE
     OR pagamentos.cod_formapagamentotipo <> 6
   )
 
-ORDER BY
-  tbempresa.EMPRESA,
-  vendedor.NOME,
-  transacao.DATAEMISSAO,
-  transacao.COD_TRANSACAO,
-  FORMAPAGAMENTO;
+ROWS ? TO ?;
