@@ -3,7 +3,9 @@ const vendasService = require("../services/vendasService");
 const { success, handleControllerError } = require("../utils/apiResponse");
 const { validatePeriodoEmpresaQuery } = require("./_validators");
 
-async function resumoEmpresaVendedor(req, res) {
+// ...
+
+async function resumoDiarioSimples(req, res) {
   try {
     const params = validatePeriodoEmpresaQuery(req, res);
     if (!params) return;
@@ -12,7 +14,7 @@ async function resumoEmpresaVendedor(req, res) {
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
-    const rows = await vendasService.getResumoEmpresaVendedor({
+    const rows = await vendasService.getResumoDiarioSimples({
       ...params,
       excluirCreditos,
       useCache,
@@ -24,125 +26,11 @@ async function resumoEmpresaVendedor(req, res) {
   }
 }
 
-async function resumoFormasPagamento(req, res) {
-  try {
-    const params = validatePeriodoEmpresaQuery(req, res);
-    if (!params) return;
-
-    const excluirCreditos = req.query.excluirCreditos === "1" || req.query.excluirCreditos === "true";
-    const useCache = req.query.cache !== "0" && req.query.cache !== "false";
-    const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
-
-    const rows = await vendasService.getFormasPagamentoResumo({
-      ...params,
-      excluirCreditos,
-      useCache,
-      cacheTtlMs,
-    });
-    return success(res, rows);
-  } catch (err) {
-    return handleControllerError(res, err);
-  }
-}
-
-async function auditoriaFormasPagamento(req, res) {
-  try {
-    const params = validatePeriodoEmpresaQuery(req, res);
-    if (!params) return;
-
-    const excluirCreditos = req.query.excluirCreditos === "1" || req.query.excluirCreditos === "true";
-    const page = req.query.page ? Number(req.query.page) : undefined;
-    const pageSize = req.query.pageSize ? Number(req.query.pageSize) : undefined;
-    const useCache = req.query.cache !== "0" && req.query.cache !== "false";
-    const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
-
-    const rows = await vendasService.getFormasPagamentoAuditoria({
-      ...params,
-      excluirCreditos,
-      page,
-      pageSize,
-      useCache,
-      cacheTtlMs,
-    });
-    return success(res, rows);
-  } catch (err) {
-    return handleControllerError(res, err);
-  }
-}
-
-async function auditoriaFormasPagamentoLight(req, res) {
-  try {
-    const params = validatePeriodoEmpresaQuery(req, res);
-    if (!params) return;
-
-    const excluirCreditos = req.query.excluirCreditos === "1" || req.query.excluirCreditos === "true";
-    const page = req.query.page ? Number(req.query.page) : undefined;
-    const pageSize = req.query.pageSize ? Number(req.query.pageSize) : undefined;
-    const useCache = req.query.cache !== "0" && req.query.cache !== "false";
-    const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
-
-    const rows = await vendasService.getFormasPagamentoAuditoriaLight({
-      ...params,
-      excluirCreditos,
-      page,
-      pageSize,
-      useCache,
-      cacheTtlMs,
-    });
-    return success(res, rows);
-  } catch (err) {
-    return handleControllerError(res, err);
-  }
-}
-
-async function debugResumoEmpresaVendedor(req, res) {
-  try {
-    if (req.query.action === "create-indexes") {
-      await vendasService.debugCreateIndexes();
-      return success(res, { message: "Índices criados" });
-    }
-
-    const params = validatePeriodoEmpresaQuery(req, res);
-    if (!params) return;
-
-    const empresaParam = params.empresa;
-    if (empresaParam === null) return success(res, []);
-
-    const p = [empresaParam, empresaParam, params.dataInicio, params.dataFim];
-    const rows = await vendasService.debugResumoEmpresaVendedor(p);
-    return success(res, rows);
-  } catch (err) {
-    return handleControllerError(res, err);
-  }
-}
-
-async function analiseFamiliaVendedor(req, res) {
-  try {
-    const params = validatePeriodoEmpresaQuery(req, res);
-    if (!params) return;
-
-    const codEmpresaEstoque = req.query.codEmpresaEstoque
-      ? Number(req.query.codEmpresaEstoque)
-      : null;
-
-    const useCache = req.query.cache !== "0" && req.query.cache !== "false";
-    const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
-
-    const rows = await vendasService.getAnaliseFamiliaVendedor({
-      ...params,
-      codEmpresaEstoque,
-      useCache,
-      cacheTtlMs,
-    });
-
-    return success(res, rows);
-  } catch (err) {
-    return handleControllerError(res, err);
-  }
-}
+// ...
 
 module.exports = {
   resumoEmpresaVendedor,
+  resumoDiarioSimples,
   resumoFormasPagamento,
   auditoriaFormasPagamento,
   auditoriaFormasPagamentoLight,
