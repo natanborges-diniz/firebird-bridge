@@ -46,6 +46,7 @@ GET /api/v1/vendas/resumo-formas-pagamento
 - empresa
 - dataInicio
 - dataFim
+- excluirCreditos (opcional, 0/1)
 
 ### Resposta
 {
@@ -59,7 +60,42 @@ GET /api/v1/vendas/resumo-formas-pagamento
 
 ---
 
-## 1.3. Análise por Família e Vendedor
+## 1.3. Auditoria por Formas de Pagamento (grid)
+
+### Rota
+GET /api/v1/vendas/auditoria-formas-pagamento
+
+### Parâmetros
+- empresa
+- dataInicio
+- dataFim
+- excluirCreditos (opcional, 0/1)
+
+### Resposta
+{
+  "ok": true,
+  "data": [
+    {
+      "empresa": "206",
+      "vendedor": "CARLOS",
+      "cod_transacao": 12345,
+      "dataemissao": "2025-11-05",
+      "formapagamento": "CARTAO CREDITO",
+      "total_bruto": 150.00,
+      "total_vendido": 140.00,
+      "total_desconto": 10.00,
+      "total_pago_forma": 140.00,
+      "total_pago_transacao": 140.00,
+      "total_bruto_rateado": 150.00,
+      "total_desconto_rateado": 10.00
+    }
+  ],
+  "error": null
+}
+
+---
+
+## 1.4. Análise por Família e Vendedor
 
 ### Rota
 GET /api/v1/vendas/analise-familia-vendedor
