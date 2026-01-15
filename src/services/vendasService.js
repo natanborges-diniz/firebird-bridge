@@ -5,6 +5,7 @@ const db = require("../db");
 const { parseEmpresasParam } = require("../utils/empresaHelper");
 const { DEFAULT_TTL_MS, getCachedOrFetch, getRangeTtlMs } = require("../utils/queryCache");
 const sqlCreateIndexes = loadSql("debug_create_indexes.sql");
+const LOG_QUERY_TIME = process.env.LOG_QUERY_TIME === "true";
 
 function loadSql(filename) {
   const filePath = path.join(__dirname, "..", "..", "queries", "vendas", filename);
@@ -99,20 +100,30 @@ async function getResumoEmpresaVendedor({
   cacheTtlMs,
 }) {
   const empresas = parseEmpresasParam(empresa);
-  let allRows = [];
-
-  for (const cod of empresas) {
-    try {
-      const rows = await getResumoEmpresaVendedorPorEmpresa(cod, dataInicio, dataFim, excluirCreditos, {
+  const startedAt = Date.now();
+  const results = await Promise.allSettled(
+    empresas.map((cod) =>
+      getResumoEmpresaVendedorPorEmpresa(cod, dataInicio, dataFim, excluirCreditos, {
         useCache,
         cacheTtlMs,
-      });
-      if (rows && rows.length) allRows = allRows.concat(rows);
-    } catch (err) {
-      console.error(`[VENDAS] resumo-empresa-vendedor empresa ${cod}:`, err.message || err);
-    }
+      })
+    )
+  );
+  if (LOG_QUERY_TIME) {
+    console.log(
+      `[VENDAS] resumo-empresa-vendedor empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
+    );
   }
-  return allRows;
+  return results.flatMap((result, index) => {
+    if (result.status === "fulfilled") {
+      return result.value ?? [];
+    }
+    console.error(
+      `[VENDAS] resumo-empresa-vendedor empresa ${empresas[index]}:`,
+      result.reason?.message || result.reason
+    );
+    return [];
+  });
 }
 
 async function getFormasPagamentoResumo({
@@ -125,11 +136,10 @@ async function getFormasPagamentoResumo({
   cacheTtlMs,
 }) {
   const empresas = parseEmpresasParam(empresa);
-  let allRows = [];
-
-  for (const cod of empresas) {
-    try {
-      const rows = await getFormasPagamentoResumoPorEmpresa(
+  const startedAt = Date.now();
+  const results = await Promise.allSettled(
+    empresas.map((cod) =>
+      getFormasPagamentoResumoPorEmpresa(
         cod,
         dataInicio,
         dataFim,
@@ -139,31 +149,52 @@ async function getFormasPagamentoResumo({
           useCache,
           cacheTtlMs,
         }
-      );
-      if (rows && rows.length) allRows = allRows.concat(rows);
-    } catch (err) {
-      console.error(`[VENDAS] resumo-formas-pagamento empresa ${cod}:`, err.message || err);
-    }
+      )
+    )
+  );
+  if (LOG_QUERY_TIME) {
+    console.log(
+      `[VENDAS] resumo-formas-pagamento empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
+    );
   }
-  return allRows;
+  return results.flatMap((result, index) => {
+    if (result.status === "fulfilled") {
+      return result.value ?? [];
+    }
+    console.error(
+      `[VENDAS] resumo-formas-pagamento empresa ${empresas[index]}:`,
+      result.reason?.message || result.reason
+    );
+    return [];
+  });
 }
 
 async function getAnaliseFamiliaVendedor({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
   const empresas = parseEmpresasParam(empresa);
-  let allRows = [];
-
-  for (const cod of empresas) {
-    try {
-      const rows = await getAnaliseFamiliaVendedorPorEmpresa(cod, dataInicio, dataFim, {
+  const startedAt = Date.now();
+  const results = await Promise.allSettled(
+    empresas.map((cod) =>
+      getAnaliseFamiliaVendedorPorEmpresa(cod, dataInicio, dataFim, {
         useCache,
         cacheTtlMs,
-      });
-      if (rows && rows.length) allRows = allRows.concat(rows);
-    } catch (err) {
-      console.error(`[VENDAS] analise-familia-vendedor empresa ${cod}:`, err.message || err);
-    }
+      })
+    )
+  );
+  if (LOG_QUERY_TIME) {
+    console.log(
+      `[VENDAS] analise-familia-vendedor empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
+    );
   }
-  return allRows;
+  return results.flatMap((result, index) => {
+    if (result.status === "fulfilled") {
+      return result.value ?? [];
+    }
+    console.error(
+      `[VENDAS] analise-familia-vendedor empresa ${empresas[index]}:`,
+      result.reason?.message || result.reason
+    );
+    return [];
+  });
 }
 async function debugCreateIndexes() {
   return db.query(sqlCreateIndexes);
