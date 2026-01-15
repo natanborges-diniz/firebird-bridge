@@ -29,11 +29,34 @@ async function resumoFormasPagamento(req, res) {
     const params = validatePeriodoEmpresaQuery(req, res);
     if (!params) return;
 
+    const excluirCreditos = req.query.excluirCreditos === "1" || req.query.excluirCreditos === "true";
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
     const rows = await vendasService.getFormasPagamentoResumo({
       ...params,
+      excluirCreditos,
+      useCache,
+      cacheTtlMs,
+    });
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
+async function auditoriaFormasPagamento(req, res) {
+  try {
+    const params = validatePeriodoEmpresaQuery(req, res);
+    if (!params) return;
+
+    const excluirCreditos = req.query.excluirCreditos === "1" || req.query.excluirCreditos === "true";
+    const useCache = req.query.cache !== "0" && req.query.cache !== "false";
+    const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
+
+    const rows = await vendasService.getFormasPagamentoAuditoria({
+      ...params,
+      excluirCreditos,
       useCache,
       cacheTtlMs,
     });
@@ -92,6 +115,7 @@ async function analiseFamiliaVendedor(req, res) {
 module.exports = {
   resumoEmpresaVendedor,
   resumoFormasPagamento,
+  auditoriaFormasPagamento,
   analiseFamiliaVendedor,
   debugResumoEmpresaVendedor,
 };
