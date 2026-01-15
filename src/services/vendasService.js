@@ -19,6 +19,7 @@ function loadSql(filename) {
 
 const SQL_RESUMO_EMPRESA_VENDEDOR = loadSql("resumo_empresa_vendedor.sql");
 const SQL_FORMAS_PAGAMENTO_RESUMO = loadSql("formas_pagamento_resumo.sql");
+const SQL_FORMAS_PAGAMENTO_AUDITORIA = loadSql("formas_pagamento_auditoria.sql");
 const SQL_ANALISE_FAMILIA_VENDEDOR = loadSql("analise_familia_vendedor.sql");
 const SQL_DEBUG = loadSql("debug_resumo_empresa_vendedor.sql");
 
@@ -70,6 +71,25 @@ async function getFormasPagamentoResumoPorEmpresa(
     ttlMs,
     enabled: options.useCache !== false,
     fetcher: () => db.runQuery(SQL_FORMAS_PAGAMENTO_RESUMO, params),
+  });
+}
+
+async function getFormasPagamentoAuditoriaPorEmpresa(
+  codEmpresa,
+  dataInicio,
+  dataFim,
+  excluirCreditos,
+  options = {}
+) {
+  const params = [codEmpresa, codEmpresa, dataInicio, dataFim, excluirCreditos ? 1 : 0];
+  const cacheLabel = "vendas.formas_pagamento_auditoria";
+  const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
+  return getCachedOrFetch({
+    label: cacheLabel,
+    params,
+    ttlMs,
+    enabled: options.useCache !== false,
+    fetcher: () => db.runQuery(SQL_FORMAS_PAGAMENTO_AUDITORIA, params),
   });
 }
 
@@ -169,6 +189,41 @@ async function getFormasPagamentoResumo({
   });
 }
 
+async function getFormasPagamentoAuditoria({
+  empresa,
+  dataInicio,
+  dataFim,
+  excluirCreditos,
+  useCache,
+  cacheTtlMs,
+}) {
+  const empresas = parseEmpresasParam(empresa);
+  const startedAt = Date.now();
+  const results = await Promise.allSettled(
+    empresas.map((cod) =>
+      getFormasPagamentoAuditoriaPorEmpresa(cod, dataInicio, dataFim, excluirCreditos, {
+        useCache,
+        cacheTtlMs,
+      })
+    )
+  );
+  if (LOG_QUERY_TIME) {
+    console.log(
+      `[VENDAS] auditoria-formas-pagamento empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
+    );
+  }
+  return results.flatMap((result, index) => {
+    if (result.status === "fulfilled") {
+      return result.value ?? [];
+    }
+    console.error(
+      `[VENDAS] auditoria-formas-pagamento empresa ${empresas[index]}:`,
+      result.reason?.message || result.reason
+    );
+    return [];
+  });
+}
+
 async function getAnaliseFamiliaVendedor({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
   const empresas = parseEmpresasParam(empresa);
   const startedAt = Date.now();
@@ -203,6 +258,7 @@ async function debugCreateIndexes() {
 module.exports = {
   getResumoEmpresaVendedor,
   getFormasPagamentoResumo,
+  getFormasPagamentoAuditoria,
   getAnaliseFamiliaVendedor,
   debugResumoEmpresaVendedor,
   debugCreateIndexes,
