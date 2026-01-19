@@ -1,10 +1,11 @@
 -- queries/vendas/resumo_diario_simples.sql
 -- Resumo diário simples com rateio por forma de pagamento
--- Parâmetros (4):
---   1) empresa (int)
---   2) dataInicio (date) - vendas (DATAEMISSAO)
---   3) dataFim (date)    - vendas (DATAEMISSAO)
---   4) excluirCreditos (int: 0/1)
+-- Parâmetros (5):
+--   1) empresa (int) - empresa ou empresa estoque
+--   2) empresa (int) - empresa ou empresa estoque (mesmo valor)
+--   3) dataInicio (date) - vendas (DATAEMISSAO)
+--   4) dataFim (date)    - vendas (DATAEMISSAO)
+--   5) excluirCreditos (int: 0/1)
 
 WITH
 transacoes_base AS (
@@ -19,7 +20,7 @@ transacoes_base AS (
   JOIN naturezaoperacao no ON no.cod_naturezaoperacao = t.cod_naturezaoperacao
   JOIN saida s ON s.cod_saida = t.cod_transacao AND s.cod_empresa = t.cod_empresa
   WHERE no.tipo = 1
-    AND t.cod_empresa = ?
+    AND (t.cod_empresaestoque = ? OR t.cod_empresa = ?)
     AND t.dataemissao BETWEEN ? AND ?
 ),
 itens_agregados AS (
