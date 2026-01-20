@@ -41,7 +41,6 @@ function extractEmpresaNome(row) {
 /**
  * Normaliza empresas:
  *  - remove empresas lixo (3,5,7,8,11,12)
- *  - unifica 13/18 como 13 "DINIZ SUPER"
  *  - garante empresa_cod_logico / empresa_nome_logico
  */
 function normalizeEmpresas(rows) {
@@ -70,10 +69,7 @@ function normalizeEmpresas(rows) {
 
       const novo = { ...row };
 
-      if (cod === 13 || cod === 18) {
-        novo.empresa_cod_logico = 13;
-        novo.empresa_nome_logico = 'DINIZ SUPER';
-      } else if (cod != null) {
+      if (cod != null) {
         novo.empresa_cod_logico = cod;
         if (nome != null) {
           novo.empresa_nome_logico = nome;
