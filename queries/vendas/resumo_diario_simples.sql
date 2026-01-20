@@ -1,11 +1,19 @@
 -- queries/vendas/resumo_diario_simples.sql
 -- Resumo diário simples com rateio por forma de pagamento
--- Parâmetros (5):
+-- Parâmetros (13):
 --   1) empresa (int) - empresa ou empresa estoque
 --   2) empresa (int) - empresa ou empresa estoque (mesmo valor)
 --   3) dataInicio (date) - vendas (DATAEMISSAO)
 --   4) dataFim (date)    - vendas (DATAEMISSAO)
 --   5) excluirCreditos (int: 0/1)
+--   6) dataInicio (date) - convenio (DATAEMISSAO)
+--   7) dataFim (date)    - convenio (DATAEMISSAO)
+--   8) empresa (int)     - convenio empresa estoque
+--   9) empresa (int)     - convenio empresa
+--  10) dataInicio (date) - devolucao (DATAENCERRAMENTO)
+--  11) dataFim (date)    - devolucao (DATAENCERRAMENTO)
+--  12) empresa (int)     - devolucao empresa estoque
+--  13) empresa (int)     - devolucao empresa
 
 WITH
 transacoes_base AS (
@@ -126,4 +134,102 @@ GROUP BY
   tb.dataemissao,
   tb.cod_empresaestoque,
   v.nome,
-  FORMAPAGAMENTO;
+  FORMAPAGAMENTO
+
+UNION ALL
+
+SELECT
+  transacao.dataemissao AS DATA_VENDA,
+  transacao.cod_empresaestoque AS COD_EMPRESA,
+  COALESCE(vendedor.nome, 'SEM VENDEDOR') AS VENDEDOR,
+  'CONVENIO' AS FORMAPAGAMENTO,
+  COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS,
+  SUM(
+    CAST(COALESCE(ti.valororiginal, 0) AS DOUBLE PRECISION)
+    * CAST(COALESCE(ti.quantidade, 0) AS DOUBLE PRECISION)
+  ) AS TOTAL_BRUTO,
+  SUM(
+    CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+    - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
+  ) AS TOTAL_VENDIDO,
+  SUM(
+    (
+      CAST(COALESCE(ti.valororiginal, 0) AS DOUBLE PRECISION)
+      * CAST(COALESCE(ti.quantidade, 0) AS DOUBLE PRECISION)
+    )
+    - (
+      CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+      - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
+    )
+  ) AS TOTAL_DESCONTO,
+  SUM(CAST(COALESCE(transacaoconvenioparcela.valor, 0) AS DOUBLE PRECISION)) AS TOTAL_PAGO_FORMA
+FROM transacao
+JOIN transacaoconvenioparcela
+  ON transacaoconvenioparcela.cod_transacao = transacao.cod_transacao
+ AND transacaoconvenioparcela.cod_empresa = transacao.cod_empresa
+LEFT JOIN saida
+  ON saida.cod_saida = transacao.cod_transacao
+ AND (
+   saida.cod_empresa = transacao.cod_empresaestoque
+   OR (transacao.cod_empresa IS NOT NULL AND saida.cod_empresa = transacao.cod_empresa)
+ )
+LEFT JOIN pessoa vendedor
+  ON vendedor.cod_pessoa = saida.cod_vendedor
+LEFT JOIN transacao_item ti
+  ON ti.cod_transacao = transacao.cod_transacao
+ AND (
+   ti.cod_empresa = transacao.cod_empresaestoque
+   OR (transacao.cod_empresa IS NOT NULL AND ti.cod_empresa = transacao.cod_empresa)
+ )
+WHERE transacao.dataemissao BETWEEN ? AND ?
+  AND (transacao.cod_empresaestoque = ? OR transacao.cod_empresa = ?)
+GROUP BY
+  transacao.dataemissao,
+  transacao.cod_empresaestoque,
+  vendedor.nome
+
+UNION ALL
+
+SELECT
+  transacaodevolucao.dataencerramento AS DATA_VENDA,
+  transacaodevolucao.cod_empresaestoque AS COD_EMPRESA,
+  COALESCE(vendedor.nome, 'SEM VENDEDOR') AS VENDEDOR,
+  'DEVOLUCAO' AS FORMAPAGAMENTO,
+  COUNT(DISTINCT transacaodevolucao.cod_transacao) AS QTD_VENDAS,
+  SUM(
+    CAST(COALESCE(ti.valororiginal, 0) AS DOUBLE PRECISION)
+    * CAST(COALESCE(ti.quantidade, 0) AS DOUBLE PRECISION)
+  ) * -1 AS TOTAL_BRUTO,
+  SUM(
+    CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+    - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
+  ) * -1 AS TOTAL_VENDIDO,
+  SUM(
+    (
+      CAST(COALESCE(ti.valororiginal, 0) AS DOUBLE PRECISION)
+      * CAST(COALESCE(ti.quantidade, 0) AS DOUBLE PRECISION)
+    )
+    - (
+      CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+      - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
+    )
+  ) * -1 AS TOTAL_DESCONTO,
+  SUM(CAST(COALESCE(transacaodevolucao.total, 0) AS DOUBLE PRECISION)) * -1 AS TOTAL_PAGO_FORMA
+FROM transacao transacaodevolucao
+JOIN entradanotafiscaldevolucao
+  ON transacaodevolucao.cod_transacao = entradanotafiscaldevolucao.cod_entradanotafiscaldevolucao
+ AND transacaodevolucao.cod_empresa = entradanotafiscaldevolucao.cod_empresa
+LEFT JOIN pessoa vendedor
+  ON vendedor.cod_pessoa = entradanotafiscaldevolucao.cod_vendedor
+LEFT JOIN transacao_item ti
+  ON ti.cod_transacao = transacaodevolucao.cod_transacao
+ AND (
+   ti.cod_empresa = transacaodevolucao.cod_empresaestoque
+   OR (transacaodevolucao.cod_empresa IS NOT NULL AND ti.cod_empresa = transacaodevolucao.cod_empresa)
+ )
+WHERE transacaodevolucao.dataencerramento BETWEEN ? AND ?
+  AND (transacaodevolucao.cod_empresaestoque = ? OR transacaodevolucao.cod_empresa = ?)
+GROUP BY
+  transacaodevolucao.dataencerramento,
+  transacaodevolucao.cod_empresaestoque,
+  vendedor.nome;
