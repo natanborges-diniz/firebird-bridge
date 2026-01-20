@@ -63,7 +63,7 @@ async function getResumoDiarioSimplesPorEmpresa(
   excluirCreditos,
   options = {}
 ) {
-  const params = [codEmpresa, dataInicio, dataFim, excluirCreditos ? 1 : 0];
+  const params = [codEmpresa, codEmpresa, dataInicio, dataFim, excluirCreditos ? 1 : 0];
   const cacheLabel = "vendas.resumo_diario_simples";
   const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
   return getCachedOrFetch({
