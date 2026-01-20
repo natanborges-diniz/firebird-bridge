@@ -11,34 +11,44 @@ WITH
 transacoes_base AS (
   SELECT
     t.cod_transacao,
-    t.cod_empresa,
     t.cod_empresaestoque,
+    t.cod_empresa,
     t.dataemissao,
     t.cod_faturatransacao,
     s.cod_vendedor
   FROM transacao t
   JOIN naturezaoperacao no ON no.cod_naturezaoperacao = t.cod_naturezaoperacao
-  JOIN saida s ON s.cod_saida = t.cod_transacao AND s.cod_empresa = t.cod_empresa
+  JOIN saida s
+    ON s.cod_saida = t.cod_transacao
+   AND (
+     s.cod_empresa = t.cod_empresaestoque
+     OR (t.cod_empresa IS NOT NULL AND s.cod_empresa = t.cod_empresa)
+   )
   WHERE no.tipo = 1
     AND (t.cod_empresaestoque = ? OR t.cod_empresa = ?)
     AND t.dataemissao BETWEEN ? AND ?
 ),
 itens_agregados AS (
   SELECT
-    ti.cod_transacao,
-    ti.cod_empresa,
+    tb.cod_transacao,
+    tb.cod_empresaestoque AS cod_empresa,
     SUM(COALESCE(ti.valororiginal, 0) * COALESCE(ti.quantidade, 0)) AS total_bruto,
     SUM(COALESCE(ti.total, 0) - COALESCE(ti.totalipi, 0)) AS total_vendido
   FROM transacao_item ti
-  JOIN transacoes_base tb ON tb.cod_transacao = ti.cod_transacao AND tb.cod_empresa = ti.cod_empresa
+  JOIN transacoes_base tb
+    ON tb.cod_transacao = ti.cod_transacao
+   AND (
+     ti.cod_empresa = tb.cod_empresaestoque
+     OR (tb.cod_empresa IS NOT NULL AND ti.cod_empresa = tb.cod_empresa)
+   )
   GROUP BY
-    ti.cod_transacao,
-    ti.cod_empresa
+    tb.cod_transacao,
+    tb.cod_empresaestoque
 ),
 parcelas_agregadas AS (
   SELECT
     tb.cod_transacao,
-    tb.cod_empresa,
+    tb.cod_empresaestoque AS cod_empresa,
     fp.cod_formapagamentotipo,
     cct.credito,
     SUM(
@@ -57,7 +67,7 @@ parcelas_agregadas AS (
   WHERE (? = 0 OR fp.cod_formapagamentotipo <> 6)
   GROUP BY
     tb.cod_transacao,
-    tb.cod_empresa,
+    tb.cod_empresaestoque,
     fp.cod_formapagamentotipo,
     cct.credito
 ),
@@ -88,7 +98,7 @@ SELECT
     WHEN 6 THEN 'CREDITOS'
     ELSE 'OUTROS'
   END AS FORMAPAGAMENTO,
-  COUNT(DISTINCT tb.cod_transacao || '-' || tb.cod_empresa) AS QTD_VENDAS,
+  COUNT(DISTINCT tb.cod_transacao || '-' || tb.cod_empresaestoque) AS QTD_VENDAS,
   SUM(COALESCE(ia.total_bruto, 0) * COALESCE(pp.proporcao, 1)) AS TOTAL_BRUTO,
   SUM(COALESCE(ia.total_vendido, 0) * COALESCE(pp.proporcao, 1)) AS TOTAL_VENDIDO,
   SUM(
@@ -98,8 +108,12 @@ SELECT
   SUM(pp.total_pago) AS TOTAL_PAGO_FORMA
 FROM transacoes_base tb
 JOIN pessoa v ON v.cod_pessoa = tb.cod_vendedor
-JOIN itens_agregados ia ON ia.cod_transacao = tb.cod_transacao AND tb.cod_empresa = ia.cod_empresa
-JOIN parcelas_com_proporcao pp ON pp.cod_transacao = tb.cod_transacao AND pp.cod_empresa = tb.cod_empresa
+JOIN itens_agregados ia
+  ON ia.cod_transacao = tb.cod_transacao
+ AND tb.cod_empresaestoque = ia.cod_empresa
+JOIN parcelas_com_proporcao pp
+  ON pp.cod_transacao = tb.cod_transacao
+ AND pp.cod_empresa = tb.cod_empresaestoque
 GROUP BY
   tb.dataemissao,
   tb.cod_empresaestoque,
