@@ -17,14 +17,14 @@ transacoes_base AS (
     t.cod_faturatransacao,
     s.cod_vendedor
   FROM transacao t
-  JOIN naturezaoperacao no ON no.cod_naturezaoperacao = t.cod_naturezaoperacao
+  JOIN naturezaoperacao nat ON nat.cod_naturezaoperacao = t.cod_naturezaoperacao
   LEFT JOIN saida s
     ON s.cod_saida = t.cod_transacao
    AND (
      s.cod_empresa = t.cod_empresaestoque
      OR (t.cod_empresa IS NOT NULL AND s.cod_empresa = t.cod_empresa)
    )
-  WHERE no.tipo = 1
+  WHERE nat.tipo = 1
     AND (t.cod_empresaestoque = ? OR t.cod_empresa = ?)
     AND t.dataemissao BETWEEN ? AND ?
 ),
