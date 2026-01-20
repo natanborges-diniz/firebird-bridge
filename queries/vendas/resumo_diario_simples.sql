@@ -32,8 +32,14 @@ itens_agregados AS (
   SELECT
     tb.cod_transacao,
     tb.cod_empresaestoque AS cod_empresa,
-    SUM(COALESCE(ti.valororiginal, 0) * COALESCE(ti.quantidade, 0)) AS total_bruto,
-    SUM(COALESCE(ti.total, 0) - COALESCE(ti.totalipi, 0)) AS total_vendido
+    SUM(
+      CAST(COALESCE(ti.valororiginal, 0) AS DOUBLE PRECISION)
+      * CAST(COALESCE(ti.quantidade, 0) AS DOUBLE PRECISION)
+    ) AS total_bruto,
+    SUM(
+      CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+      - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
+    ) AS total_vendido
   FROM transacao_item ti
   JOIN transacoes_base tb
     ON tb.cod_transacao = ti.cod_transacao
@@ -52,9 +58,11 @@ parcelas_agregadas AS (
     fp.cod_formapagamentotipo,
     cct.credito,
     SUM(
-      COALESCE(
-        IIF(flp.datapagamento IS NULL, flp.valor, flp.valorpago),
-        0
+      CAST(
+        COALESCE(
+          IIF(flp.datapagamento IS NULL, flp.valor, flp.valorpago),
+          0
+        ) AS DOUBLE PRECISION
       )
     ) AS total_pago
   FROM transacoes_base tb
