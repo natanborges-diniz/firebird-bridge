@@ -58,13 +58,13 @@ parcelas_agregadas AS (
       )
     ) AS total_pago
   FROM transacoes_base tb
-  JOIN finfaturatransacao fft ON fft.cod_faturatransacao = tb.cod_faturatransacao
-  JOIN finlancamento fl ON fl.cod_faturatransacao = fft.cod_faturatransacao
-  JOIN finlancamentoparcela flp ON flp.cod_lancamento = fl.cod_lancamento
-  JOIN finformapagamento fp ON fp.cod_formapagamento = flp.cod_formapagamento
+  LEFT JOIN finfaturatransacao fft ON fft.cod_faturatransacao = tb.cod_faturatransacao
+  LEFT JOIN finlancamento fl ON fl.cod_faturatransacao = fft.cod_faturatransacao
+  LEFT JOIN finlancamentoparcela flp ON flp.cod_lancamento = fl.cod_lancamento
+  LEFT JOIN finformapagamento fp ON fp.cod_formapagamento = flp.cod_formapagamento
   LEFT JOIN finformapagamentocartao fpc ON fpc.cod_formapagamentocartao = fp.cod_formapagamento
   LEFT JOIN fincartaocreditotipo cct ON cct.cod_cartaocreditotipo = fpc.cod_cartaocreditotipo
-  WHERE (? = 0 OR fp.cod_formapagamentotipo <> 6)
+  WHERE (? = 0 OR fp.cod_formapagamentotipo <> 6 OR fp.cod_formapagamentotipo IS NULL)
   GROUP BY
     tb.cod_transacao,
     tb.cod_empresaestoque,
