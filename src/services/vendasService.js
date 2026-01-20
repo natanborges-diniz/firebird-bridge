@@ -25,6 +25,25 @@ const SQL_FORMAS_PAGAMENTO_AUDITORIA_LIGHT = loadSql("formas_pagamento_auditoria
 const SQL_ANALISE_FAMILIA_VENDEDOR = loadSql("analise_familia_vendedor.sql");
 const SQL_DEBUG = loadSql("debug_resumo_empresa_vendedor.sql");
 
+function mapResumoDiarioSimplesRow(row) {
+  return {
+    DATA_VENDA: row.data_venda ?? null,
+    COD_EMPRESA: row.cod_empresa ?? null,
+    VENDEDOR: row.vendedor ?? null,
+    FORMAPAGAMENTO: row.formapagamento ?? null,
+    QTD_VENDAS: row.qtd_vendas ?? null,
+    TOTAL_BRUTO: row.total_bruto ?? null,
+    TOTAL_VENDIDO: row.total_vendido ?? null,
+    TOTAL_DESCONTO: row.total_desconto ?? null,
+    TOTAL_PAGO_FORMA: row.total_pago_forma ?? null,
+  };
+}
+
+function mapResumoDiarioSimplesRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(mapResumoDiarioSimplesRow);
+}
+
 function resolvePagination(page, pageSize) {
   const parsedPage = Number(page);
   const parsedPageSize = Number(pageSize);
@@ -226,7 +245,7 @@ async function getResumoDiarioSimples({
   }
   return results.flatMap((result, index) => {
     if (result.status === "fulfilled") {
-      return result.value ?? [];
+      return mapResumoDiarioSimplesRows(result.value ?? []);
     }
     console.error(
       `[VENDAS] resumo-diario-simples empresa ${empresas[index]}:`,
