@@ -18,7 +18,7 @@ transacoes_base AS (
     s.cod_vendedor
   FROM transacao t
   JOIN naturezaoperacao no ON no.cod_naturezaoperacao = t.cod_naturezaoperacao
-  JOIN saida s
+  LEFT JOIN saida s
     ON s.cod_saida = t.cod_transacao
    AND (
      s.cod_empresa = t.cod_empresaestoque
@@ -84,7 +84,7 @@ parcelas_com_proporcao AS (
 SELECT
   tb.dataemissao AS DATA_VENDA,
   tb.cod_empresaestoque AS COD_EMPRESA,
-  v.nome AS VENDEDOR,
+  COALESCE(v.nome, 'SEM VENDEDOR') AS VENDEDOR,
   CASE pp.cod_formapagamentotipo
     WHEN 1 THEN 'DINHEIRO'
     WHEN 2 THEN 'CHEQUE'
@@ -107,7 +107,7 @@ SELECT
   ) AS TOTAL_DESCONTO,
   SUM(pp.total_pago) AS TOTAL_PAGO_FORMA
 FROM transacoes_base tb
-JOIN pessoa v ON v.cod_pessoa = tb.cod_vendedor
+LEFT JOIN pessoa v ON v.cod_pessoa = tb.cod_vendedor
 JOIN itens_agregados ia
   ON ia.cod_transacao = tb.cod_transacao
  AND tb.cod_empresaestoque = ia.cod_empresa
