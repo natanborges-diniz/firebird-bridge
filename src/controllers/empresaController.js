@@ -7,7 +7,26 @@ async function listarEmpresas(req, res) {
     const useCache = req.query.cache !== '0' && req.query.cache !== 'false';
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
-    const empresas = await empresaService.getEmpresas({ useCache, cacheTtlMs });
+    const rows = await empresaService.getEmpresas({ useCache, cacheTtlMs });
+    const empresas = rows
+      .map((row) => {
+        const codEmpresa = row.COD_EMPRESA ?? row.cod_empresa ?? null;
+        const nomeEmpresa =
+          row.EMPRESA_NOME ?? row.empresa_nome ?? row.NOME ?? row.nome ?? null;
+        const nomeLogico =
+          row.EMPRESA_NOME_LOGICO ??
+          row.empresa_nome_logico ??
+          nomeEmpresa ??
+          null;
+
+        return {
+          cod_empresa: codEmpresa,
+          empresa_nome: nomeEmpresa,
+          empresa_cod_logico: codEmpresa,
+          empresa_nome_logico: nomeLogico,
+        };
+      })
+      .sort((a, b) => (a.empresa_nome ?? '').localeCompare(b.empresa_nome ?? ''));
     return success(res, empresas);
   } catch (err) {
     return handleControllerError(res, err);
