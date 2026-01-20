@@ -98,7 +98,7 @@ SELECT
   SUM(pp.total_pago) AS TOTAL_PAGO_FORMA
 FROM transacoes_base tb
 JOIN pessoa v ON v.cod_pessoa = tb.cod_vendedor
-JOIN itens_agregados ia ON ia.cod_transacao = tb.cod_transacao AND ia.cod_empresa = tb.cod_empresa
+JOIN itens_agregados ia ON ia.cod_transacao = tb.cod_transacao AND tb.cod_empresa = ia.cod_empresa
 JOIN parcelas_com_proporcao pp ON pp.cod_transacao = tb.cod_transacao AND pp.cod_empresa = tb.cod_empresa
 GROUP BY
   tb.dataemissao,
