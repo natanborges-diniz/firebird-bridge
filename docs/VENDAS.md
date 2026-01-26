@@ -185,3 +185,32 @@ GET /api/v1/vendas/analise-familia-vendedor
   ],
   "error": null
 }
+
+---
+
+## 1.7. Análise por SKU
+
+### Rota
+GET /api/v1/vendas/analise-sku
+
+### Parâmetros
+- empresa
+- dataInicio
+- dataFim
+
+### Resposta
+{
+  "ok": true,
+  "data": [
+    {
+      "empresa": "206",
+      "cod_item": 12345,
+      "descricao_item": "ARMACAO XYZ",
+      "codigo_barras": "7891234567890",
+      "familia": "ARMACOES",
+      "qtd_produtos": 8,
+      "total_vendido": 3200
+    }
+  ],
+  "error": null
+}
