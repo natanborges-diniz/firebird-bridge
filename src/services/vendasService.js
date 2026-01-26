@@ -23,6 +23,7 @@ const SQL_FORMAS_PAGAMENTO_RESUMO = loadSql("formas_pagamento_resumo.sql");
 const SQL_FORMAS_PAGAMENTO_AUDITORIA = loadSql("formas_pagamento_auditoria.sql");
 const SQL_FORMAS_PAGAMENTO_AUDITORIA_LIGHT = loadSql("formas_pagamento_auditoria_light.sql");
 const SQL_ANALISE_FAMILIA_VENDEDOR = loadSql("analise_familia_vendedor.sql");
+const SQL_ANALISE_SKU = loadSql("analise_sku.sql");
 const SQL_DEBUG = loadSql("debug_resumo_empresa_vendedor.sql");
 
 function mapResumoDiarioSimplesRow(row) {
@@ -191,6 +192,19 @@ async function getAnaliseFamiliaVendedorPorEmpresa(codEmpresa, dataInicio, dataF
     ttlMs,
     enabled: options.useCache !== false,
     fetcher: () => db.runQuery(SQL_ANALISE_FAMILIA_VENDEDOR, params),
+  });
+}
+
+async function getAnaliseSkuPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
+  const params = [codEmpresa, codEmpresa, dataInicio, dataFim];
+  const cacheLabel = "vendas.analise_sku";
+  const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
+  return getCachedOrFetch({
+    label: cacheLabel,
+    params,
+    ttlMs,
+    enabled: options.useCache !== false,
+    fetcher: () => db.runQuery(SQL_ANALISE_SKU, params),
   });
 }
 
@@ -415,6 +429,32 @@ async function getAnaliseFamiliaVendedor({ empresa, dataInicio, dataFim, useCach
     return [];
   });
 }
+
+async function getAnaliseSku({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
+  const empresas = parseEmpresasParam(empresa);
+  const startedAt = Date.now();
+  const results = await Promise.allSettled(
+    empresas.map((cod) =>
+      getAnaliseSkuPorEmpresa(cod, dataInicio, dataFim, {
+        useCache,
+        cacheTtlMs,
+      })
+    )
+  );
+  if (LOG_QUERY_TIME) {
+    console.log(`[VENDAS] analise-sku empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`);
+  }
+  return results.flatMap((result, index) => {
+    if (result.status === "fulfilled") {
+      return result.value ?? [];
+    }
+    console.error(
+      `[VENDAS] analise-sku empresa ${empresas[index]}:`,
+      result.reason?.message || result.reason
+    );
+    return [];
+  });
+}
 async function debugCreateIndexes() {
   return db.query(sqlCreateIndexes);
 }
@@ -426,6 +466,7 @@ module.exports = {
   getFormasPagamentoAuditoria,
   getFormasPagamentoAuditoriaLight,
   getAnaliseFamiliaVendedor,
+  getAnaliseSku,
   debugResumoEmpresaVendedor,
   debugCreateIndexes,
 };
