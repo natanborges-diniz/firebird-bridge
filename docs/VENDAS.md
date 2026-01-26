@@ -203,11 +203,17 @@ GET /api/v1/vendas/analise-sku
   "ok": true,
   "data": [
     {
-      "empresa": "206",
-      "cod_item": 12345,
+      "cod_sku": 12345,
       "descricao_item": "ARMACAO XYZ",
-      "codigo_barras": "7891234567890",
-      "familia": "ARMACOES",
+      "marca": "RAYBAN",
+      "fornecedor": "FORNECEDOR ABC",
+      "tipo": "ARMACOES",
+      "estoque_atual": 8,
+      "data_ultima_venda": "2025-11-05",
+      "dias_desde_ultima_venda": 12,
+      "data_ultimo_custo": "2025-09-18",
+      "preco_custo": 120.50,
+      "preco_venda_final": 400.00,
       "qtd_produtos": 8,
       "total_vendido": 3200
     }
