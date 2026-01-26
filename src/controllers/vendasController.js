@@ -162,6 +162,26 @@ async function analiseFamiliaVendedor(req, res) {
   }
 }
 
+async function analiseSku(req, res) {
+  try {
+    const params = validatePeriodoEmpresaQuery(req, res);
+    if (!params) return;
+
+    const useCache = req.query.cache !== "0" && req.query.cache !== "false";
+    const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
+
+    const rows = await vendasService.getAnaliseSku({
+      ...params,
+      useCache,
+      cacheTtlMs,
+    });
+
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 module.exports = {
   resumoEmpresaVendedor,
   resumoDiarioSimples,
@@ -169,5 +189,6 @@ module.exports = {
   auditoriaFormasPagamento,
   auditoriaFormasPagamentoLight,
   analiseFamiliaVendedor,
+  analiseSku,
   debugResumoEmpresaVendedor,
 };
