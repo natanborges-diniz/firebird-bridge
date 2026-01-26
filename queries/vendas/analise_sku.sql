@@ -94,7 +94,16 @@ SELECT
   p.CODIGOBARRA               AS CODIGO_BARRAS,
   tbmarcamodeloar.descricao   AS MARCA,
   pessoafornecedor.nome       AS FORNECEDOR,
+  pf.COD_PRODUTOFAMILIA       AS TIPO_COD,
   pf.DESCRICAO                AS TIPO,
+  CASE
+    WHEN pf.DESCRICAO IN ('AR', 'OC') THEN pf.DESCRICAO
+    ELSE NULL
+  END                         AS SUBCATEGORIA_ARMACAO,
+  CASE
+    WHEN pf.DESCRICAO IN ('AR', 'OC') THEN 1
+    ELSE 0
+  END                         AS IS_ARMACAO,
 
   COALESCE(tbestoque.saldo, 0) AS ESTOQUE_ATUAL,
 
@@ -183,6 +192,7 @@ GROUP BY
   p.CODIGOBARRA,
   tbmarcamodeloar.descricao,
   pessoafornecedor.nome,
+  pf.COD_PRODUTOFAMILIA,
   pf.DESCRICAO,
   tbestoque.saldo,
   tbUltimaVenda.data_ultima_venda,
