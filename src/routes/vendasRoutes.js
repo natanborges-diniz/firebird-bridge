@@ -19,6 +19,9 @@ router.get('/auditoria-formas-pagamento-light', vendasController.auditoriaFormas
 // GET /api/v1/vendas/analise-familia-vendedor
 router.get('/analise-familia-vendedor', vendasController.analiseFamiliaVendedor);
 
+// GET /api/v1/vendas/analise-sku
+router.get('/analise-sku', vendasController.analiseSku);
+
 // GET /api/v1/vendas/resumo-diario-simples
 router.get('/resumo-diario-simples', vendasController.resumoDiarioSimples);
 
