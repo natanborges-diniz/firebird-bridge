@@ -96,13 +96,22 @@ SELECT
   pessoafornecedor.nome       AS FORNECEDOR,
   COALESCE(pf.COD_PRODUTOFAMILIA, ti.COD_PRODUTOFAMILIA, p.COD_PRODUTOFAMILIA)
                                AS TIPO_COD,
-  pf.DESCRICAO                AS TIPO,
+  COALESCE(
+    pf.DESCRICAO,
+    CASE
+      WHEN otiprodutoarmacao.cod_produtoarmacao IS NOT NULL THEN 'AR'
+      ELSE NULL
+    END,
+    'OUTROS'
+  )                           AS TIPO,
   CASE
     WHEN pf.DESCRICAO IN ('AR', 'OC') THEN pf.DESCRICAO
+    WHEN otiprodutoarmacao.cod_produtoarmacao IS NOT NULL THEN 'AR'
     ELSE NULL
   END                         AS SUBCATEGORIA_ARMACAO,
   CASE
     WHEN pf.DESCRICAO IN ('AR', 'OC') THEN 1
+    WHEN otiprodutoarmacao.cod_produtoarmacao IS NOT NULL THEN 1
     ELSE 0
   END                         AS IS_ARMACAO,
 
@@ -148,6 +157,9 @@ FROM
 
   LEFT JOIN PRODUTOFAMILIA pf
     ON pf.COD_PRODUTOFAMILIA = COALESCE(ti.COD_PRODUTOFAMILIA, p.COD_PRODUTOFAMILIA)
+
+  LEFT JOIN otiprodutoarmacao
+    ON otiprodutoarmacao.cod_produtoarmacao = it.cod_item
 
   LEFT JOIN tbmarcamodeloar
     ON tbmarcamodeloar.cod_item = it.cod_item
@@ -195,6 +207,14 @@ GROUP BY
   pessoafornecedor.nome,
   COALESCE(pf.COD_PRODUTOFAMILIA, ti.COD_PRODUTOFAMILIA, p.COD_PRODUTOFAMILIA),
   pf.COD_PRODUTOFAMILIA,
+  COALESCE(
+    pf.DESCRICAO,
+    CASE
+      WHEN otiprodutoarmacao.cod_produtoarmacao IS NOT NULL THEN 'AR'
+      ELSE NULL
+    END,
+    'OUTROS'
+  ),
   pf.DESCRICAO,
   tbestoque.saldo,
   tbUltimaVenda.data_ultima_venda,
