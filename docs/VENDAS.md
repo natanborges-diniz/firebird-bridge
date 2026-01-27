@@ -208,7 +208,7 @@ GET /api/v1/vendas/analise-sku
       "marca": "RAYBAN",
       "fornecedor": "FORNECEDOR ABC",
       "tipo_cod": 42,
-      "tipo": "ARMACOES",
+      "tipo": "AR",
       "subcategoria_armacao": "AR",
       "is_armacao": 1,
       "estoque_atual": 8,
@@ -227,3 +227,4 @@ GET /api/v1/vendas/analise-sku
 ### Observação de uso (OTB)
 - Para armações, utilize **marca/grife** como referência principal.
 - Para lentes, utilize **família/tipo**.
+- Itens sem família serão classificados como **OUTROS** quando não forem armações.
