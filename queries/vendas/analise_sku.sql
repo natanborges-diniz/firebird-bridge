@@ -104,16 +104,20 @@ SELECT
     END,
     'OUTROS'
   )                           AS TIPO,
-  CASE
-    WHEN pf.DESCRICAO IN ('AR', 'OC') THEN pf.DESCRICAO
-    WHEN otiprodutoarmacao.cod_produtoarmacao IS NOT NULL THEN 'AR'
-    ELSE NULL
-  END                         AS SUBCATEGORIA_ARMACAO,
-  CASE
-    WHEN pf.DESCRICAO IN ('AR', 'OC') THEN 1
-    WHEN otiprodutoarmacao.cod_produtoarmacao IS NOT NULL THEN 1
-    ELSE 0
-  END                         AS IS_ARMACAO,
+  MAX(
+    CASE
+      WHEN pf.DESCRICAO IN ('AR', 'OC') THEN pf.DESCRICAO
+      WHEN otiprodutoarmacao.cod_produtoarmacao IS NOT NULL THEN 'AR'
+      ELSE NULL
+    END
+  )                           AS SUBCATEGORIA_ARMACAO,
+  MAX(
+    CASE
+      WHEN pf.DESCRICAO IN ('AR', 'OC') THEN 1
+      WHEN otiprodutoarmacao.cod_produtoarmacao IS NOT NULL THEN 1
+      ELSE 0
+    END
+  )                           AS IS_ARMACAO,
 
   COALESCE(tbestoque.saldo, 0) AS ESTOQUE_ATUAL,
 
