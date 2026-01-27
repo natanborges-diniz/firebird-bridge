@@ -193,6 +193,7 @@ GROUP BY
   p.CODIGOBARRA,
   tbmarcamodeloar.descricao,
   pessoafornecedor.nome,
+  COALESCE(pf.COD_PRODUTOFAMILIA, ti.COD_PRODUTOFAMILIA, p.COD_PRODUTOFAMILIA),
   pf.COD_PRODUTOFAMILIA,
   pf.DESCRICAO,
   tbestoque.saldo,
