@@ -223,3 +223,7 @@ GET /api/v1/vendas/analise-sku
   ],
   "error": null
 }
+
+### Observação de uso (OTB)
+- Para armações, utilize **marca/grife** como referência principal.
+- Para lentes, utilize **família/tipo**.
