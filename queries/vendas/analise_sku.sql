@@ -16,6 +16,7 @@ WITH
       estoque
     WHERE
       estoque.cod_estoquelocal IN (1, 8)
+      AND estoque.saldo > 0
     GROUP BY
       1, 2
   ),
