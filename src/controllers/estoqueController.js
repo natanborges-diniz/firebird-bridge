@@ -2,6 +2,7 @@
 
 const estoqueService = require('../services/estoqueService');
 const { success, failure, handleControllerError } = require('../utils/apiResponse');
+const { parseEmpresasParam } = require('../utils/empresaHelper');
 
 /**
  * Valida o parâmetro codEmpresa/empresa.
@@ -36,6 +37,37 @@ function validateEmpresa(req, res) {
 }
 
 /**
+ * Valida o parâmetro empresa para listas/ALL.
+ */
+function validateEmpresaLista(req, res) {
+  const { codEmpresa, empresa } = req.query;
+  const valor = codEmpresa ?? empresa;
+
+  if (!valor) {
+    failure(res, {
+      code: 'INVALID_PARAMS',
+      message: 'Parâmetro empresa é obrigatório',
+      details: { missing: ['empresa'] },
+      status: 400
+    });
+    return null;
+  }
+
+  const empresas = parseEmpresasParam(valor);
+  if (!empresas.length) {
+    failure(res, {
+      code: 'INVALID_PARAMS',
+      message: 'Nenhuma empresa válida informada',
+      details: { empresa: valor },
+      status: 400
+    });
+    return null;
+  }
+
+  return valor;
+}
+
+/**
  * GET /estoque/analise-acao?codEmpresa=...
  */
 async function analiseEstoqueAcao(req, res) {
@@ -50,6 +82,22 @@ async function analiseEstoqueAcao(req, res) {
   }
 }
 
+/**
+ * GET /estoque/completo?empresa=...
+ */
+async function estoqueCompleto(req, res) {
+  try {
+    const empresaParam = validateEmpresaLista(req, res);
+    if (empresaParam == null) return;
+
+    const rows = await estoqueService.getEstoqueCompleto(empresaParam);
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 module.exports = {
-  analiseEstoqueAcao
+  analiseEstoqueAcao,
+  estoqueCompleto
 };
