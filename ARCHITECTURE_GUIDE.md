@@ -30,6 +30,12 @@ hooks/ (hooks React que consomem a API do bridge)
 pages/ (páginas React do frontend)
 
 
+Arquivos importantes:
+- `src/db/index.js`: client nativo do Firebird e utilitários de query.
+- `src/config/env.js`: validação mínima de variáveis obrigatórias.
+- `src/utils/loadSQL.js`: helper para carregar `.sql` em `queries/`.
+- `src/routes/index.js`: monta o router `/api/v1/...` e `/health`.
+
 
 Arquivos importantes:
 - `src/db/index.js`: client nativo do Firebird e utilitários de query.
@@ -85,9 +91,8 @@ Arquivos importantes:
   - `GET /api/v1/os/monitor`
   - `GET /api/v1/os/receitas-metadata` (descoberta de tabelas/campos para receita + chaves de OS)
   - `GET /api/v1/os/receitas-metadata?expand=1` (inclui todos os campos das tabelas encontradas)
-  - `GET /api/v1/os/hub-receitas` (hub consolidado de OS + receita + imagens)
+  - `GET /api/v1/os/hub-receitas` (hub consolidado de OS + receita + imagens; aceita `os` opcional)
   - Aliases: `GET /api/v1/os/receita-metadata`, `GET /api/v1/os/receitas/metadata`
-
 - **Controller**: `src/controllers/osController.js` (versão otimizada em linha).
 - **Service (alternativo)**: `src/services/osService.js` carrega `queries/os/monitor_producao.sql` (a rota atual usa SQL inline, mas o serviço filtra o mesmo resultado quando necessário).
 - **Parâmetros**: `dataInicio`, `dataFim` obrigatórios; `codEmpresa` opcional.
