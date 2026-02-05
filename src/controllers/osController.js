@@ -78,6 +78,11 @@ async function monitorOsUltimaEtapa(req, res) {
 async function receitaMetadata(req, res) {
   try {
     const rawCampos = req.query.campos ?? "";
+    const includeAllFields =
+      String(req.query.expand ?? "")
+        .trim()
+        .toLowerCase() === "true" ||
+      String(req.query.expand ?? "").trim() === "1";
     const campos = String(rawCampos)
       .split(",")
       .map((campo) => campo.trim())
@@ -100,13 +105,17 @@ async function receitaMetadata(req, res) {
       "COD_PESSOA",
     ];
 
-    const rows = await osService.getReceitaMetadata({ campos, chavesOs });
+    const { matches, fieldsByTable } = await osService.getReceitaMetadata({
+      campos,
+      chavesOs,
+      includeAllFields,
+    });
 
     const camposUpper = campos.map((campo) => campo.toUpperCase());
     const chavesOsUpper = chavesOs.map((campo) => campo.toUpperCase());
     const tabelaMap = new Map();
 
-    rows.forEach((row) => {
+    matches.forEach((row) => {
       const tabela = row.tabela;
       const campo = row.campo;
       if (!tabelaMap.has(tabela)) {
@@ -126,10 +135,14 @@ async function receitaMetadata(req, res) {
       }
     });
 
-    const payload = Array.from(tabelaMap.values()).map((entry) => ({
-      ...entry,
-      possui_chave_os: entry.chaves_os.length > 0,
-    }));
+    const payload = Array.from(tabelaMap.values()).map((entry) => {
+      const camposTabela = fieldsByTable?.[entry.tabela] ?? null;
+      return {
+        ...entry,
+        possui_chave_os: entry.chaves_os.length > 0,
+        campos_tabela: camposTabela,
+      };
+    });
 
     return success(res, payload);
   } catch (err) {
