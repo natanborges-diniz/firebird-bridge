@@ -64,4 +64,108 @@ async function monitorOs(req, res) {
   }
 }
 
-// ... resto do arquivo permanece igual ...
+async function monitorOsUltimaEtapa(req, res) {
+  try {
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
+
+    const rows = await osService.getMonitorOsUltimaEtapa(params);
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
+async function hubReceitas(req, res) {
+  try {
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
+
+    const rows = await osService.getHubReceitas(params);
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
+async function receitaMetadata(req, res) {
+  try {
+    const rawCampos = req.query.campos ?? "";
+    const includeAllFields =
+      String(req.query.expand ?? "")
+        .trim()
+        .toLowerCase() === "true" ||
+      String(req.query.expand ?? "").trim() === "1";
+    const campos = String(rawCampos)
+      .split(",")
+      .map((campo) => campo.trim())
+      .filter(Boolean);
+
+    if (campos.length === 0) {
+      return failure(res, {
+        code: "INVALID_PARAMS",
+        message: "Informe ao menos um campo em ?campos=CAMPO1,CAMPO2",
+        details: { campos: rawCampos },
+        status: 400,
+      });
+    }
+
+    const chavesOs = [
+      "COD_ORDEMSERVICOCAIXA",
+      "NUMEROORDEMSERVICO",
+      "COD_TRANSACAO",
+      "COD_CLIENTE",
+      "COD_PESSOA",
+    ];
+
+    const { matches, fieldsByTable } = await osService.getReceitaMetadata({
+      campos,
+      chavesOs,
+      includeAllFields,
+    });
+
+    const camposUpper = campos.map((campo) => campo.toUpperCase());
+    const chavesOsUpper = chavesOs.map((campo) => campo.toUpperCase());
+    const tabelaMap = new Map();
+
+    matches.forEach((row) => {
+      const tabela = row.tabela;
+      const campo = row.campo;
+      if (!tabelaMap.has(tabela)) {
+        tabelaMap.set(tabela, {
+          tabela,
+          campos_encontrados: [],
+          chaves_os: [],
+        });
+      }
+
+      const entry = tabelaMap.get(tabela);
+      if (camposUpper.includes(campo)) {
+        entry.campos_encontrados.push(campo);
+      }
+      if (chavesOsUpper.includes(campo)) {
+        entry.chaves_os.push(campo);
+      }
+    });
+
+    const payload = Array.from(tabelaMap.values()).map((entry) => {
+      const camposTabela = fieldsByTable?.[entry.tabela] ?? null;
+      return {
+        ...entry,
+        possui_chave_os: entry.chaves_os.length > 0,
+        campos_tabela: camposTabela,
+      };
+    });
+
+    return success(res, payload);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
+module.exports = {
+  monitorOs,
+  monitorOsUltimaEtapa,
+  hubReceitas,
+  receitaMetadata,
+};
