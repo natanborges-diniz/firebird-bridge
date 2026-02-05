@@ -94,7 +94,8 @@ LEFT JOIN otoi_lente_agg lensagg
   ON lensagg.cod_transacao = ocx.cod_transacao
 
 WHERE
-    ocx.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+    ( ? IS NULL OR ocx.numeroordemservico = CAST(? AS INTEGER) )
+    AND ocx.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
     AND ( ? IS NULL OR ocx.cod_empresaorigem = CAST(? AS INTEGER) )
 
 ORDER BY pe.nome, ocx.dataemissao, ocx.numeroordemservico;
