@@ -75,7 +75,70 @@ async function monitorOsUltimaEtapa(req, res) {
   }
 }
 
+async function receitaMetadata(req, res) {
+  try {
+    const rawCampos = req.query.campos ?? "";
+    const campos = String(rawCampos)
+      .split(",")
+      .map((campo) => campo.trim())
+      .filter(Boolean);
+
+    if (campos.length === 0) {
+      return failure(res, {
+        code: "INVALID_PARAMS",
+        message: "Informe ao menos um campo em ?campos=CAMPO1,CAMPO2",
+        details: { campos: rawCampos },
+        status: 400,
+      });
+    }
+
+    const chavesOs = [
+      "COD_ORDEMSERVICOCAIXA",
+      "NUMEROORDEMSERVICO",
+      "COD_TRANSACAO",
+      "COD_CLIENTE",
+      "COD_PESSOA",
+    ];
+
+    const rows = await osService.getReceitaMetadata({ campos, chavesOs });
+
+    const camposUpper = campos.map((campo) => campo.toUpperCase());
+    const chavesOsUpper = chavesOs.map((campo) => campo.toUpperCase());
+    const tabelaMap = new Map();
+
+    rows.forEach((row) => {
+      const tabela = row.tabela;
+      const campo = row.campo;
+      if (!tabelaMap.has(tabela)) {
+        tabelaMap.set(tabela, {
+          tabela,
+          campos_encontrados: [],
+          chaves_os: [],
+        });
+      }
+
+      const entry = tabelaMap.get(tabela);
+      if (camposUpper.includes(campo)) {
+        entry.campos_encontrados.push(campo);
+      }
+      if (chavesOsUpper.includes(campo)) {
+        entry.chaves_os.push(campo);
+      }
+    });
+
+    const payload = Array.from(tabelaMap.values()).map((entry) => ({
+      ...entry,
+      possui_chave_os: entry.chaves_os.length > 0,
+    }));
+
+    return success(res, payload);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 module.exports = {
   monitorOs,
   monitorOsUltimaEtapa,
+  receitaMetadata,
 };
