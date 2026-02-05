@@ -74,7 +74,17 @@ async function monitorOsUltimaEtapa(req, res) {
     return handleControllerError(res, err);
   }
 }
+async function hubReceitas(req, res) {
+  try {
+    const params = validatePeriodoQuery(req, res);
+    if (!params) return;
 
+    const rows = await osService.getHubReceitas(params);
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
 async function receitaMetadata(req, res) {
   try {
     const rawCampos = req.query.campos ?? "";
@@ -153,5 +163,6 @@ async function receitaMetadata(req, res) {
 module.exports = {
   monitorOs,
   monitorOsUltimaEtapa,
+  hubReceitas,
   receitaMetadata,
 };
