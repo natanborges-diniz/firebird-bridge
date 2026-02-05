@@ -9,6 +9,7 @@ function loadSql(fileName) {
 
 const sqlMonitorOs = loadSql("monitor.sql");
 const sqlMonitorOsUltimaEtapa = loadSql("monitor_ultima_etapa.sql");
+const sqlHubReceitas = loadSql("hub_receitas.sql");
 
 async function getMonitorOs({ dataInicio, dataFim, codEmpresa }) {
   const empresaParam = codEmpresa ?? null;
@@ -20,6 +21,12 @@ async function getMonitorOsUltimaEtapa({ dataInicio, dataFim, codEmpresa }) {
   const empresaParam = codEmpresa ?? null;
   const params = [dataInicio, dataFim, empresaParam, empresaParam];
   return db.query(sqlMonitorOsUltimaEtapa, params);
+}
+
+async function getHubReceitas({ dataInicio, dataFim, codEmpresa }) {
+  const empresaParam = codEmpresa ?? null;
+  const params = [dataInicio, dataFim, empresaParam, empresaParam];
+  return db.query(sqlHubReceitas, params);
 }
 
 async function getReceitaMetadata({ campos, chavesOs, includeAllFields }) {
@@ -87,5 +94,6 @@ async function getReceitaMetadata({ campos, chavesOs, includeAllFields }) {
 module.exports = {
   getMonitorOs,
   getMonitorOsUltimaEtapa,
+  getHubReceitas,
   getReceitaMetadata,
 };
