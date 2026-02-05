@@ -81,6 +81,20 @@ async function hubReceitas(req, res) {
     const params = validatePeriodoQuery(req, res);
     if (!params) return;
 
+    const rawOs = req.query.os ?? req.query.numeroOs ?? req.query.numeroOS;
+    if (rawOs !== undefined && rawOs !== null && String(rawOs).trim() !== "") {
+      const osNumber = Number(rawOs);
+      if (!Number.isFinite(osNumber)) {
+        return failure(res, {
+          code: "INVALID_PARAMS",
+          message: "os deve ser numérico",
+          details: { os: rawOs },
+          status: 400,
+        });
+      }
+      params.os = osNumber;
+    }
+
     const rows = await osService.getHubReceitas(params);
     return success(res, rows);
   } catch (err) {
