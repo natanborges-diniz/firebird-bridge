@@ -23,9 +23,10 @@ async function getMonitorOsUltimaEtapa({ dataInicio, dataFim, codEmpresa }) {
   return db.query(sqlMonitorOsUltimaEtapa, params);
 }
 
-async function getHubReceitas({ dataInicio, dataFim, codEmpresa }) {
+async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
   const empresaParam = codEmpresa ?? null;
-  const params = [dataInicio, dataFim, empresaParam, empresaParam];
+  const osParam = os ?? null;
+  const params = [osParam, osParam, dataInicio, dataFim, empresaParam, empresaParam];
   return db.query(sqlHubReceitas, params);
 }
 
