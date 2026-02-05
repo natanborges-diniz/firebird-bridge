@@ -84,7 +84,10 @@ Arquivos importantes:
 - **Rota**: `src/routes/os.routes.js`
   - `GET /api/v1/os/monitor`
   - `GET /api/v1/os/receitas-metadata` (descoberta de tabelas/campos para receita + chaves de OS)
+  - `GET /api/v1/os/receitas-metadata?expand=1` (inclui todos os campos das tabelas encontradas)
+  - `GET /api/v1/os/hub-receitas` (hub consolidado de OS + receita + imagens)
   - Aliases: `GET /api/v1/os/receita-metadata`, `GET /api/v1/os/receitas/metadata`
+
 - **Controller**: `src/controllers/osController.js` (versão otimizada em linha).
 - **Service (alternativo)**: `src/services/osService.js` carrega `queries/os/monitor_producao.sql` (a rota atual usa SQL inline, mas o serviço filtra o mesmo resultado quando necessário).
 - **Parâmetros**: `dataInicio`, `dataFim` obrigatórios; `codEmpresa` opcional.
