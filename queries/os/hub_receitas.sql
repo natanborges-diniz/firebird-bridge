@@ -4,13 +4,23 @@
 WITH otoi_lente_agg AS (
     SELECT
         cod_transacao,
-        LIST(DISTINCT prisma, ', ') AS prisma,
-        LIST(DISTINCT prismaangulo, ', ') AS prismaangulo,
-        LIST(DISTINCT prismaeixo, ', ') AS prismaeixo,
-        LIST(DISTINCT prisma1, ', ') AS prisma1,
-        LIST(DISTINCT prisma1angulo, ', ') AS prisma1angulo,
-        LIST(DISTINCT prisma1eixo, ', ') AS prisma1eixo
-    FROM otiordemservicootica_lente
+        LIST(prisma, ', ') AS prisma,
+        LIST(prismaangulo, ', ') AS prismaangulo,
+        LIST(prismaeixo, ', ') AS prismaeixo,
+        LIST(prisma1, ', ') AS prisma1,
+        LIST(prisma1angulo, ', ') AS prisma1angulo,
+        LIST(prisma1eixo, ', ') AS prisma1eixo
+    FROM (
+        SELECT DISTINCT
+            cod_transacao,
+            prisma,
+            prismaangulo,
+            prismaeixo,
+            prisma1,
+            prisma1angulo,
+            prisma1eixo
+        FROM otiordemservicootica_lente
+    )
     GROUP BY cod_transacao
 ),
 otio_lente_campos AS (
