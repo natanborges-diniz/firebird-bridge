@@ -52,6 +52,36 @@ function validatePeriodoQuery(req, res) {
   };
 }
 
+function normalizeCodEmpresa(req, res) {
+  const rawEmpresa = req.query.codEmpresa ?? req.query.empresa;
+  if (
+    rawEmpresa === undefined ||
+    rawEmpresa === null ||
+    rawEmpresa === "" ||
+    String(rawEmpresa).toUpperCase() === "ALL"
+  ) {
+    return null;
+  }
+
+  const num = Number(rawEmpresa);
+  if (!Number.isFinite(num)) {
+    failure(res, {
+      code: "INVALID_PARAMS",
+      message: "codEmpresa deve ser numérico ou ALL",
+      details: { codEmpresa: rawEmpresa },
+      status: 400,
+    });
+    return null;
+  }
+
+  const COD_EMPRESA_LOGICA_PARA_ORIGEM = {
+    595: 1,
+    599: 9,
+  };
+
+  return COD_EMPRESA_LOGICA_PARA_ORIGEM[num] ?? num;
+}
+
 async function monitorOs(req, res) {
   try {
     const params = validatePeriodoQuery(req, res);
@@ -97,6 +127,43 @@ async function hubReceitas(req, res) {
 
     const rows = await osService.getHubReceitas(params);
     return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
+async function hubReceitasCompleto(req, res) {
+  try {
+    const rawOs = req.query.os ?? req.query.numeroOs ?? req.query.numeroOS;
+    if (rawOs === undefined || rawOs === null || String(rawOs).trim() === "") {
+      return failure(res, {
+        code: "INVALID_PARAMS",
+        message: "Informe o número da OS em ?os=",
+        details: { os: rawOs },
+        status: 400,
+      });
+    }
+
+    const osNumber = Number(rawOs);
+    if (!Number.isFinite(osNumber)) {
+      return failure(res, {
+        code: "INVALID_PARAMS",
+        message: "os deve ser numérico",
+        details: { os: rawOs },
+        status: 400,
+      });
+    }
+
+    const codEmpresa = normalizeCodEmpresa(req, res);
+    if (codEmpresa === null && req.query.codEmpresa) {
+      return;
+    }
+
+    const payload = await osService.getHubReceitasCompleto({
+      os: osNumber,
+      codEmpresa,
+    });
+    return success(res, payload);
   } catch (err) {
     return handleControllerError(res, err);
   }
@@ -181,5 +248,6 @@ module.exports = {
   monitorOs,
   monitorOsUltimaEtapa,
   hubReceitas,
+  hubReceitasCompleto,
   receitaMetadata,
 };
