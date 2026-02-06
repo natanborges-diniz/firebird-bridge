@@ -20,7 +20,7 @@ WITH otoi_lente_agg AS (
             prisma1angulo,
             prisma1eixo
         FROM otiordemservicootica_lente
-    )
+    ) prismas_distintos
     GROUP BY cod_transacao
 ),
 otio_lente_campos AS (
