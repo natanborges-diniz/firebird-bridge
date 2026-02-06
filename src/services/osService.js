@@ -30,6 +30,54 @@ async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
   return db.query(sqlHubReceitas, params);
 }
 
+async function getHubReceitasCompleto({ os, codEmpresa }) {
+  const empresaParam = codEmpresa ?? null;
+  const osRows = await db.query(
+    `
+      SELECT *
+      FROM ordemservicocaixa
+      WHERE numeroordemservico = CAST(? AS INTEGER)
+        AND ( ? IS NULL OR cod_empresaorigem = CAST(? AS INTEGER) )
+    `,
+    [os, empresaParam, empresaParam]
+  );
+
+  if (osRows.length === 0) {
+    return {
+      ordem_servico: null,
+      receita_otica: [],
+      receita_lente: [],
+      receita_otica_lente: [],
+    };
+  }
+
+  const osRow = osRows[0];
+  const codOs = osRow.cod_ordemservicocaixa;
+  const codTransacao = osRow.cod_transacao;
+
+  const receitaOtica = await db.query(
+    `SELECT * FROM otiordemservicootica WHERE cod_ordemservicocaixa = ?`,
+    [codOs]
+  );
+
+  const receitaLente = await db.query(
+    `SELECT * FROM ordemservicooticalente WHERE cod_transacao = ?`,
+    [codTransacao]
+  );
+
+  const receitaOticaLente = await db.query(
+    `SELECT * FROM otiordemservicootica_lente WHERE cod_transacao = ?`,
+    [codTransacao]
+  );
+
+  return {
+    ordem_servico: osRow,
+    receita_otica: receitaOtica,
+    receita_lente: receitaLente,
+    receita_otica_lente: receitaOticaLente,
+  };
+}
+
 async function getReceitaMetadata({ campos, chavesOs, includeAllFields }) {
   const camposUpper = campos
     .map((campo) => String(campo || "").trim())
@@ -96,5 +144,6 @@ module.exports = {
   getMonitorOs,
   getMonitorOsUltimaEtapa,
   getHubReceitas,
+  getHubReceitasCompleto,
   getReceitaMetadata,
 };
