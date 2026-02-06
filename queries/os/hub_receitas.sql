@@ -12,6 +12,32 @@ WITH otoi_lente_agg AS (
         LIST(DISTINCT prisma1eixo, ', ') AS prisma1eixo
     FROM otiordemservicootica_lente
     GROUP BY cod_transacao
+),
+otio_lente_campos AS (
+    SELECT
+        cod_transacao,
+        MAX(descricaolente) AS descricao_lente,
+        MAX(adicao) AS adicao,
+        MAX(alt) AS alt,
+        MAX(dnp) AS dnp,
+        MAX(longe_esf) AS longe_esf,
+        MAX(longe_cil) AS longe_cil,
+        MAX(longe_eixo) AS longe_eixo,
+        MAX(longe_co) AS longe_co,
+        MAX(perto_esf) AS perto_esf,
+        MAX(perto_cil) AS perto_cil,
+        MAX(perto_eixo) AS perto_eixo,
+        MAX(perto_dnp) AS perto_dnp,
+        MAX(perto_co) AS perto_co,
+        MAX(cro) AS cro,
+        MAX(prisma) AS prisma,
+        MAX(prismaangulo) AS prismaangulo,
+        MAX(prismaeixo) AS prismaeixo,
+        MAX(prisma1) AS prisma1,
+        MAX(prisma1angulo) AS prisma1angulo,
+        MAX(prisma1eixo) AS prisma1eixo
+    FROM otiordemservicootica_lente
+    GROUP BY cod_transacao
 )
 
 SELECT
@@ -35,6 +61,9 @@ SELECT
     otoi.distanciavertice          AS distancia_vertice,
     otoi.eixo                      AS eixo_geral,
     otoi.ponte                     AS ponte,
+    otoi.aa                        AS aa_vertical,
+    otoi.ca                        AS ca_horizontal,
+    otoi.diametro                  AS diametro,
     otoi.ta                        AS ta,
     otoi.md                        AS md,
     otoi.he                        AS he,
@@ -71,6 +100,28 @@ SELECT
     lensagg.prisma1angulo          AS prisma1angulo,
     lensagg.prisma1eixo            AS prisma1eixo,
 
+    -- Receita alternativa (ótica lente - campos completos)
+    otio.descricao_lente           AS lente_descricao,
+    otio.adicao                    AS lente_adicao,
+    otio.alt                       AS lente_alt,
+    otio.dnp                       AS lente_dnp,
+    otio.longe_esf                 AS lente_longe_esf,
+    otio.longe_cil                 AS lente_longe_cil,
+    otio.longe_eixo                AS lente_longe_eixo,
+    otio.longe_co                  AS lente_longe_co,
+    otio.perto_esf                 AS lente_perto_esf,
+    otio.perto_cil                 AS lente_perto_cil,
+    otio.perto_eixo                AS lente_perto_eixo,
+    otio.perto_dnp                 AS lente_perto_dnp,
+    otio.perto_co                  AS lente_perto_co,
+    otio.cro                       AS lente_cro,
+    otio.prisma                    AS lente_prisma,
+    otio.prismaangulo              AS lente_prismaangulo,
+    otio.prismaeixo                AS lente_prismaeixo,
+    otio.prisma1                   AS lente_prisma1,
+    otio.prisma1angulo             AS lente_prisma1angulo,
+    otio.prisma1eixo               AS lente_prisma1eixo,
+
     -- Imagens da receita/armação
     otoi.imagemreceita             AS imagem_receita,
     otoi.urlimagemreceita          AS url_imagem_receita,
@@ -92,6 +143,8 @@ LEFT JOIN ordemservicooticalente osl
   ON osl.cod_transacao = ocx.cod_transacao
 LEFT JOIN otoi_lente_agg lensagg
   ON lensagg.cod_transacao = ocx.cod_transacao
+LEFT JOIN otio_lente_campos otio
+  ON otio.cod_transacao = ocx.cod_transacao
 
 WHERE
     ( ? IS NULL OR ocx.numeroordemservico = CAST(? AS INTEGER) )
