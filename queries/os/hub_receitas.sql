@@ -128,6 +128,38 @@ SELECT
     otio.prisma1angulo             AS lente_prisma1angulo,
     otio.prisma1eixo               AS lente_prisma1eixo,
 
+    -- Receita do cliente (fallback quando não há transação)
+    ocr.eixo                       AS cliente_eixo,
+    ocr.dp                         AS cliente_dp,
+    ocr.perto_dp                   AS cliente_perto_dp,
+    ocr.distancialeitura           AS cliente_distancia_leitura,
+    ocr.distanciaprogressao        AS cliente_distancia_progressao,
+    ocr.distanciavertice           AS cliente_distancia_vertice,
+    ocr.ponte                      AS cliente_ponte,
+    ocr.aa                         AS cliente_aa_vertical,
+    ocr.ca                         AS cliente_ca_horizontal,
+    ocr.diametro                   AS cliente_diametro,
+    ocr.ta                         AS cliente_ta,
+    ocr.md                         AS cliente_md,
+    ocr.he                         AS cliente_he,
+    ocr.st                         AS cliente_st,
+    ocr.observacaoreceita          AS cliente_observacao_receita,
+    ocrl.longe_esf                 AS cliente_longe_esf,
+    ocrl.longe_cil                 AS cliente_longe_cil,
+    ocrl.longe_eixo                AS cliente_longe_eixo,
+    ocrl.perto_esf                 AS cliente_perto_esf,
+    ocrl.perto_cil                 AS cliente_perto_cil,
+    ocrl.perto_eixo                AS cliente_perto_eixo,
+    ocrl.dnp                       AS cliente_dnp,
+    ocrl.alt                       AS cliente_alt,
+    ocrl.adicao                    AS cliente_adicao,
+    ocrl.prisma                    AS cliente_prisma,
+    ocrl.prismaangulo              AS cliente_prismaangulo,
+    ocrl.prismaeixo                AS cliente_prismaeixo,
+    ocrl.prisma1                   AS cliente_prisma1,
+    ocrl.prisma1angulo             AS cliente_prisma1angulo,
+    ocrl.prisma1eixo               AS cliente_prisma1eixo,
+
     -- Imagens da receita/armação
     otoi.imagemreceita             AS imagem_receita,
     otoi.urlimagemreceita          AS url_imagem_receita,
@@ -151,6 +183,10 @@ LEFT JOIN otoi_lente_agg lensagg
   ON lensagg.cod_transacao = ocx.cod_transacao
 LEFT JOIN otio_lente_campos otio
   ON otio.cod_transacao = ocx.cod_transacao
+LEFT JOIN otiljclientereceita ocr
+  ON ocr.cod_clientereceita = ocx.cod_clientereceita
+LEFT JOIN otiljclientereceita_lente ocrl
+  ON ocrl.cod_clientereceita = ocr.cod_clientereceita
 
 WHERE
     ( ? IS NULL OR ocx.numeroordemservico = CAST(? AS INTEGER) )
