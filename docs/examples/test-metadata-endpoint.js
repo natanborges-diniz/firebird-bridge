@@ -6,8 +6,8 @@
  * Uso:
  *   node docs/examples/test-metadata-endpoint.js
  *   
- * Ou com Node 20:
- *   nvm use 20.11.1
+ * Requer Node.js 18.x ou 20.x (conforme package.json):
+ *   nvm use
  *   node docs/examples/test-metadata-endpoint.js
  */
 
