@@ -24,13 +24,30 @@ WITH otoi_lente_agg AS (
     GROUP BY cod_transacao
 ),
 itens_lente AS (
+    -- Separa lentes OD e OE baseado na sequência ou ordem de inserção
     SELECT
         ti.cod_ordemservicocaixa,
-        MIN(i.descricao) AS lente_descricao
+        -- Primeira lente (OD - Olho Direito)
+        (SELECT FIRST 1 i2.descricao 
+         FROM transacao_item ti2 
+         JOIN item i2 ON i2.cod_item = ti2.cod_item
+         WHERE ti2.cod_ordemservicocaixa = ti.cod_ordemservicocaixa
+           AND i2.descricao LIKE 'LG%'
+         ORDER BY COALESCE(ti2.sequencia, 999), ti2.cod_transacao_item) AS lente_od_descricao,
+        -- Segunda lente (OE - Olho Esquerdo)  
+        (SELECT FIRST 1 SKIP 1 i2.descricao 
+         FROM transacao_item ti2 
+         JOIN item i2 ON i2.cod_item = ti2.cod_item
+         WHERE ti2.cod_ordemservicocaixa = ti.cod_ordemservicocaixa
+           AND i2.descricao LIKE 'LG%'
+         ORDER BY COALESCE(ti2.sequencia, 999), ti2.cod_transacao_item) AS lente_oe_descricao
     FROM transacao_item ti
-    JOIN item i
-      ON i.cod_item = ti.cod_item
-    WHERE i.descricao LIKE 'LG%'
+    WHERE ti.cod_ordemservicocaixa IS NOT NULL
+      AND EXISTS (
+          SELECT 1 FROM item i 
+          WHERE i.cod_item = ti.cod_item 
+            AND i.descricao LIKE 'LG%'
+      )
     GROUP BY ti.cod_ordemservicocaixa
 )
 
@@ -66,26 +83,28 @@ SELECT
     otoi.observacaolente           AS observacao_lente,
     otoi.observacaopendencia       AS observacao_pendencia,
 
-    -- Receita por olho (ordem de serviço ótica lente) com fallback do cadastro do cliente
-    COALESCE(osl.od_longe_esf, ocrl.longe_esf)        AS od_longe_esf,
-    COALESCE(osl.od_longe_cil, ocrl.longe_cil)        AS od_longe_cil,
-    COALESCE(osl.od_longe_eixo, ocrl.longe_eixo)      AS od_longe_eixo,
-    COALESCE(osl.od_perto_esf, ocrl.perto_esf)        AS od_perto_esf,
-    COALESCE(osl.od_perto_cil, ocrl.perto_cil)        AS od_perto_cil,
-    COALESCE(osl.od_perto_eixo, ocrl.perto_eixo)      AS od_perto_eixo,
-    COALESCE(osl.od_dp, ocrl.dnp)                     AS od_dp,
-    COALESCE(osl.od_alt, ocrl.alt)                    AS od_alt,
-    COALESCE(osl.od_adicao, ocrl.adicao)              AS od_adicao,
+    -- Receita por olho (ordem de serviço ótica lente) - SEMPRE usar dados da OS, não do cliente
+    -- OD (Olho Direito) - dados específicos da transação da OS
+    osl.od_longe_esf        AS od_longe_esf,
+    osl.od_longe_cil        AS od_longe_cil,
+    osl.od_longe_eixo       AS od_longe_eixo,
+    osl.od_perto_esf        AS od_perto_esf,
+    osl.od_perto_cil        AS od_perto_cil,
+    osl.od_perto_eixo       AS od_perto_eixo,
+    osl.od_dp               AS od_dp,
+    osl.od_alt              AS od_alt,
+    osl.od_adicao           AS od_adicao,
 
-    COALESCE(osl.oe_longe_esf, ocrl.longe_esf)        AS oe_longe_esf,
-    COALESCE(osl.oe_longe_cil, ocrl.longe_cil)        AS oe_longe_cil,
-    COALESCE(osl.oe_longe_eixo, ocrl.longe_eixo)      AS oe_longe_eixo,
-    COALESCE(osl.oe_perto_esf, ocrl.perto_esf)        AS oe_perto_esf,
-    COALESCE(osl.oe_perto_cil, ocrl.perto_cil)        AS oe_perto_cil,
-    COALESCE(osl.oe_perto_eixo, ocrl.perto_eixo)      AS oe_perto_eixo,
-    COALESCE(osl.oe_dp, ocrl.dnp)                     AS oe_dp,
-    COALESCE(osl.oe_alt, ocrl.alt)                    AS oe_alt,
-    COALESCE(osl.oe_adicao, ocrl.adicao)              AS oe_adicao,
+    -- OE (Olho Esquerdo) - dados específicos da transação da OS
+    osl.oe_longe_esf        AS oe_longe_esf,
+    osl.oe_longe_cil        AS oe_longe_cil,
+    osl.oe_longe_eixo       AS oe_longe_eixo,
+    osl.oe_perto_esf        AS oe_perto_esf,
+    osl.oe_perto_cil        AS oe_perto_cil,
+    osl.oe_perto_eixo       AS oe_perto_eixo,
+    osl.oe_dp               AS oe_dp,
+    osl.oe_alt              AS oe_alt,
+    osl.oe_adicao           AS oe_adicao,
 
     -- Prismas (agregados por transação)
     lensagg.prisma                 AS prisma,
@@ -98,9 +117,9 @@ SELECT
     -- Observação da receita do cliente (quando existir)
     ocr.observacaoreceita          AS observacao_receita,
 
-    -- Lentes (descrição dos produtos LG por olho)
-    lensitems.lente_descricao AS lente_od_descricao,
-    lensitems.lente_descricao AS lente_oe_descricao,
+    -- Lentes (descrição dos produtos LG por olho) - SEPARADAS por olho
+    lensitems.lente_od_descricao AS lente_od_descricao,
+    lensitems.lente_oe_descricao AS lente_oe_descricao,
 
     -- Imagens da receita/armação
     otoi.imagemreceita             AS imagem_receita,
