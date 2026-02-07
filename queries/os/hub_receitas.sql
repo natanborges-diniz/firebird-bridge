@@ -44,6 +44,7 @@ SELECT
     pe.nome                        AS empresa,
     ocx.cod_cliente                AS codcliente,
     pc.nome                        AS cliente,
+    pv.nome                        AS vendedor,
     ocx.observacao                 AS observacao_os,
     ocx.observacaointerna          AS observacao_interna_os,
 
@@ -116,6 +117,8 @@ JOIN pessoa pe
   ON pe.cod_pessoa = ocx.cod_empresaorigem
 JOIN pessoa pc
   ON pc.cod_pessoa = ocx.cod_cliente
+LEFT JOIN pessoa pv
+  ON pv.cod_pessoa = ocx.cod_vendedor
 LEFT JOIN otiordemservicootica otoi
   ON otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN ordemservicooticalente osl
