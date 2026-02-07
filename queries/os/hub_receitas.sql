@@ -25,13 +25,13 @@ WITH otoi_lente_agg AS (
 ),
 itens_lente AS (
     SELECT
-        ti.cod_transacao,
+        ti.cod_ordemservicocaixa,
         MIN(i.descricao) AS lente_descricao
     FROM transacao_item ti
     JOIN item i
       ON i.cod_item = ti.cod_item
     WHERE i.descricao LIKE 'LG%'
-    GROUP BY ti.cod_transacao
+    GROUP BY ti.cod_ordemservicocaixa
 )
 
 SELECT
@@ -130,7 +130,7 @@ LEFT JOIN otiljclientereceita ocr
 LEFT JOIN otiljclientereceita_lente ocrl
   ON ocrl.cod_clientereceita = ocr.cod_clientereceita
 LEFT JOIN itens_lente lensitems
-  ON lensitems.cod_transacao = ocx.cod_transacao
+  ON lensitems.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 
 WHERE
     ( ? IS NULL OR ocx.numeroordemservico = CAST(? AS INTEGER) )
