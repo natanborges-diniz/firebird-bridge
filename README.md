@@ -46,6 +46,7 @@ Se o patch não aplicar limpo, o Git mostrará as linhas com conflito; edite os 
 - `GET /api/v1/empresas` – lista empresas para filtros.
 - `GET /api/v1/financeiro/parcelas` – requer `dataIni`, `dataFim`, `empresa`.
 - `GET /api/v1/financeiro/dre` – requer `dataIni`, `dataFim`, `empresa`.
+- `GET /api/v1/os/receitas-metadata` – descobre colunas nas tabelas do Firebird (veja [docs/OS_METADATA_ENDPOINT.md](docs/OS_METADATA_ENDPOINT.md)).
 - Demais rotas seguem o prefixo `/api/v1/<domínio>` conforme `src/routes`.
 
 ## Testes
