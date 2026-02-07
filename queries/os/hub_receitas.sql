@@ -23,29 +23,17 @@ WITH otoi_lente_agg AS (
     ) prismas_distintos
     GROUP BY cod_transacao
 ),
-otio_lente_campos AS (
+itens_lente AS (
     SELECT
-        cod_transacao,
-        MAX(descricaolente) AS descricao_lente,
-        MAX(adicao) AS adicao,
-        MAX(alt) AS alt,
-        MAX(dnp) AS dnp,
-        MAX(longe_esf) AS longe_esf,
-        MAX(longe_cil) AS longe_cil,
-        MAX(longe_eixo) AS longe_eixo,
-        MAX(perto_esf) AS perto_esf,
-        MAX(perto_cil) AS perto_cil,
-        MAX(perto_eixo) AS perto_eixo,
-        MAX(perto_dnp) AS perto_dnp,
-        MAX(cro) AS cro,
-        MAX(prisma) AS prisma,
-        MAX(prismaangulo) AS prismaangulo,
-        MAX(prismaeixo) AS prismaeixo,
-        MAX(prisma1) AS prisma1,
-        MAX(prisma1angulo) AS prisma1angulo,
-        MAX(prisma1eixo) AS prisma1eixo
-    FROM otiordemservicootica_lente
-    GROUP BY cod_transacao
+        ti.cod_transacao,
+        MIN(CASE WHEN COALESCE(ti.cod_produtoolho, 0) = 1 THEN i.descricao END) AS lente_od_descricao,
+        MIN(CASE WHEN COALESCE(ti.cod_produtoolho, 0) = 2 THEN i.descricao END) AS lente_oe_descricao,
+        MIN(CASE WHEN COALESCE(ti.cod_produtoolho, 0) = 0 THEN i.descricao END) AS lente_descricao
+    FROM transacao_item ti
+    JOIN item i
+      ON i.cod_item = ti.cod_item
+    WHERE i.descricao LIKE 'LG%'
+    GROUP BY ti.cod_transacao
 )
 
 SELECT
@@ -61,44 +49,44 @@ SELECT
     ocx.observacao                 AS observacao_os,
     ocx.observacaointerna          AS observacao_interna_os,
 
-    -- Receita geral (ótica)
-    otoi.dp                        AS dp,
-    otoi.perto_dp                  AS perto_dp,
-    otoi.distancialeitura          AS distancia_leitura,
-    otoi.distanciaprogressao       AS distancia_progressao,
-    otoi.distanciavertice          AS distancia_vertice,
-    otoi.eixo                      AS eixo_geral,
-    otoi.ponte                     AS ponte,
-    otoi.aa                        AS aa_vertical,
-    otoi.ca                        AS ca_horizontal,
-    otoi.diametro                  AS diametro,
-    otoi.ta                        AS ta,
-    otoi.md                        AS md,
-    otoi.he                        AS he,
-    otoi.st                        AS st,
+    -- Receita geral (ótica) com fallback do cadastro do cliente
+    COALESCE(otoi.dp, ocr.dp)                        AS dp,
+    COALESCE(otoi.perto_dp, ocr.perto_dp)            AS perto_dp,
+    COALESCE(otoi.distancialeitura, ocr.distancialeitura) AS distancia_leitura,
+    COALESCE(otoi.distanciaprogressao, ocr.distanciaprogressao) AS distancia_progressao,
+    COALESCE(otoi.distanciavertice, ocr.distanciavertice) AS distancia_vertice,
+    COALESCE(otoi.eixo, ocr.eixo)                    AS eixo_geral,
+    COALESCE(otoi.ponte, ocr.ponte)                  AS ponte,
+    COALESCE(otoi.aa, ocr.aa)                        AS aa_vertical,
+    COALESCE(otoi.ca, ocr.ca)                        AS ca_horizontal,
+    COALESCE(otoi.diametro, ocr.diametro)            AS diametro,
+    COALESCE(otoi.ta, ocr.ta)                        AS ta,
+    COALESCE(otoi.md, ocr.md)                        AS md,
+    COALESCE(otoi.he, ocr.he)                        AS he,
+    COALESCE(otoi.st, ocr.st)                        AS st,
     otoi.observacaolente           AS observacao_lente,
     otoi.observacaopendencia       AS observacao_pendencia,
 
-    -- Receita por olho (ordem de serviço ótica lente)
-    osl.od_longe_esf               AS od_longe_esf,
-    osl.od_longe_cil               AS od_longe_cil,
-    osl.od_longe_eixo              AS od_longe_eixo,
-    osl.od_perto_esf               AS od_perto_esf,
-    osl.od_perto_cil               AS od_perto_cil,
-    osl.od_perto_eixo              AS od_perto_eixo,
-    osl.od_dp                      AS od_dp,
-    osl.od_alt                     AS od_alt,
-    osl.od_adicao                  AS od_adicao,
+    -- Receita por olho (ordem de serviço ótica lente) com fallback do cadastro do cliente
+    COALESCE(osl.od_longe_esf, ocrl.longe_esf)        AS od_longe_esf,
+    COALESCE(osl.od_longe_cil, ocrl.longe_cil)        AS od_longe_cil,
+    COALESCE(osl.od_longe_eixo, ocrl.longe_eixo)      AS od_longe_eixo,
+    COALESCE(osl.od_perto_esf, ocrl.perto_esf)        AS od_perto_esf,
+    COALESCE(osl.od_perto_cil, ocrl.perto_cil)        AS od_perto_cil,
+    COALESCE(osl.od_perto_eixo, ocrl.perto_eixo)      AS od_perto_eixo,
+    COALESCE(osl.od_dp, ocrl.dnp)                     AS od_dp,
+    COALESCE(osl.od_alt, ocrl.alt)                    AS od_alt,
+    COALESCE(osl.od_adicao, ocrl.adicao)              AS od_adicao,
 
-    osl.oe_longe_esf               AS oe_longe_esf,
-    osl.oe_longe_cil               AS oe_longe_cil,
-    osl.oe_longe_eixo              AS oe_longe_eixo,
-    osl.oe_perto_esf               AS oe_perto_esf,
-    osl.oe_perto_cil               AS oe_perto_cil,
-    osl.oe_perto_eixo              AS oe_perto_eixo,
-    osl.oe_dp                      AS oe_dp,
-    osl.oe_alt                     AS oe_alt,
-    osl.oe_adicao                  AS oe_adicao,
+    COALESCE(osl.oe_longe_esf, ocrl.longe_esf)        AS oe_longe_esf,
+    COALESCE(osl.oe_longe_cil, ocrl.longe_cil)        AS oe_longe_cil,
+    COALESCE(osl.oe_longe_eixo, ocrl.longe_eixo)      AS oe_longe_eixo,
+    COALESCE(osl.oe_perto_esf, ocrl.perto_esf)        AS oe_perto_esf,
+    COALESCE(osl.oe_perto_cil, ocrl.perto_cil)        AS oe_perto_cil,
+    COALESCE(osl.oe_perto_eixo, ocrl.perto_eixo)      AS oe_perto_eixo,
+    COALESCE(osl.oe_dp, ocrl.dnp)                     AS oe_dp,
+    COALESCE(osl.oe_alt, ocrl.alt)                    AS oe_alt,
+    COALESCE(osl.oe_adicao, ocrl.adicao)              AS oe_adicao,
 
     -- Prismas (agregados por transação)
     lensagg.prisma                 AS prisma,
@@ -108,57 +96,12 @@ SELECT
     lensagg.prisma1angulo          AS prisma1angulo,
     lensagg.prisma1eixo            AS prisma1eixo,
 
-    -- Receita alternativa (ótica lente - campos completos)
-    otio.descricao_lente           AS lente_descricao,
-    otio.adicao                    AS lente_adicao,
-    otio.alt                       AS lente_alt,
-    otio.dnp                       AS lente_dnp,
-    otio.longe_esf                 AS lente_longe_esf,
-    otio.longe_cil                 AS lente_longe_cil,
-    otio.longe_eixo                AS lente_longe_eixo,
-    otio.perto_esf                 AS lente_perto_esf,
-    otio.perto_cil                 AS lente_perto_cil,
-    otio.perto_eixo                AS lente_perto_eixo,
-    otio.perto_dnp                 AS lente_perto_dnp,
-    otio.cro                       AS lente_cro,
-    otio.prisma                    AS lente_prisma,
-    otio.prismaangulo              AS lente_prismaangulo,
-    otio.prismaeixo                AS lente_prismaeixo,
-    otio.prisma1                   AS lente_prisma1,
-    otio.prisma1angulo             AS lente_prisma1angulo,
-    otio.prisma1eixo               AS lente_prisma1eixo,
+    -- Observação da receita do cliente (quando existir)
+    ocr.observacaoreceita          AS observacao_receita,
 
-    -- Receita do cliente (fallback quando não há transação)
-    ocr.eixo                       AS cliente_eixo,
-    ocr.dp                         AS cliente_dp,
-    ocr.perto_dp                   AS cliente_perto_dp,
-    ocr.distancialeitura           AS cliente_distancia_leitura,
-    ocr.distanciaprogressao        AS cliente_distancia_progressao,
-    ocr.distanciavertice           AS cliente_distancia_vertice,
-    ocr.ponte                      AS cliente_ponte,
-    ocr.aa                         AS cliente_aa_vertical,
-    ocr.ca                         AS cliente_ca_horizontal,
-    ocr.diametro                   AS cliente_diametro,
-    ocr.ta                         AS cliente_ta,
-    ocr.md                         AS cliente_md,
-    ocr.he                         AS cliente_he,
-    ocr.st                         AS cliente_st,
-    ocr.observacaoreceita          AS cliente_observacao_receita,
-    ocrl.longe_esf                 AS cliente_longe_esf,
-    ocrl.longe_cil                 AS cliente_longe_cil,
-    ocrl.longe_eixo                AS cliente_longe_eixo,
-    ocrl.perto_esf                 AS cliente_perto_esf,
-    ocrl.perto_cil                 AS cliente_perto_cil,
-    ocrl.perto_eixo                AS cliente_perto_eixo,
-    ocrl.dnp                       AS cliente_dnp,
-    ocrl.alt                       AS cliente_alt,
-    ocrl.adicao                    AS cliente_adicao,
-    ocrl.prisma                    AS cliente_prisma,
-    ocrl.prismaangulo              AS cliente_prismaangulo,
-    ocrl.prismaeixo                AS cliente_prismaeixo,
-    ocrl.prisma1                   AS cliente_prisma1,
-    ocrl.prisma1angulo             AS cliente_prisma1angulo,
-    ocrl.prisma1eixo               AS cliente_prisma1eixo,
+    -- Lentes (descrição dos produtos LG por olho)
+    COALESCE(lensitems.lente_od_descricao, lensitems.lente_descricao) AS lente_od_descricao,
+    COALESCE(lensitems.lente_oe_descricao, lensitems.lente_descricao) AS lente_oe_descricao,
 
     -- Imagens da receita/armação
     otoi.imagemreceita             AS imagem_receita,
@@ -181,12 +124,12 @@ LEFT JOIN ordemservicooticalente osl
   ON osl.cod_transacao = ocx.cod_transacao
 LEFT JOIN otoi_lente_agg lensagg
   ON lensagg.cod_transacao = ocx.cod_transacao
-LEFT JOIN otio_lente_campos otio
-  ON otio.cod_transacao = ocx.cod_transacao
 LEFT JOIN otiljclientereceita ocr
   ON ocr.cod_clientereceita = ocx.cod_clientereceita
 LEFT JOIN otiljclientereceita_lente ocrl
   ON ocrl.cod_clientereceita = ocr.cod_clientereceita
+LEFT JOIN itens_lente lensitems
+  ON lensitems.cod_transacao = ocx.cod_transacao
 
 WHERE
     ( ? IS NULL OR ocx.numeroordemservico = CAST(? AS INTEGER) )
