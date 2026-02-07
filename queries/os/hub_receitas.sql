@@ -30,17 +30,17 @@ itens_lente AS (
         -- Primeira lente (OD - Olho Direito)
         (SELECT FIRST 1 i2.descricao 
          FROM transacao_item ti2 
-         JOIN item i2 ON i2.cod_item = ti2.cod_item
-         WHERE ti2.cod_ordemservicocaixa = ti.cod_ordemservicocaixa
-           AND i2.descricao LIKE 'LG%'
-         ORDER BY ti2.cod_transacao_item) AS lente_od_descricao,
+          JOIN item i2 ON i2.cod_item = ti2.cod_item
+          WHERE ti2.cod_ordemservicocaixa = ti.cod_ordemservicocaixa
+            AND i2.descricao LIKE 'LG%'
+          ORDER BY ti2.cod_transacaoitem) AS lente_od_descricao,
         -- Segunda lente (OE - Olho Esquerdo)  
         (SELECT FIRST 1 SKIP 1 i2.descricao 
          FROM transacao_item ti2 
-         JOIN item i2 ON i2.cod_item = ti2.cod_item
-         WHERE ti2.cod_ordemservicocaixa = ti.cod_ordemservicocaixa
-           AND i2.descricao LIKE 'LG%'
-         ORDER BY ti2.cod_transacao_item) AS lente_oe_descricao
+          JOIN item i2 ON i2.cod_item = ti2.cod_item
+          WHERE ti2.cod_ordemservicocaixa = ti.cod_ordemservicocaixa
+            AND i2.descricao LIKE 'LG%'
+          ORDER BY ti2.cod_transacaoitem) AS lente_oe_descricao
     FROM transacao_item ti
     WHERE ti.cod_ordemservicocaixa IS NOT NULL
       AND EXISTS (
