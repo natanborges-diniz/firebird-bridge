@@ -27,6 +27,7 @@ itens_lente AS (
     -- Separa lentes OD e OE baseado na sequência ou ordem de inserção
     SELECT
         ti.cod_ordemservicocaixa,
+        ti.numeroordemservico,
         -- Primeira lente (OD - Olho Direito)
         (SELECT FIRST 1 i2.descricao 
          FROM transacao_item ti2 
@@ -38,7 +39,7 @@ itens_lente AS (
         (SELECT FIRST 1 SKIP 1 i2.descricao 
          FROM transacao_item ti2 
           JOIN item i2 ON i2.cod_item = ti2.cod_item
-          WHERE ti2.cod_ordemservicocaixa = ti.cod_ordemservicocaixa
+         WHERE ti2.cod_ordemservicocaixa = ti.cod_ordemservicocaixa
             AND i2.descricao LIKE 'LG%'
           ORDER BY ti2.cod_transacaoitem) AS lente_oe_descricao
     FROM transacao_item ti
@@ -48,10 +49,10 @@ itens_lente AS (
           WHERE i.cod_item = ti.cod_item 
             AND i.descricao LIKE 'LG%'
       )
-    GROUP BY ti.cod_ordemservicocaixa
+    GROUP BY ti.cod_ordemservicocaixa, ti.numeroordemservico
 )
 
-SELECT
+SELECT DISTINCT
     ocx.cod_ordemservicocaixa      AS cod_os,
     ocx.numeroordemservico         AS os,
     ocx.dataemissao                AS dataemissao,
@@ -139,17 +140,16 @@ JOIN pessoa pc
 LEFT JOIN pessoa pv
   ON pv.cod_pessoa = ocx.cod_vendedor
 LEFT JOIN otiordemservicootica otoi
-  ON otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
+  ON (otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa OR otoi.cod_transacao = ocx.cod_transacao)
 LEFT JOIN ordemservicooticalente osl
-  ON osl.cod_transacao = ocx.cod_transacao
+  ON (osl.cod_transacao = ocx.cod_transacao OR osl.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa)
 LEFT JOIN otoi_lente_agg lensagg
   ON lensagg.cod_transacao = ocx.cod_transacao
 LEFT JOIN otiljclientereceita ocr
   ON ocr.cod_clientereceita = ocx.cod_clientereceita
-LEFT JOIN otiljclientereceita_lente ocrl
-  ON ocrl.cod_clientereceita = ocr.cod_clientereceita
 LEFT JOIN itens_lente lensitems
   ON lensitems.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
+   OR (lensitems.cod_ordemservicocaixa IS NULL AND lensitems.numeroordemservico = ocx.numeroordemservico)
 
 WHERE
     ( ? IS NULL OR ocx.numeroordemservico = CAST(? AS INTEGER) )
