@@ -26,9 +26,7 @@ WITH otoi_lente_agg AS (
 itens_lente AS (
     SELECT
         ti.cod_transacao,
-        MIN(CASE WHEN COALESCE(ti.cod_produtoolho, 0) = 1 THEN i.descricao END) AS lente_od_descricao,
-        MIN(CASE WHEN COALESCE(ti.cod_produtoolho, 0) = 2 THEN i.descricao END) AS lente_oe_descricao,
-        MIN(CASE WHEN COALESCE(ti.cod_produtoolho, 0) = 0 THEN i.descricao END) AS lente_descricao
+        MIN(i.descricao) AS lente_descricao
     FROM transacao_item ti
     JOIN item i
       ON i.cod_item = ti.cod_item
@@ -100,8 +98,8 @@ SELECT
     ocr.observacaoreceita          AS observacao_receita,
 
     -- Lentes (descrição dos produtos LG por olho)
-    COALESCE(lensitems.lente_od_descricao, lensitems.lente_descricao) AS lente_od_descricao,
-    COALESCE(lensitems.lente_oe_descricao, lensitems.lente_descricao) AS lente_oe_descricao,
+    lensitems.lente_descricao AS lente_od_descricao,
+    lensitems.lente_descricao AS lente_oe_descricao,
 
     -- Imagens da receita/armação
     otoi.imagemreceita             AS imagem_receita,
