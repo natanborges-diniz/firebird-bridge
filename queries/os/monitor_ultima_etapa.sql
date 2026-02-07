@@ -39,6 +39,7 @@ WITH
             pessoacliente.nome AS cliente,
             pessoacliente.cod_pessoa AS codcliente,
             pessoacliente.cpf AS cpf,
+            pessoavendedor.nome AS vendedor,
 
             CASE ordemservicocaixalog.cod_etapa
                 WHEN 00 THEN 'Etapa inicial'
@@ -123,6 +124,8 @@ WITH
           ON pessoaempresa.cod_pessoa = ordemservicocaixa.cod_empresaorigem
         JOIN pessoa pessoacliente
           ON pessoacliente.cod_pessoa = ordemservicocaixa.cod_cliente
+        LEFT JOIN pessoa pessoavendedor
+          ON pessoavendedor.cod_pessoa = ordemservicocaixa.cod_vendedor
         JOIN ordemservicocaixalog
           ON ordemservicocaixalog.cod_ordemservicocaixa = ordemservicocaixa.cod_ordemservicocaixa
         JOIN usuario
