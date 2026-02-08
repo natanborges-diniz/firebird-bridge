@@ -98,8 +98,7 @@ LEFT JOIN pessoa pv
 LEFT JOIN otiordemservicootica otoi
   ON otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN ordemservicooticalente osl
-  ON osl.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
- AND osl.cod_transacao = ocx.cod_transacao
+  ON osl.cod_transacao = ocx.cod_transacao
 LEFT JOIN otiljclientereceita ocr
   ON ocr.cod_clientereceita = ocx.cod_clientereceita
 LEFT JOIN otiljclientereceita_lente ocrl
