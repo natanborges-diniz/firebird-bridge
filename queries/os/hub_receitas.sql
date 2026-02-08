@@ -3,16 +3,19 @@
 
 WITH itens_lente AS (
     SELECT
-        ti.cod_ordemservicocaixa,
+        ocx.cod_ordemservicocaixa,
         LIST(DISTINCT i.descricao, ', ') AS lente_descricao
-    FROM transacao_item ti
+    FROM ordemservicocaixa ocx
+    JOIN transacao_item ti
+      ON ti.cod_transacao = ocx.cod_transacao
+     AND (ti.cod_empresa = ocx.cod_empresaorigem OR ocx.cod_empresaorigem IS NULL)
     JOIN item i
       ON i.cod_item = ti.cod_item
     JOIN produto p
       ON p.cod_produto = i.cod_item
     JOIN otiprodutolente l
       ON l.cod_produtolente = p.cod_produto
-    GROUP BY ti.cod_ordemservicocaixa
+    GROUP BY ocx.cod_ordemservicocaixa
 )
 
 SELECT
@@ -95,7 +98,8 @@ LEFT JOIN pessoa pv
 LEFT JOIN otiordemservicootica otoi
   ON otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN ordemservicooticalente osl
-  ON osl.cod_transacao = ocx.cod_transacao
+  ON osl.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
+ AND osl.cod_transacao = ocx.cod_transacao
 LEFT JOIN otiljclientereceita ocr
   ON ocr.cod_clientereceita = ocx.cod_clientereceita
 LEFT JOIN otiljclientereceita_lente ocrl
