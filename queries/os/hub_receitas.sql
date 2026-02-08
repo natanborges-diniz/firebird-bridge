@@ -3,13 +3,12 @@
 
 WITH itens_lente AS (
     SELECT
-        ti.cod_ordemservicocaixa,
+        osp.cod_ordemservicocaixa,
         MIN(i.descricao) AS lente_descricao
-    FROM transacao_item ti
+    FROM ordemservicocaixa_produto osp
     JOIN item i
-      ON i.cod_item = ti.cod_item
-    WHERE i.descricao LIKE 'LG%'
-    GROUP BY ti.cod_ordemservicocaixa
+      ON i.cod_item = osp.cod_produto
+    GROUP BY osp.cod_ordemservicocaixa
 )
 
 SELECT
