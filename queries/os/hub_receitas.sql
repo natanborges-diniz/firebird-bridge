@@ -3,12 +3,16 @@
 
 WITH itens_lente AS (
     SELECT
-        osp.cod_ordemservicocaixa,
-        MIN(i.descricao) AS lente_descricao
-    FROM ordemservicocaixa_produto osp
+        ti.cod_ordemservicocaixa,
+        LIST(DISTINCT i.descricao, ', ') AS lente_descricao
+    FROM transacao_item ti
     JOIN item i
-      ON i.cod_item = osp.cod_produto
-    GROUP BY osp.cod_ordemservicocaixa
+      ON i.cod_item = ti.cod_item
+    JOIN produto p
+      ON p.cod_produto = i.cod_item
+    JOIN otiprodutolente l
+      ON l.cod_produtolente = p.cod_produto
+    GROUP BY ti.cod_ordemservicocaixa
 )
 
 SELECT
