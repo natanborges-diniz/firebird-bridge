@@ -29,6 +29,44 @@ WITH itens_lente AS (
         WHERE ocx.cod_ordemservicocaixa IS NOT NULL
     ) ranked
     GROUP BY ranked.cod_ordemservicocaixa
+),
+receita_lente_cliente AS (
+    SELECT
+        ocrl.cod_clientereceita,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.longe_esf END) AS oe_longe_esf,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.longe_cil END) AS oe_longe_cil,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.longe_eixo END) AS oe_longe_eixo,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.perto_esf END) AS oe_perto_esf,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.perto_cil END) AS oe_perto_cil,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.perto_eixo END) AS oe_perto_eixo,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.dnp END) AS oe_dnp,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.perto_dnp END) AS oe_perto_dnp,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.alt END) AS oe_alt,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.adicao END) AS oe_adicao,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.lcdiametro END) AS oe_lcdiametro,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.cro END) AS oe_cro,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.cod_produtolente END) AS oe_cod_produtolente,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.descricaolente END) AS oe_descricaolente,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN prod.codigobarra END) AS oe_codigobarra,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.longe_esf END) AS od_longe_esf,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.longe_cil END) AS od_longe_cil,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.longe_eixo END) AS od_longe_eixo,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.perto_esf END) AS od_perto_esf,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.perto_cil END) AS od_perto_cil,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.perto_eixo END) AS od_perto_eixo,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.dnp END) AS od_dnp,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.perto_dnp END) AS od_perto_dnp,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.alt END) AS od_alt,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.adicao END) AS od_adicao,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.lcdiametro END) AS od_lcdiametro,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.cro END) AS od_cro,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.cod_produtolente END) AS od_cod_produtolente,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.descricaolente END) AS od_descricaolente,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN prod.codigobarra END) AS od_codigobarra
+    FROM otiljclientereceita_lente ocrl
+    LEFT JOIN produto prod
+      ON prod.cod_produto = ocrl.cod_produtolente
+    GROUP BY ocrl.cod_clientereceita
 )
 
 SELECT
@@ -88,6 +126,36 @@ SELECT
 
     -- Observação da receita do cliente (quando existir)
     ocr.observacaoreceita          AS observacao_receita,
+    ocrl.oe_longe_esf              AS ocrl_oe_longe_esf,
+    ocrl.oe_longe_cil              AS ocrl_oe_longe_cil,
+    ocrl.oe_longe_eixo             AS ocrl_oe_longe_eixo,
+    ocrl.oe_perto_esf              AS ocrl_oe_perto_esf,
+    ocrl.oe_perto_cil              AS ocrl_oe_perto_cil,
+    ocrl.oe_perto_eixo             AS ocrl_oe_perto_eixo,
+    ocrl.oe_dnp                    AS ocrl_oe_dnp,
+    ocrl.oe_perto_dnp              AS ocrl_oe_perto_dnp,
+    ocrl.oe_alt                    AS ocrl_oe_alt,
+    ocrl.oe_adicao                 AS ocrl_oe_adicao,
+    ocrl.oe_lcdiametro             AS ocrl_oe_lcdiametro,
+    ocrl.oe_cro                    AS ocrl_oe_cro,
+    ocrl.oe_cod_produtolente       AS ocrl_oe_cod_produtolente,
+    ocrl.oe_descricaolente         AS ocrl_oe_descricaolente,
+    ocrl.oe_codigobarra            AS ocrl_oe_codigobarra,
+    ocrl.od_longe_esf              AS ocrl_od_longe_esf,
+    ocrl.od_longe_cil              AS ocrl_od_longe_cil,
+    ocrl.od_longe_eixo             AS ocrl_od_longe_eixo,
+    ocrl.od_perto_esf              AS ocrl_od_perto_esf,
+    ocrl.od_perto_cil              AS ocrl_od_perto_cil,
+    ocrl.od_perto_eixo             AS ocrl_od_perto_eixo,
+    ocrl.od_dnp                    AS ocrl_od_dnp,
+    ocrl.od_perto_dnp              AS ocrl_od_perto_dnp,
+    ocrl.od_alt                    AS ocrl_od_alt,
+    ocrl.od_adicao                 AS ocrl_od_adicao,
+    ocrl.od_lcdiametro             AS ocrl_od_lcdiametro,
+    ocrl.od_cro                    AS ocrl_od_cro,
+    ocrl.od_cod_produtolente       AS ocrl_od_cod_produtolente,
+    ocrl.od_descricaolente         AS ocrl_od_descricaolente,
+    ocrl.od_codigobarra            AS ocrl_od_codigobarra,
 
     -- Lentes (descrição dos produtos LG por olho)
     lensitems.lente_od_descricao AS lente_od_descricao,
@@ -116,6 +184,8 @@ LEFT JOIN ordemservicooticalente osl
   ON osl.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN otiljclientereceita ocr
   ON ocr.cod_clientereceita = ocx.cod_clientereceita
+LEFT JOIN receita_lente_cliente ocrl
+  ON ocrl.cod_clientereceita = ocr.cod_clientereceita
 LEFT JOIN itens_lente lensitems
   ON lensitems.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 
