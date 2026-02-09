@@ -18,7 +18,7 @@ WITH itens_lente AS (
             i.descricao,
             ROW_NUMBER() OVER (
                 PARTITION BY ti.cod_ordemservicocaixa 
-                ORDER BY COALESCE(ti.seq_item, 999999), ti.cod_transacao_item
+                ORDER BY ti.cod_transacao_item
             ) AS rn
         FROM transacao_item ti
         JOIN item i ON i.cod_item = ti.cod_item
