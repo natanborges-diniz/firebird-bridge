@@ -3,32 +3,16 @@
 
 WITH itens_lente AS (
     SELECT
-        ranked.cod_ordemservicocaixa,
-        MAX(CASE 
-            WHEN rn = 1 THEN ranked.descricao 
-            ELSE NULL 
-        END) AS lente_od_descricao,
-        MAX(CASE 
-            WHEN rn = 2 THEN ranked.descricao 
-            ELSE NULL 
-        END) AS lente_oe_descricao
-    FROM (
-        SELECT
-            ocx.cod_ordemservicocaixa,
-            i.descricao,
-            ROW_NUMBER() OVER (
-                PARTITION BY ocx.cod_ordemservicocaixa 
-                ORDER BY ti.cod_transacaoitem
-            ) AS rn
-        FROM transacao_item ti
-        JOIN ordemservicocaixa ocx
-          ON ocx.cod_transacao = ti.cod_transacao
-        JOIN item i ON i.cod_item = ti.cod_item
-        JOIN produto p ON p.cod_produto = i.cod_item
-        JOIN otiprodutolente l ON l.cod_produtolente = p.cod_produto
-        WHERE ocx.cod_ordemservicocaixa IS NOT NULL
-    ) ranked
-    GROUP BY ranked.cod_ordemservicocaixa
+        ocx.cod_ordemservicocaixa,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.descricaolente END) AS lente_oe_descricao,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.descricaolente END) AS lente_od_descricao
+    FROM ordemservicocaixa ocx
+    JOIN otiljclientereceita ocr
+      ON ocr.cod_clientereceita = ocx.cod_clientereceita
+    JOIN otiljclientereceita_lente ocrl
+      ON ocrl.cod_clientereceita = ocr.cod_clientereceita
+    WHERE ocx.cod_ordemservicocaixa IS NOT NULL
+    GROUP BY ocx.cod_ordemservicocaixa
 ),
 receita_lente_cliente AS (
     SELECT
