@@ -6,15 +6,16 @@ O endpoint `/api/v1/os/receitas-metadata` permite descobrir dinamicamente quais 
 
 ## Problema que Resolve
 
-Quando a query de hub de receitas foi modificada para usar `transacao_item.cod_ordemservicocaixa`, surgiram problemas se essa coluna não existir no banco Firebird:
+Quando a query de hub de receitas foi modificada para usar `ordemservicooticalente.cod_ordemservicocaixa`, surgiram problemas se essa coluna não existir no banco Firebird:
 - Se a coluna não existe ou está vazia, o join não encontra registros
 - Produtos retornam como NULL
 - É necessário descobrir quais colunas estão disponíveis para ajustar a query
 
 Este endpoint resolve esse problema permitindo descobrir:
-1. Se `TRANSACAO_ITEM` possui `COD_ORDEMSERVICOCAIXA`
-2. Quais outras colunas de vínculo existem (ex: `NUMEROORDEMSERVICO`, `COD_TRANSACAO`)
-3. Todas as colunas disponíveis em cada tabela relevante
+1. Se `ORDEMSERVICOOTICALENTE` possui `COD_ORDEMSERVICOCAIXA`
+2. Se `TRANSACAO_ITEM` possui `COD_ORDEMSERVICOCAIXA`
+3. Quais outras colunas de vínculo existem (ex: `NUMEROORDEMSERVICO`, `COD_TRANSACAO`)
+4. Todas as colunas disponíveis em cada tabela relevante
 
 ## Endpoints Disponíveis
 
@@ -157,7 +158,18 @@ Se `TRANSACAO_ITEM` NÃO tiver `COD_ORDEMSERVICOCAIXA` em `campos_encontrados`:
 ```
 ❌ **Conclusão:** A coluna não existe, precisa usar caminho alternativo (ex: `COD_TRANSACAO` ou `NUMEROORDEMSERVICO`).
 
-### Exemplo 2: Descobrir campos de vínculo com OS
+### Exemplo 2: Verificar se ORDEMSERVICOOTICALENTE tem COD_ORDEMSERVICOCAIXA
+
+**Request:**
+```http
+GET /api/v1/os/receitas-metadata?campos=COD_ORDEMSERVICOCAIXA,COD_TRANSACAO&expand=1
+```
+
+**Interpretação:**
+- Se `ORDEMSERVICOOTICALENTE` aparecer com `COD_ORDEMSERVICOCAIXA` em `campos_encontrados`, o join pode ser feito por `cod_ordemservicocaixa`
+- Caso contrário, use `cod_transacao` como vínculo
+
+### Exemplo 3: Descobrir campos de vínculo com OS
 
 **Request:**
 ```http
@@ -184,7 +196,7 @@ GET /api/v1/os/receitas-metadata?campos=NUMEROORDEMSERVICO,COD_OS
 - `TRANSACAO_ITEM` tem a coluna `NUMEROORDEMSERVICO`
 - Pode-se usar essa coluna para fazer join direto com OS
 
-### Exemplo 3: Listar todas as colunas de tabelas relevantes
+### Exemplo 4: Listar todas as colunas de tabelas relevantes
 
 **Request:**
 ```http
@@ -202,14 +214,14 @@ curl "http://seu-servidor/api/v1/os/receitas-metadata?campos=COD_ORDEMSERVICOCAI
 
 ### Passo 2: Analisar Resposta
 
-**Cenário A: COD_ORDEMSERVICOCAIXA existe em TRANSACAO_ITEM**
-- ✅ Usar a query atual que faz join por `ti.cod_ordemservicocaixa`
+**Cenário A: COD_ORDEMSERVICOCAIXA existe em ORDEMSERVICOOTICALENTE**
+- ✅ Usar a query atual que faz join por `osl.cod_ordemservicocaixa`
 
-**Cenário B: COD_ORDEMSERVICOCAIXA NÃO existe em TRANSACAO_ITEM**
+**Cenário B: COD_ORDEMSERVICOCAIXA NÃO existe em ORDEMSERVICOOTICALENTE**
 - ❌ Query atual falhará
 - ✅ Alternativas:
-  1. Se `TRANSACAO_ITEM` tem `NUMEROORDEMSERVICO`: fazer join por esse campo
-  2. Se `TRANSACAO_ITEM` tem apenas `COD_TRANSACAO`: manter join pela transação mas adicionar filtro adicional
+  1. Usar join por `osl.cod_transacao`
+  2. Verificar outros vínculos disponíveis conforme a resposta do metadata
 
 ### Passo 3: Ajustar hub_receitas.sql
 

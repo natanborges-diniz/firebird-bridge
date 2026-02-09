@@ -10,6 +10,53 @@ function loadSql(fileName) {
 const sqlMonitorOs = loadSql("monitor.sql");
 const sqlMonitorOsUltimaEtapa = loadSql("monitor_ultima_etapa.sql");
 const sqlHubReceitas = loadSql("hub_receitas.sql");
+const OSL_TABLE_NAME = "ORDEMSERVICOOTICALENTE";
+const OSL_JOIN_COLUMN_NAME = "COD_ORDEMSERVICOCAIXA";
+const oslJoinPattern =
+  /OSL\.COD_ORDEMSERVICOCAIXA\s*=\s*OCX\.COD_ORDEMSERVICOCAIXA/i;
+const sqlHubReceitasFallback = sqlHubReceitas.replace(
+  oslJoinPattern,
+  "osl.cod_transacao = ocx.cod_transacao"
+);
+const hasFallbackJoin = sqlHubReceitasFallback !== sqlHubReceitas;
+const fallbackJoinErrorMessage = `Join condition matching pattern ${oslJoinPattern} not found in hub_receitas.sql.`;
+// Disable caching with DISABLE_METADATA_CACHE=true; tests skip cache for isolation.
+const enableMetadataCache =
+  process.env.DISABLE_METADATA_CACHE !== "true" &&
+  process.env.NODE_ENV !== "test";
+// Schema changes require an application restart to refresh this cache.
+let cachedHasOslCodOrdemServicoCaixa = null;
+
+async function hasOslCodOrdemServicoCaixa() {
+  if (enableMetadataCache && cachedHasOslCodOrdemServicoCaixa !== null) {
+    return cachedHasOslCodOrdemServicoCaixa;
+  }
+
+  let rows;
+  try {
+    rows = await db.query(
+      `
+        SELECT 1
+        FROM rdb$relation_fields rf
+        JOIN rdb$relations r
+          ON r.rdb$relation_name = rf.rdb$relation_name
+        WHERE r.rdb$system_flag = 0
+          AND TRIM(rf.rdb$relation_name) = ?
+          AND TRIM(rf.rdb$field_name) = ?
+      `,
+      [OSL_TABLE_NAME, OSL_JOIN_COLUMN_NAME]
+    );
+  } catch (err) {
+    throw new Error(
+      `Metadata lookup failed for ${OSL_TABLE_NAME}.${OSL_JOIN_COLUMN_NAME}: ${err.message}`
+    );
+  }
+  const hasColumn = rows.length > 0;
+  if (enableMetadataCache) {
+    cachedHasOslCodOrdemServicoCaixa = hasColumn;
+  }
+  return hasColumn;
+}
 
 async function getMonitorOs({ dataInicio, dataFim, codEmpresa }) {
   const empresaParam = codEmpresa ?? null;
@@ -27,7 +74,13 @@ async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
   const empresaParam = codEmpresa ?? null;
   const osParam = os ?? null;
   const params = [osParam, osParam, dataInicio, dataFim, empresaParam, empresaParam];
-  return db.query(sqlHubReceitas, params);
+  const useCodOs = await hasOslCodOrdemServicoCaixa();
+  if (!useCodOs && !hasFallbackJoin) {
+    throw new Error(fallbackJoinErrorMessage);
+  }
+  const sql =
+    useCodOs || !hasFallbackJoin ? sqlHubReceitas : sqlHubReceitasFallback;
+  return db.query(sql, params);
 }
 
 async function getHubReceitasCompleto({ os, codEmpresa }) {

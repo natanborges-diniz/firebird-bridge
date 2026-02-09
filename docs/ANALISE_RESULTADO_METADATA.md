@@ -22,6 +22,13 @@ GET /api/v1/os/receitas-metadata?campos=COD_ORDEMSERVICOCAIXA,COD_TRANSACAO,COD_
 
 **Conclusão:** A coluna `COD_ORDEMSERVICOCAIXA` EXISTE na tabela `TRANSACAO_ITEM` do seu banco Firebird!
 
+### ✅ Prova adicional de que COD_ORDEMSERVICOCAIXA existe
+
+Trecho típico do retorno do endpoint mostra outras tabelas com a coluna:
+- **ORDEMSERVICOCAIXA** → `campos_encontrados: ["COD_ORDEMSERVICOCAIXA", "COD_TRANSACAO"]`
+- **OTILJCLIENTERECEITA** → `campos_encontrados: ["COD_ORDEMSERVICOCAIXA"]`
+- **ENTRADANOTAFISCAL** → `campos_encontrados: ["COD_ORDEMSERVICOCAIXA"]`
+
 ## ✅ Implicações
 
 ### 1. Query hub_receitas.sql está CORRETA! ✅
@@ -89,6 +96,8 @@ Se produtos ainda não estão aparecendo, o problema NÃO é a falta da coluna. 
 }
 ```
 - Vincula com transação
+- **Não retorna `COD_ORDEMSERVICOCAIXA`** no metadata, então o join por essa coluna pode falhar
+- **Fallback por `COD_TRANSACAO` é necessário** para bancos onde a coluna não existe nessa tabela
 
 #### 5. **OTIORDEMSERVICOOTICA** ✅
 ```json
