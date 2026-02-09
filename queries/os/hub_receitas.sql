@@ -79,7 +79,8 @@ SELECT
     pe.nome                        AS empresa,
     ocx.cod_cliente                AS codcliente,
     pc.nome                        AS cliente,
-    pc.telefone                    AS telefone,
+    COALESCE(pc.telefonecelular, pc.telefoneresidencial1, pc.telefonecomercial1)
+                                   AS telefone,
     pv.nome                        AS vendedor,
     ocx.observacao                 AS observacao_os,
     ocx.observacaointerna          AS observacao_interna_os,
