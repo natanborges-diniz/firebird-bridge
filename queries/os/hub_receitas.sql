@@ -3,19 +3,30 @@
 
 WITH itens_lente AS (
     SELECT
-        ocx.cod_ordemservicocaixa,
-        LIST(DISTINCT i.descricao, ', ') AS lente_descricao
-    FROM ordemservicocaixa ocx
-    JOIN transacao_item ti
-      ON ti.cod_transacao = ocx.cod_transacao
-     AND (ti.cod_empresa = ocx.cod_empresaorigem OR ocx.cod_empresaorigem IS NULL)
-    JOIN item i
-      ON i.cod_item = ti.cod_item
-    JOIN produto p
-      ON p.cod_produto = i.cod_item
-    JOIN otiprodutolente l
-      ON l.cod_produtolente = p.cod_produto
-    GROUP BY ocx.cod_ordemservicocaixa
+        ti.cod_ordemservicocaixa,
+        MAX(CASE 
+            WHEN rn = 1 THEN i.descricao 
+            ELSE NULL 
+        END) AS lente_od_descricao,
+        MAX(CASE 
+            WHEN rn = 2 THEN i.descricao 
+            ELSE NULL 
+        END) AS lente_oe_descricao
+    FROM (
+        SELECT
+            ti.cod_ordemservicocaixa,
+            i.descricao,
+            ROW_NUMBER() OVER (
+                PARTITION BY ti.cod_ordemservicocaixa 
+                ORDER BY COALESCE(ti.sequencia, ti.seq_item, 999), ti.cod_transacao_item
+            ) AS rn
+        FROM transacao_item ti
+        JOIN item i ON i.cod_item = ti.cod_item
+        JOIN produto p ON p.cod_produto = i.cod_item
+        JOIN otiprodutolente l ON l.cod_produtolente = p.cod_produto
+        WHERE ti.cod_ordemservicocaixa IS NOT NULL
+    ) ranked
+    GROUP BY ranked.cod_ordemservicocaixa
 )
 
 SELECT
@@ -28,6 +39,7 @@ SELECT
     pe.nome                        AS empresa,
     ocx.cod_cliente                AS codcliente,
     pc.nome                        AS cliente,
+    pc.telefone                    AS telefone,
     pv.nome                        AS vendedor,
     ocx.observacao                 AS observacao_os,
     ocx.observacaointerna          AS observacao_interna_os,
@@ -50,33 +62,34 @@ SELECT
     otoi.observacaolente           AS observacao_lente,
     otoi.observacaopendencia       AS observacao_pendencia,
 
-    -- Receita por olho (ordem de serviço ótica lente) com fallback do cadastro do cliente
-    COALESCE(osl.od_longe_esf, ocrl.longe_esf)        AS od_longe_esf,
-    COALESCE(osl.od_longe_cil, ocrl.longe_cil)        AS od_longe_cil,
-    COALESCE(osl.od_longe_eixo, ocrl.longe_eixo)      AS od_longe_eixo,
-    COALESCE(osl.od_perto_esf, ocrl.perto_esf)        AS od_perto_esf,
-    COALESCE(osl.od_perto_cil, ocrl.perto_cil)        AS od_perto_cil,
-    COALESCE(osl.od_perto_eixo, ocrl.perto_eixo)      AS od_perto_eixo,
-    COALESCE(osl.od_dp, ocrl.dnp)                     AS od_dp,
-    COALESCE(osl.od_alt, ocrl.alt)                    AS od_alt,
-    COALESCE(osl.od_adicao, ocrl.adicao)              AS od_adicao,
+    -- Receita por olho (ordem de serviço ótica lente) - sem fallback
+    -- O frontend já tem lógica de fallback implementada
+    osl.od_longe_esf        AS od_longe_esf,
+    osl.od_longe_cil        AS od_longe_cil,
+    osl.od_longe_eixo       AS od_longe_eixo,
+    osl.od_perto_esf        AS od_perto_esf,
+    osl.od_perto_cil        AS od_perto_cil,
+    osl.od_perto_eixo       AS od_perto_eixo,
+    osl.od_dp               AS od_dp,
+    osl.od_alt              AS od_alt,
+    osl.od_adicao           AS od_adicao,
 
-    COALESCE(osl.oe_longe_esf, ocrl.longe_esf)        AS oe_longe_esf,
-    COALESCE(osl.oe_longe_cil, ocrl.longe_cil)        AS oe_longe_cil,
-    COALESCE(osl.oe_longe_eixo, ocrl.longe_eixo)      AS oe_longe_eixo,
-    COALESCE(osl.oe_perto_esf, ocrl.perto_esf)        AS oe_perto_esf,
-    COALESCE(osl.oe_perto_cil, ocrl.perto_cil)        AS oe_perto_cil,
-    COALESCE(osl.oe_perto_eixo, ocrl.perto_eixo)      AS oe_perto_eixo,
-    COALESCE(osl.oe_dp, ocrl.dnp)                     AS oe_dp,
-    COALESCE(osl.oe_alt, ocrl.alt)                    AS oe_alt,
-    COALESCE(osl.oe_adicao, ocrl.adicao)              AS oe_adicao,
+    osl.oe_longe_esf        AS oe_longe_esf,
+    osl.oe_longe_cil        AS oe_longe_cil,
+    osl.oe_longe_eixo       AS oe_longe_eixo,
+    osl.oe_perto_esf        AS oe_perto_esf,
+    osl.oe_perto_cil        AS oe_perto_cil,
+    osl.oe_perto_eixo       AS oe_perto_eixo,
+    osl.oe_dp               AS oe_dp,
+    osl.oe_alt              AS oe_alt,
+    osl.oe_adicao           AS oe_adicao,
 
     -- Observação da receita do cliente (quando existir)
     ocr.observacaoreceita          AS observacao_receita,
 
     -- Lentes (descrição dos produtos LG por olho)
-    lensitems.lente_descricao AS lente_od_descricao,
-    lensitems.lente_descricao AS lente_oe_descricao,
+    lensitems.lente_od_descricao AS lente_od_descricao,
+    lensitems.lente_oe_descricao AS lente_oe_descricao,
 
     -- Imagens da receita/armação
     otoi.imagemreceita             AS imagem_receita,
@@ -98,11 +111,9 @@ LEFT JOIN pessoa pv
 LEFT JOIN otiordemservicootica otoi
   ON otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN ordemservicooticalente osl
-  ON osl.cod_transacao = ocx.cod_transacao
+  ON osl.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN otiljclientereceita ocr
   ON ocr.cod_clientereceita = ocx.cod_clientereceita
-LEFT JOIN otiljclientereceita_lente ocrl
-  ON ocrl.cod_clientereceita = ocr.cod_clientereceita
 LEFT JOIN itens_lente lensitems
   ON lensitems.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 
