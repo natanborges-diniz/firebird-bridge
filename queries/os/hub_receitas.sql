@@ -3,7 +3,7 @@
 
 WITH itens_lente AS (
     SELECT
-        ocx.cod_transacao,
+        ti.cod_ordemservicocaixa,
         MAX(CASE 
             WHEN rn = 1 THEN i.descricao 
             ELSE NULL 
@@ -14,25 +14,23 @@ WITH itens_lente AS (
         END) AS lente_oe_descricao
     FROM (
         SELECT
-            ocx.cod_transacao,
+            ti.cod_ordemservicocaixa,
             i.descricao,
             ROW_NUMBER() OVER (
-                PARTITION BY ocx.cod_transacao 
+                PARTITION BY ti.cod_ordemservicocaixa 
                 ORDER BY ti.cod_transacaoitem
             ) AS rn
         FROM transacao_item ti
-        JOIN ordemservicocaixa ocx
-          ON ocx.cod_transacao = ti.cod_transacao
         JOIN item i ON i.cod_item = ti.cod_item
         JOIN produto p ON p.cod_produto = i.cod_item
         JOIN otiprodutolente l ON l.cod_produtolente = p.cod_produto
-        WHERE ocx.cod_transacao IS NOT NULL
+        WHERE ti.cod_ordemservicocaixa IS NOT NULL
     ) ranked
-    GROUP BY ranked.cod_transacao
+    GROUP BY ranked.cod_ordemservicocaixa
 )
 
 SELECT
-    ocx.cod_transacao              AS cod_os,
+    ocx.cod_ordemservicocaixa      AS cod_os,
     ocx.numeroordemservico         AS os,
     ocx.dataemissao                AS dataemissao,
     ocx.dataprevisao               AS dataprevisao,
@@ -111,13 +109,13 @@ JOIN pessoa pc
 LEFT JOIN pessoa pv
   ON pv.cod_pessoa = ocx.cod_vendedor
 LEFT JOIN otiordemservicootica otoi
-  ON otoi.cod_transacao = ocx.cod_transacao
+  ON otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN ordemservicooticalente osl
-  ON osl.cod_transacao = ocx.cod_transacao
+  ON osl.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN otiljclientereceita ocr
   ON ocr.cod_clientereceita = ocx.cod_clientereceita
 LEFT JOIN itens_lente lensitems
-  ON lensitems.cod_transacao = ocx.cod_transacao
+  ON lensitems.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 
 WHERE
     ( ? IS NULL OR ocx.numeroordemservico = CAST(? AS INTEGER) )
