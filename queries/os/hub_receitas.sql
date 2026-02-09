@@ -3,7 +3,7 @@
 
 WITH itens_lente AS (
     SELECT
-        ti.cod_ordemservicocaixa,
+        ocx.cod_ordemservicocaixa,
         MAX(CASE 
             WHEN rn = 1 THEN i.descricao 
             ELSE NULL 
@@ -14,17 +14,19 @@ WITH itens_lente AS (
         END) AS lente_oe_descricao
     FROM (
         SELECT
-            ti.cod_ordemservicocaixa,
+            ocx.cod_ordemservicocaixa,
             i.descricao,
             ROW_NUMBER() OVER (
-                PARTITION BY ti.cod_ordemservicocaixa 
+                PARTITION BY ocx.cod_ordemservicocaixa 
                 ORDER BY ti.cod_transacaoitem
             ) AS rn
         FROM transacao_item ti
+        JOIN ordemservicocaixa ocx
+          ON ocx.cod_transacao = ti.cod_transacao
         JOIN item i ON i.cod_item = ti.cod_item
         JOIN produto p ON p.cod_produto = i.cod_item
         JOIN otiprodutolente l ON l.cod_produtolente = p.cod_produto
-        WHERE ti.cod_ordemservicocaixa IS NOT NULL
+        WHERE ocx.cod_ordemservicocaixa IS NOT NULL
     ) ranked
     GROUP BY ranked.cod_ordemservicocaixa
 )
