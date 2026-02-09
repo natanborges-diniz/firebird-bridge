@@ -5,11 +5,11 @@ WITH itens_lente AS (
     SELECT
         ranked.cod_ordemservicocaixa,
         MAX(CASE 
-            WHEN rn = 1 THEN i.descricao 
+            WHEN rn = 1 THEN ranked.descricao 
             ELSE NULL 
         END) AS lente_od_descricao,
         MAX(CASE 
-            WHEN rn = 2 THEN i.descricao 
+            WHEN rn = 2 THEN ranked.descricao 
             ELSE NULL 
         END) AS lente_oe_descricao
     FROM (
