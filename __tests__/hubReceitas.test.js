@@ -9,6 +9,12 @@ jest.mock('../src/db', () => ({
 const db = require('../src/db');
 const app = require('../src/server');
 
+/**
+ * Mocka a consulta de metadata para indicar que a coluna existe (array não vazio).
+ */
+const mockOslCodOrdemServicoCaixaExists = () =>
+  db.query.mockResolvedValueOnce([{}]);
+
 describe('Hub Receitas Endpoint', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -69,6 +75,7 @@ describe('Hub Receitas Endpoint', () => {
         }
       ];
 
+      mockOslCodOrdemServicoCaixaExists();
       db.query.mockResolvedValueOnce(mockData);
 
       const res = await request(app)
@@ -112,6 +119,7 @@ describe('Hub Receitas Endpoint', () => {
         }
       ];
 
+      mockOslCodOrdemServicoCaixaExists();
       db.query.mockResolvedValueOnce(mockData);
 
       const res = await request(app)
@@ -140,6 +148,7 @@ describe('Hub Receitas Endpoint', () => {
         }
       ];
 
+      mockOslCodOrdemServicoCaixaExists();
       db.query.mockResolvedValueOnce(mockData);
 
       const res = await request(app)
@@ -181,6 +190,7 @@ describe('Hub Receitas Endpoint', () => {
     });
 
     it('aceita codEmpresa como ALL', async () => {
+      mockOslCodOrdemServicoCaixaExists();
       db.query.mockResolvedValueOnce([]);
 
       const res = await request(app)
@@ -249,6 +259,7 @@ describe('Hub Receitas Endpoint', () => {
         }
       ];
 
+      mockOslCodOrdemServicoCaixaExists();
       db.query.mockResolvedValueOnce(mockData);
 
       const res = await request(app)
@@ -304,8 +315,8 @@ describe('Hub Receitas Endpoint', () => {
       expect(record).toHaveProperty('observacao_receita');
     });
 
-    it('não retorna registros duplicados para OS na mesma transação', async () => {
-      // Simular caso onde múltiplas OS compartilham a mesma transação
+    it('não retorna registros duplicados para OS na mesma transacao', async () => {
+      // Simular caso onde múltiplas OS compartilham a mesma transacao
       // Antes da correção, isso causaria cartesian join
       const mockData = [
         {
@@ -324,6 +335,7 @@ describe('Hub Receitas Endpoint', () => {
         }
       ];
 
+      mockOslCodOrdemServicoCaixaExists();
       db.query.mockResolvedValueOnce(mockData);
 
       const res = await request(app)
@@ -346,6 +358,32 @@ describe('Hub Receitas Endpoint', () => {
       expect(res.body.data[0].od_longe_esf).toBe(-2.50);
       expect(res.body.data[1].os).toBe(89799);
       expect(res.body.data[1].od_longe_esf).toBe(-3.00);
+    });
+
+    it('usa join por transacao quando COD_ORDEMSERVICOCAIXA não existe', async () => {
+      // 1º mock: metadata (coluna não existe)
+      db.query.mockResolvedValueOnce([]);
+      // 2º mock: resultado do hub receitas
+      db.query.mockResolvedValueOnce([]);
+
+      const res = await request(app)
+        .get('/api/v1/os/hub-receitas')
+        .query({
+          dataInicio: '2024-01-01',
+          dataFim: '2024-12-31'
+        });
+
+      expect(res.status).toBe(200);
+      expect(db.query).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('rdb$relation_fields'),
+        ['ORDEMSERVICOOTICALENTE', 'COD_ORDEMSERVICOCAIXA']
+      );
+      expect(db.query).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('osl.cod_transacao = ocx.cod_transacao'),
+        expect.any(Array)
+      );
     });
   });
 });
