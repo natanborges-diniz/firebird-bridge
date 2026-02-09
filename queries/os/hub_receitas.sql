@@ -3,7 +3,7 @@
 
 WITH itens_lente AS (
     SELECT
-        ocx.cod_ordemservicocaixa,
+        ranked.cod_ordemservicocaixa,
         MAX(CASE 
             WHEN rn = 1 THEN i.descricao 
             ELSE NULL 
