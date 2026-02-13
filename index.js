@@ -19,6 +19,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const { health } = require('./src/controllers/healthController');
 
 const app = express();
 
@@ -30,7 +31,7 @@ const app = express();
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Health-Token'],
 }));
 
 app.use(express.json());
@@ -40,14 +41,15 @@ app.use(express.json());
  * Healthcheck
  * ============================================================
  */
-app.get('/health', async (req, res) => {
-  res.json({
-    ok: true,
+app.get('/health', async (_req, res) => {
+  return res.status(200).json({
+    status: 'ok',
     service: 'firebird-bridge',
-    status: 'UP',
-    timestamp: new Date().toISOString(),
+    time: new Date().toISOString(),
   });
 });
+
+app.get('/api/v1/health', health);
 
 /**
  * ============================================================
