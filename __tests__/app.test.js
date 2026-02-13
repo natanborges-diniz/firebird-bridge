@@ -1,35 +1,51 @@
 const request = require('supertest');
+const { pingDatabase } = require('../src/db');
 
 jest.mock('../src/db', () => ({
-  pingDatabase: jest.fn().mockResolvedValue(true)
+  pingDatabase: jest.fn()
 }));
 
 const app = require('../src/server');
 
 describe('Health check', () => {
-  it('retorna ok sem verificar o banco', async () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('retorna 200 com payload ok quando Firebird está disponível', async () => {
+    pingDatabase.mockResolvedValue({ ok: true });
+
     const res = await request(app).get('/api/v1/health');
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ 
-      ok: true, 
-      data: expect.objectContaining({ 
-        status: 'UP', 
-        db: 'SKIPPED' 
-      })
+    expect(res.body).toMatchObject({
+      status: 'ok',
+      version: expect.any(String),
+      time: expect.any(String),
+      uptime_s: expect.any(Number),
+      db: {
+        connected: true
+      }
     });
+
+    expect(new Date(res.body.time).toString()).not.toBe('Invalid Date');
   });
 
-  it('retorna ok quando checkDb=true', async () => {
-    const res = await request(app).get('/api/v1/health').query({ checkDb: 'true' });
+  it('retorna 503 com status degraded quando Firebird está indisponível', async () => {
+    pingDatabase.mockResolvedValue({ ok: false, error: 'connection refused' });
 
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ 
-      ok: true, 
-      data: expect.objectContaining({ 
-        status: 'UP', 
-        db: 'UP' 
-      })
+    const res = await request(app).get('/api/v1/health');
+
+    expect(res.status).toBe(503);
+    expect(res.body).toMatchObject({
+      status: 'degraded',
+      version: expect.any(String),
+      time: expect.any(String),
+      uptime_s: expect.any(Number),
+      db: {
+        connected: false
+      },
+      error: expect.any(String)
     });
   });
 });
