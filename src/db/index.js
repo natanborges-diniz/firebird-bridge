@@ -1,6 +1,20 @@
 // src/db/index.js
 
-const Firebird = require('node-firebird');
+let firebirdModule = null;
+
+function getFirebird() {
+  if (firebirdModule) {
+    return firebirdModule;
+  }
+
+  try {
+    firebirdModule = require('node-firebird');
+    return firebirdModule;
+  } catch (err) {
+    console.error('Dependência node-firebird não instalada/carregada:', err.message || err);
+    return null;
+  }
+}
 
 // Configurações do Firebird vindas do .env
 const options = {
@@ -22,6 +36,12 @@ const options = {
  */
 function runQuery(sql, params = []) {
   return new Promise((resolve, reject) => {
+    const Firebird = getFirebird();
+
+    if (!Firebird) {
+      return reject(new Error('node-firebird não está disponível no ambiente atual'));
+    }
+
     Firebird.attach(options, (err, db) => {
       if (err) {
         console.error('Erro ao conectar ao Firebird:', err);
@@ -50,6 +70,12 @@ function runQuery(sql, params = []) {
  */
 function pingDatabase() {
   return new Promise((resolve) => {
+    const Firebird = getFirebird();
+
+    if (!Firebird) {
+      return resolve({ ok: false, error: 'node-firebird não está disponível no ambiente atual' });
+    }
+
     Firebird.attach(options, (err, db) => {
       if (err) {
         console.error('Erro ao pingar o banco Firebird:', err.message || err);
