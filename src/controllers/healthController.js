@@ -2,7 +2,8 @@ const { pingDatabase } = require('../db');
 
 const serviceStartMs = Date.now();
 const packageJson = require('../../package.json');
-const DB_CHECK_TIMEOUT_MS = Number(process.env.HEALTH_DB_TIMEOUT_MS || 200);
+const DEFAULT_HEALTH_DB_TIMEOUT_MS = 2000;
+const DB_CHECK_TIMEOUT_MS = Number(process.env.HEALTH_DB_TIMEOUT_MS || DEFAULT_HEALTH_DB_TIMEOUT_MS);
 
 function resolveVersion() {
   return process.env.APP_VERSION || process.env.npm_package_version || packageJson.version || 'unknown';
