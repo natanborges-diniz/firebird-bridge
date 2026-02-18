@@ -84,6 +84,14 @@ SELECT
     COALESCE(otoi.md, ocr.md)                        AS md,
     COALESCE(otoi.he, ocr.he)                        AS he,
     COALESCE(otoi.st, ocr.st)                        AS st,
+
+    -- Armação / formato de aro
+    COALESCE(otoi.cod_formatoaro, ocr.cod_formatoaro) AS cod_formato_aro,
+    otoi.cod_formatoaro             AS otoi_cod_formatoaro,
+    ocr.cod_formatoaro              AS ocr_cod_formatoaro,
+    COALESCE(otoi.descricaoarmacao, ocr.descricaoarmacao) AS descricao_armacao,
+    COALESCE(otoi.referencia, ocr.referencia) AS referencia_armacao,
+
     otoi.observacaolente           AS observacao_lente,
     otoi.observacaopendencia       AS observacao_pendencia,
 
