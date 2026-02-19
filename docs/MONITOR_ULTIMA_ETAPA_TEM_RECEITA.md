@@ -1,28 +1,19 @@
-# Campo `tem_receita` no endpoint `/api/v1/os/monitor-ultima-etapa`
+# Monitor Última Etapa — atualização de performance
 
-## Objetivo
-Permitir que o frontend filtre OS com/sem receita **sem depender de cache local**.
+## Contexto
+Por solicitação do frontend, o endpoint de monitor principal deve trazer apenas dados de produção para listagem, sem cálculos extras de receita/foto em massa.
 
 ## Endpoint
 - `GET /api/v1/os/monitor-ultima-etapa`
 
-## Novo campo na resposta
-- `tem_receita` (inteiro: `1` ou `0`)
+## Mudança aplicada
+- O campo calculado `tem_receita` foi removido da query de monitor para reduzir custo de execução em períodos amplos (ex.: 1 mês, todas as empresas).
+- A query voltou para o padrão com seleção da última etapa por `MAX(datahoraentrada)` em CTE dedicada (`ultlog`), que tende a ser mais eficiente.
 
-### Regra de cálculo no Bridge
-`tem_receita = 1` quando qualquer condição for verdadeira:
-1. `ordemservicocaixa.cod_clientereceita IS NOT NULL`
-2. Existe registro em `otiordemservicootica` para `cod_ordemservicocaixa`
-3. Existe registro em `ordemservicooticalente` para `cod_transacao`
-4. Existe registro em `otiordemservicootica_lente` para `cod_transacao`
+## Fluxo recomendado
+1. Carregar lista pelo monitor: `/api/v1/os/monitor-ultima-etapa`.
+2. Ao abrir OS específica, consultar detalhes em `/api/v1/os/hub-receitas`.
 
-Caso contrário:
-- `tem_receita = 0`
-
-## Uso recomendado no frontend
-- Filtro "Com receita": `tem_receita === 1`
-- Filtro "Sem receita": `tem_receita === 0`
-- Sem filtro: não aplicar condição
-
-## Observação
-O campo já vem no payload principal de monitor, então não é necessário buscar Hub Receitas nem montar cache auxiliar para essa finalidade.
+## Benefício
+- Menos subconsultas por linha no monitor.
+- Melhor tempo de resposta para filtros amplos.
