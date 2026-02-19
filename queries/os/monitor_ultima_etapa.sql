@@ -41,6 +41,28 @@ WITH
             pessoacliente.cpf AS cpf,
             pessoavendedor.nome AS vendedor,
 
+            CASE
+                WHEN (
+                    ordemservicocaixa.cod_clientereceita IS NOT NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM otiordemservicootica otoi
+                        WHERE otoi.cod_ordemservicocaixa = ordemservicocaixa.cod_ordemservicocaixa
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM ordemservicooticalente osl
+                        WHERE osl.cod_transacao = ordemservicocaixa.cod_transacao
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM otiordemservicootica_lente otil
+                        WHERE otil.cod_transacao = ordemservicocaixa.cod_transacao
+                    )
+                ) THEN 1
+                ELSE 0
+            END AS tem_receita,
+
             CASE ordemservicocaixalog.cod_etapa
                 WHEN 00 THEN 'Etapa inicial'
                 WHEN 01 THEN 'Ordem de serviço no estoque'
