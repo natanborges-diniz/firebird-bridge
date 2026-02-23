@@ -48,7 +48,10 @@ SELECT
 
     pc.nome                                        AS cliente,
     pc.cod_pessoa                                  AS codcliente,
-    pc.cpf                                        AS cpf,
+    CASE
+        WHEN pc.cpf IS NULL THEN NULL
+        ELSE RIGHT('00000000000' || TRIM(CAST(pc.cpf AS VARCHAR(20))), 11)
+    END                                            AS cpf,
     pc.datanascimento                              AS data_nascimento,
     COALESCE(otoi.nomepaciente, pc.nome)          AS paciente,
     pv.nome                                        AS vendedor,
