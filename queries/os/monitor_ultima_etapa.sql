@@ -50,7 +50,7 @@ SELECT
     pc.cod_pessoa                                  AS codcliente,
     pc.identificador                               AS cpf,
     pc.datanascimento                              AS data_nascimento,
-    os.paciente                                    AS paciente,
+    COALESCE(otoi.nomepaciente, pc.nome)          AS paciente,
     pv.nome                                        AS vendedor,
 
     CASE l.cod_etapa
@@ -136,7 +136,7 @@ FROM ordemservicocaixa ocx
 JOIN pessoa pe ON pe.cod_pessoa = ocx.cod_empresaorigem
 JOIN pessoa pc ON pc.cod_pessoa = ocx.cod_cliente
 LEFT JOIN pessoa pv ON pv.cod_pessoa = ocx.cod_vendedor
-LEFT JOIN ordemservico os ON os.numeroordemservico = ocx.numeroordemservico
+LEFT JOIN otiordemservicootica otoi ON otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 
 JOIN ultlog ul
   ON ul.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
