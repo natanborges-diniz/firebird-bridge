@@ -62,7 +62,10 @@ SELECT
     ocx.cod_empresaorigem          AS cod_empresa_origem,
     pe.nome                        AS empresa,
     ocx.cod_cliente                AS codcliente,
-    pc.cpf                         AS cpf,
+    CASE
+        WHEN pc.cpf IS NULL THEN NULL
+        ELSE RIGHT('00000000000' || TRIM(CAST(pc.cpf AS VARCHAR(20))), 11)
+    END                             AS cpf,
     pc.nome                        AS cliente,
     COALESCE(pc.telefonecelular, pc.telefoneresidencial1, pc.telefonecomercial1)
                                    AS telefone,
