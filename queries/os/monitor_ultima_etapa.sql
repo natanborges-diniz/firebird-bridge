@@ -48,7 +48,7 @@ SELECT
 
     pc.nome                                        AS cliente,
     pc.cod_pessoa                                  AS codcliente,
-    pc.identificador                               AS cpf,
+    pc.cpf                                        AS cpf,
     pc.datanascimento                              AS data_nascimento,
     COALESCE(otoi.nomepaciente, pc.nome)          AS paciente,
     pv.nome                                        AS vendedor,
