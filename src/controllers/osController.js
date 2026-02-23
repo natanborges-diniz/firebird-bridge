@@ -100,7 +100,13 @@ async function monitorOsUltimaEtapa(req, res) {
     if (!params) return;
 
     const rows = await osService.getMonitorOsUltimaEtapa(params);
-    return success(res, rows);
+    const normalizedRows = rows.map((row) => ({
+      ...row,
+      cpf: String(row.cpf ?? row.CPF ?? '').trim(),
+      data_nascimento: row.data_nascimento ?? row.DATA_NASCIMENTO ?? null,
+      paciente: String(row.paciente ?? row.PACIENTE ?? '').trim(),
+    }));
+    return success(res, normalizedRows);
   } catch (err) {
     return handleControllerError(res, err);
   }
