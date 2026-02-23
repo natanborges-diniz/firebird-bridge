@@ -62,6 +62,7 @@ SELECT
     ocx.cod_empresaorigem          AS cod_empresa_origem,
     pe.nome                        AS empresa,
     ocx.cod_cliente                AS codcliente,
+    pc.cpf                         AS cpf,
     pc.nome                        AS cliente,
     COALESCE(pc.telefonecelular, pc.telefoneresidencial1, pc.telefonecomercial1)
                                    AS telefone,
