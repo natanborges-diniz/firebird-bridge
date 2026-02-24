@@ -70,6 +70,8 @@ SELECT
     COALESCE(pc.telefonecelular, pc.telefoneresidencial1, pc.telefonecomercial1)
                                    AS telefone,
     pv.nome                        AS vendedor,
+    pm.nome                        AS medico,
+    pm.registroprofissional        AS crm,
     ocx.observacao                 AS observacao_os,
     ocx.observacaointerna          AS observacao_interna_os,
 
@@ -175,12 +177,14 @@ JOIN pessoa pc
   ON pc.cod_pessoa = ocx.cod_cliente
 LEFT JOIN pessoa pv
   ON pv.cod_pessoa = ocx.cod_vendedor
+LEFT JOIN otiljclientereceita ocr
+  ON ocr.cod_clientereceita = ocx.cod_clientereceita
+LEFT JOIN pessoa pm
+  ON pm.cod_pessoa = ocr.cod_medico
 LEFT JOIN otiordemservicootica otoi
   ON otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN ordemservicooticalente osl
   ON osl.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
-LEFT JOIN otiljclientereceita ocr
-  ON ocr.cod_clientereceita = ocx.cod_clientereceita
 LEFT JOIN receita_lente_cliente ocrl
   ON ocrl.cod_clientereceita = ocr.cod_clientereceita
 LEFT JOIN itens_lente lensitems
