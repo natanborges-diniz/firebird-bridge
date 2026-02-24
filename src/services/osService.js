@@ -12,50 +12,108 @@ const sqlMonitorOsUltimaEtapa = loadSql("monitor_ultima_etapa.sql");
 const sqlHubReceitas = loadSql("hub_receitas.sql");
 const OSL_TABLE_NAME = "ORDEMSERVICOOTICALENTE";
 const OSL_JOIN_COLUMN_NAME = "COD_ORDEMSERVICOCAIXA";
+const RECEITA_TABLE_NAME = "OTILJCLIENTERECEITA";
+const RECEITA_MEDICO_COLUMN_NAME = "COD_MEDICO";
+const PESSOA_TABLE_NAME = "PESSOA";
+const PESSOA_CRM_COLUMN_NAME = "REGISTROPROFISSIONAL";
 const oslJoinPattern =
   /OSL\.COD_ORDEMSERVICOCAIXA\s*=\s*OCX\.COD_ORDEMSERVICOCAIXA/i;
+const medicoSelectPattern =
+  /\s*pm\.nome\s+AS medico,\n\s*pm\.registroprofissional\s+AS crm,\n/i;
+const medicoJoinPattern = /\s*LEFT JOIN pessoa pm\s*\n\s*ON pm\.cod_pessoa = ocr\.cod_medico\s*\n/i;
 const sqlHubReceitasFallback = sqlHubReceitas.replace(
   oslJoinPattern,
   "osl.cod_transacao = ocx.cod_transacao"
 );
+const sqlHubReceitasSemMedico = sqlHubReceitas
+  .replace(
+    medicoSelectPattern,
+    "    CAST(NULL AS VARCHAR(120))      AS medico,\n    CAST(NULL AS VARCHAR(60))       AS crm,\n"
+  )
+  .replace(medicoJoinPattern, "");
+const sqlHubReceitasFallbackSemMedico = sqlHubReceitasFallback
+  .replace(
+    medicoSelectPattern,
+    "    CAST(NULL AS VARCHAR(120))      AS medico,\n    CAST(NULL AS VARCHAR(60))       AS crm,\n"
+  )
+  .replace(medicoJoinPattern, "");
 const hasFallbackJoin = sqlHubReceitasFallback !== sqlHubReceitas;
+const hasFallbackMedico = sqlHubReceitasSemMedico !== sqlHubReceitas;
 const fallbackJoinErrorMessage = `Join condition matching pattern ${oslJoinPattern} not found in hub_receitas.sql.`;
+const fallbackMedicoErrorMessage = `Expected medico select/join patterns not found in hub_receitas.sql.`;
 // Disable caching with DISABLE_METADATA_CACHE=true; tests skip cache for isolation.
 const enableMetadataCache =
   process.env.DISABLE_METADATA_CACHE !== "true" &&
   process.env.NODE_ENV !== "test";
 // Schema changes require an application restart to refresh this cache.
 let cachedHasOslCodOrdemServicoCaixa = null;
+let cachedHasReceitaMedicoColumns = null;
+const columnLookupCache = new Map();
+
+async function hasColumn(tableName, columnName) {
+  const cacheKey = `${tableName}.${columnName}`;
+  if (enableMetadataCache && columnLookupCache.has(cacheKey)) {
+    return columnLookupCache.get(cacheKey);
+  }
+
+  const rows = await db.query(
+    `
+      SELECT 1
+      FROM rdb$relation_fields rf
+      JOIN rdb$relations r
+        ON r.rdb$relation_name = rf.rdb$relation_name
+      WHERE r.rdb$system_flag = 0
+        AND TRIM(rf.rdb$relation_name) = ?
+        AND TRIM(rf.rdb$field_name) = ?
+    `,
+    [tableName, columnName]
+  );
+
+  const exists = rows.length > 0;
+  if (enableMetadataCache) {
+    columnLookupCache.set(cacheKey, exists);
+  }
+  return exists;
+}
 
 async function hasOslCodOrdemServicoCaixa() {
   if (enableMetadataCache && cachedHasOslCodOrdemServicoCaixa !== null) {
     return cachedHasOslCodOrdemServicoCaixa;
   }
 
-  let rows;
   try {
-    rows = await db.query(
-      `
-        SELECT 1
-        FROM rdb$relation_fields rf
-        JOIN rdb$relations r
-          ON r.rdb$relation_name = rf.rdb$relation_name
-        WHERE r.rdb$system_flag = 0
-          AND TRIM(rf.rdb$relation_name) = ?
-          AND TRIM(rf.rdb$field_name) = ?
-      `,
-      [OSL_TABLE_NAME, OSL_JOIN_COLUMN_NAME]
-    );
+    const hasColumnResult = await hasColumn(OSL_TABLE_NAME, OSL_JOIN_COLUMN_NAME);
+    if (enableMetadataCache) {
+      cachedHasOslCodOrdemServicoCaixa = hasColumnResult;
+    }
+    return hasColumnResult;
   } catch (err) {
     throw new Error(
       `Metadata lookup failed for ${OSL_TABLE_NAME}.${OSL_JOIN_COLUMN_NAME}: ${err.message}`
     );
   }
-  const hasColumn = rows.length > 0;
-  if (enableMetadataCache) {
-    cachedHasOslCodOrdemServicoCaixa = hasColumn;
+}
+
+async function hasReceitaMedicoColumns() {
+  if (enableMetadataCache && cachedHasReceitaMedicoColumns !== null) {
+    return cachedHasReceitaMedicoColumns;
   }
-  return hasColumn;
+
+  try {
+    const [hasCodMedico, hasRegistroProfissional] = await Promise.all([
+      hasColumn(RECEITA_TABLE_NAME, RECEITA_MEDICO_COLUMN_NAME),
+      hasColumn(PESSOA_TABLE_NAME, PESSOA_CRM_COLUMN_NAME),
+    ]);
+    const hasColumns = hasCodMedico && hasRegistroProfissional;
+    if (enableMetadataCache) {
+      cachedHasReceitaMedicoColumns = hasColumns;
+    }
+    return hasColumns;
+  } catch (err) {
+    throw new Error(
+      `Metadata lookup failed for ${RECEITA_TABLE_NAME}.${RECEITA_MEDICO_COLUMN_NAME} or ${PESSOA_TABLE_NAME}.${PESSOA_CRM_COLUMN_NAME}: ${err.message}`
+    );
+  }
 }
 
 async function getMonitorOs({ dataInicio, dataFim, codEmpresa }) {
@@ -74,12 +132,25 @@ async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
   const empresaParam = codEmpresa ?? null;
   const osParam = os ?? null;
   const params = [osParam, osParam, dataInicio, dataFim, empresaParam, empresaParam];
-  const useCodOs = await hasOslCodOrdemServicoCaixa();
+  const [useCodOs, includeMedicoColumns] = await Promise.all([
+    hasOslCodOrdemServicoCaixa(),
+    hasReceitaMedicoColumns(),
+  ]);
   if (!useCodOs && !hasFallbackJoin) {
     throw new Error(fallbackJoinErrorMessage);
   }
-  const sql =
-    useCodOs || !hasFallbackJoin ? sqlHubReceitas : sqlHubReceitasFallback;
+  if (!includeMedicoColumns && !hasFallbackMedico) {
+    throw new Error(fallbackMedicoErrorMessage);
+  }
+
+  let sql = useCodOs || !hasFallbackJoin ? sqlHubReceitas : sqlHubReceitasFallback;
+  if (!includeMedicoColumns) {
+    sql =
+      useCodOs || !hasFallbackJoin
+        ? sqlHubReceitasSemMedico
+        : sqlHubReceitasFallbackSemMedico;
+  }
+
   return db.query(sql, params);
 }
 
