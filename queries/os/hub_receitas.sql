@@ -74,6 +74,10 @@ SELECT
     pm.registroprofissional        AS crm,
     ocx.observacao                 AS observacao_os,
     ocx.observacaointerna          AS observacao_interna_os,
+    os.obs_receita                 AS observacao_receita_os,
+    ocr.observacaoreceita          AS observacao_receita_cadastro,
+    COALESCE(os.obs_receita, ocr.observacaoreceita)
+                                   AS observacao_receita,
 
     -- Receita geral (ótica) com fallback do cadastro do cliente
     COALESCE(otoi.dp, ocr.dp)                        AS dp,
@@ -124,7 +128,6 @@ SELECT
     osl.oe_adicao           AS oe_adicao,
 
     -- Observação da receita do cliente (quando existir)
-    ocr.observacaoreceita          AS observacao_receita,
     ocrl.oe_longe_esf              AS ocrl_oe_longe_esf,
     ocrl.oe_longe_cil              AS ocrl_oe_longe_cil,
     ocrl.oe_longe_eixo             AS ocrl_oe_longe_eixo,
@@ -181,6 +184,8 @@ LEFT JOIN otiljclientereceita ocr
   ON ocr.cod_clientereceita = ocx.cod_clientereceita
 LEFT JOIN pessoa pm
   ON pm.cod_pessoa = ocr.cod_medico
+LEFT JOIN ordemservico os
+  ON os.numeroordemservico = ocx.numeroordemservico
 LEFT JOIN otiordemservicootica otoi
   ON otoi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN ordemservicooticalente osl
