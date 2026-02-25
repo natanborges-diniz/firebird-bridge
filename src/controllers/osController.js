@@ -132,7 +132,20 @@ async function hubReceitas(req, res) {
     }
 
     const rows = await osService.getHubReceitas(params);
-    return success(res, rows);
+    const normalizedRows = rows.map((row) => ({
+      ...row,
+      observacao_os: String(row.observacao_os ?? row.OBSERVACAO_OS ?? "").trim(),
+      observacao_receita: String(row.observacao_receita ?? row.OBSERVACAO_RECEITA ?? "").trim(),
+      observacao_receita_os: String(
+        row.observacao_receita_os ?? row.OBSERVACAO_RECEITA_OS ?? ""
+      ).trim(),
+      observacao_receita_cadastro: String(
+        row.observacao_receita_cadastro ?? row.OBSERVACAO_RECEITA_CADASTRO ?? ""
+      ).trim(),
+      medico: String(row.medico ?? row.MEDICO ?? "").trim(),
+      crm: String(row.crm ?? row.CRM ?? "").trim(),
+    }));
+    return success(res, normalizedRows);
   } catch (err) {
     return handleControllerError(res, err);
   }
