@@ -31,6 +31,7 @@ const obsReceitaSelectPattern = /\s*os\.observacao_receita\s+AS observacao_recei
 const obsReceitaMergedPattern = /\s*COALESCE\(os\.observacao_receita, ocr\.observacaoreceita\)\n\s+AS observacao_receita,\n/i;
 const receitaCadastroObsPattern = /COALESCE\(ocr\.observacaoreceita,\s*ocr\.observacao\)\n\s+AS observacao_receita_cadastro,/gi;
 const receitaConsolidadaObsPattern = /COALESCE\(os\.observacao_receita,\s*os\.obs_receita,\s*ocr\.observacaoreceita,\s*ocr\.observacao\)\n\s+AS observacao_receita,/gi;
+const receitaCadastroObservacaoColumnPattern = /ocr\.observacao/gi;
 const sqlHubReceitasFallback = sqlHubReceitas.replace(
   oslJoinPattern,
   "osl.cod_transacao = ocx.cod_transacao"
@@ -185,6 +186,7 @@ async function resolveOrdemServicoObsReceitaColumn() {
   }
 }
 
+
 async function resolveReceitaCadastroObsColumn() {
   if (enableMetadataCache && cachedReceitaCadastroObsColumn !== null) {
     return cachedReceitaCadastroObsColumn;
@@ -218,7 +220,8 @@ function applyReceitaCadastroFallback(sql, receitaCadastroObsColumn) {
   if (receitaCadastroObsColumn === RECEITA_OBSERVACAO_RECEITA_COLUMN_NAME) {
     return sql
       .replace(receitaCadastroObsPattern, 'ocr.observacaoreceita          AS observacao_receita_cadastro,')
-      .replace(receitaConsolidadaObsPattern, 'COALESCE(os.observacao_receita, os.obs_receita, ocr.observacaoreceita)\n                                   AS observacao_receita,');
+      .replace(receitaConsolidadaObsPattern, 'COALESCE(os.observacao_receita, os.obs_receita, ocr.observacaoreceita)\n                                   AS observacao_receita,')
+      .replace(receitaCadastroObservacaoColumnPattern, 'ocr.observacaoreceita');
   }
 
   if (receitaCadastroObsColumn === RECEITA_OBSERVACAO_COLUMN_NAME) {
@@ -313,13 +316,6 @@ async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
   pushAttempt(sql.replace(/os\.obs_receita/gi, "os.observacao_receita"));
   pushAttempt(sql.replace(/osl\.observacao/gi, "osl.obs"));
   pushAttempt(sql.replace(/COALESCE\(osl\.observacao,\s*ocx\.observacao\)/gi, "ocx.observacao"));
-  pushAttempt(sql.replace(/ocr\.observacaoreceita/gi, "ocr.observacao"));
-  pushAttempt(
-    sql.replace(/COALESCE\(ocr\.observacaoreceita,\s*ocr\.observacao\)/gi, "ocr.observacaoreceita")
-  );
-  pushAttempt(
-    sql.replace(/COALESCE\(ocr\.observacaoreceita,\s*ocr\.observacao\)/gi, "ocr.observacao")
-  );
   pushAttempt(fallbackSemObsSql);
 
   let lastError = null;
