@@ -31,7 +31,7 @@ const obsReceitaSelectPattern = /\s*os\.observacao_receita\s+AS observacao_recei
 const obsReceitaMergedPattern = /\s*COALESCE\(os\.observacao_receita, ocr\.observacaoreceita\)\n\s+AS observacao_receita,\n/i;
 const receitaCadastroObsPattern = /COALESCE\(ocr\.observacaoreceita,\s*ocr\.observacao\)\n\s+AS observacao_receita_cadastro,/gi;
 const receitaConsolidadaObsPattern = /COALESCE\(os\.observacao_receita,\s*os\.obs_receita,\s*ocr\.observacaoreceita,\s*ocr\.observacao\)\n\s+AS observacao_receita,/gi;
-const receitaCadastroObservacaoColumnPattern = /ocr\.observacao/gi;
+const receitaCadastroObservacaoColumnPattern = /ocr\.observacao\b/gi;
 const sqlHubReceitasFallback = sqlHubReceitas.replace(
   oslJoinPattern,
   "osl.cod_transacao = ocx.cod_transacao"
