@@ -74,9 +74,9 @@ SELECT
     pm.registroprofissional        AS crm,
     ocx.observacao                 AS observacao_os,
     ocx.observacaointerna          AS observacao_interna_os,
-    os.obs_receita                 AS observacao_receita_os,
+    os.observacao_receita          AS observacao_receita_os,
     ocr.observacaoreceita          AS observacao_receita_cadastro,
-    COALESCE(os.obs_receita, ocr.observacaoreceita)
+    COALESCE(os.observacao_receita, ocr.observacaoreceita)
                                    AS observacao_receita,
 
     -- Receita geral (ótica) com fallback do cadastro do cliente
