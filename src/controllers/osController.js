@@ -1,6 +1,13 @@
 const osService = require('../services/osService');
 const { success, failure, handleControllerError } = require('../utils/apiResponse');
 
+function normalizeTextField(value) {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'function') return '';
+  return String(value).trim();
+}
+
+
 function validatePeriodoQuery(req, res) {
   const { dataInicio, dataFim, codEmpresa, empresa } = req.query;
 
@@ -134,16 +141,16 @@ async function hubReceitas(req, res) {
     const rows = await osService.getHubReceitas(params);
     const normalizedRows = rows.map((row) => ({
       ...row,
-      observacao_os: String(row.observacao_os ?? row.OBSERVACAO_OS ?? "").trim(),
-      observacao_receita: String(row.observacao_receita ?? row.OBSERVACAO_RECEITA ?? "").trim(),
-      observacao_receita_os: String(
-        row.observacao_receita_os ?? row.OBSERVACAO_RECEITA_OS ?? ""
-      ).trim(),
-      observacao_receita_cadastro: String(
-        row.observacao_receita_cadastro ?? row.OBSERVACAO_RECEITA_CADASTRO ?? ""
-      ).trim(),
-      medico: String(row.medico ?? row.MEDICO ?? "").trim(),
-      crm: String(row.crm ?? row.CRM ?? "").trim(),
+      observacao_os: normalizeTextField(row.observacao_os ?? row.OBSERVACAO_OS),
+      observacao_receita: normalizeTextField(row.observacao_receita ?? row.OBSERVACAO_RECEITA),
+      observacao_receita_os: normalizeTextField(
+        row.observacao_receita_os ?? row.OBSERVACAO_RECEITA_OS
+      ),
+      observacao_receita_cadastro: normalizeTextField(
+        row.observacao_receita_cadastro ?? row.OBSERVACAO_RECEITA_CADASTRO
+      ),
+      medico: normalizeTextField(row.medico ?? row.MEDICO),
+      crm: normalizeTextField(row.crm ?? row.CRM),
     }));
     return success(res, normalizedRows);
   } catch (err) {
