@@ -26,9 +26,6 @@ const oslJoinPattern =
 const medicoSelectPattern =
   /\s*pm\.nome\s+AS medico,\n\s*pm\.registroprofissional\s+AS crm,\n/i;
 const medicoJoinPattern = /\s*LEFT JOIN pessoa pm\s*\n\s*ON pm\.cod_pessoa = ocr\.cod_medico\s*\n/i;
-const obsReceitaColumnPattern = /os\.observacao_receita/gi;
-const obsReceitaSelectPattern = /\s*os\.observacao_receita\s+AS observacao_receita_os,\n/i;
-const obsReceitaMergedPattern = /\s*COALESCE\(os\.observacao_receita, ocr\.observacaoreceita\)\n\s+AS observacao_receita,\n/i;
 const receitaCadastroObsPattern = /COALESCE\(ocr\.observacaoreceita,\s*ocr\.observacao\)\n\s+AS observacao_receita_cadastro,/gi;
 const receitaConsolidadaObsPattern = /COALESCE\(os\.observacao_receita,\s*os\.obs_receita,\s*ocr\.observacaoreceita,\s*ocr\.observacao\)\n\s+AS observacao_receita,/gi;
 const receitaCadastroObservacaoColumnPattern = /ocr\.observacao\b/gi;
@@ -48,38 +45,10 @@ const sqlHubReceitasFallbackSemMedico = sqlHubReceitasFallback
     "    CAST(NULL AS VARCHAR(120))      AS medico,\n    CAST(NULL AS VARCHAR(60))       AS crm,\n"
   )
   .replace(medicoJoinPattern, "");
-const sqlHubReceitasObsObservacaoReceita = sqlHubReceitas.replace(
-  obsReceitaColumnPattern,
-  "os.obs_receita"
-);
-const sqlHubReceitasFallbackObsObservacaoReceita = sqlHubReceitasFallback.replace(
-  obsReceitaColumnPattern,
-  "os.obs_receita"
-);
-const sqlHubReceitasSemObsReceitaOs = sqlHubReceitas
-  .replace(
-    obsReceitaSelectPattern,
-    "    CAST(NULL AS VARCHAR(1000))     AS observacao_receita_os,\n"
-  )
-  .replace(
-    obsReceitaMergedPattern,
-    "    ocr.observacaoreceita          AS observacao_receita,\n"
-  );
-const sqlHubReceitasFallbackSemObsReceitaOs = sqlHubReceitasFallback
-  .replace(
-    obsReceitaSelectPattern,
-    "    CAST(NULL AS VARCHAR(1000))     AS observacao_receita_os,\n"
-  )
-  .replace(
-    obsReceitaMergedPattern,
-    "    ocr.observacaoreceita          AS observacao_receita,\n"
-  );
 const hasFallbackJoin = sqlHubReceitasFallback !== sqlHubReceitas;
 const hasFallbackMedico = sqlHubReceitasSemMedico !== sqlHubReceitas;
-const hasFallbackObsReceitaOs = sqlHubReceitasSemObsReceitaOs !== sqlHubReceitas;
 const fallbackJoinErrorMessage = `Join condition matching pattern ${oslJoinPattern} not found in hub_receitas.sql.`;
 const fallbackMedicoErrorMessage = `Expected medico select/join patterns not found in hub_receitas.sql.`;
-const fallbackObsReceitaErrorMessage = `Expected observacao_receita patterns not found in hub_receitas.sql.`;
 // Disable caching with DISABLE_METADATA_CACHE=true; tests skip cache for isolation.
 const enableMetadataCache =
   process.env.DISABLE_METADATA_CACHE !== "true" &&
@@ -237,6 +206,22 @@ function applyReceitaCadastroFallback(sql, receitaCadastroObsColumn) {
     .replace(/ocr\.observacaoreceita/gi, 'CAST(NULL AS VARCHAR(1000))');
 }
 
+function applyOrdemServicoObsReceitaFallback(sql, ordemServicoObsReceitaColumn) {
+  if (ordemServicoObsReceitaColumn === ORDEMSERVICO_OBSERVACAO_RECEITA_COLUMN_NAME) {
+    return sql.replace(/os\.obs_receita/gi, "os.observacao_receita");
+  }
+
+  if (ordemServicoObsReceitaColumn === ORDEMSERVICO_OBS_RECEITA_COLUMN_NAME) {
+    return sql.replace(/os\.observacao_receita/gi, "os.obs_receita");
+  }
+
+  return sql
+    .replace(/os\.observacao_receita\s+AS observacao_receita_os,/gi, "CAST(NULL AS VARCHAR(1000))     AS observacao_receita_os,")
+    .replace(/os\.obs_receita\s+AS observacao_receita_os,/gi, "CAST(NULL AS VARCHAR(1000))     AS observacao_receita_os,")
+    .replace(/os\.observacao_receita/gi, "CAST(NULL AS VARCHAR(1000))")
+    .replace(/os\.obs_receita/gi, "CAST(NULL AS VARCHAR(1000))");
+}
+
 function applyMedicoFallback(sql, includeMedicoColumns) {
   if (includeMedicoColumns) {
     return sql;
@@ -279,27 +264,9 @@ async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
   if (!includeMedicoColumns && !hasFallbackMedico) {
     throw new Error(fallbackMedicoErrorMessage);
   }
-  if (!ordemServicoObsReceitaColumn && !hasFallbackObsReceitaOs) {
-    throw new Error(fallbackObsReceitaErrorMessage);
-  }
-
   const baseSql = useCodOs || !hasFallbackJoin ? sqlHubReceitas : sqlHubReceitasFallback;
-  const fallbackSemObsSql =
-    useCodOs || !hasFallbackJoin
-      ? sqlHubReceitasSemObsReceitaOs
-      : sqlHubReceitasFallbackSemObsReceitaOs;
-  const fallbackObsSql =
-    useCodOs || !hasFallbackJoin
-      ? sqlHubReceitasObsObservacaoReceita
-      : sqlHubReceitasFallbackObsObservacaoReceita;
 
-  let sql = baseSql;
-  if (ordemServicoObsReceitaColumn === ORDEMSERVICO_OBS_RECEITA_COLUMN_NAME) {
-    sql = fallbackObsSql;
-  } else if (!ordemServicoObsReceitaColumn) {
-    sql = fallbackSemObsSql;
-  }
-
+  let sql = applyOrdemServicoObsReceitaFallback(baseSql, ordemServicoObsReceitaColumn);
   sql = applyReceitaCadastroFallback(sql, receitaCadastroObsColumn);
 
   const attempts = [];
@@ -312,11 +279,8 @@ async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
   };
 
   pushAttempt(sql);
-  pushAttempt(sql.replace(/os\.observacao_receita/gi, "os.obs_receita"));
-  pushAttempt(sql.replace(/os\.obs_receita/gi, "os.observacao_receita"));
   pushAttempt(sql.replace(/osl\.observacao/gi, "osl.obs"));
   pushAttempt(sql.replace(/COALESCE\(osl\.observacao,\s*ocx\.observacao\)/gi, "ocx.observacao"));
-  pushAttempt(fallbackSemObsSql);
 
   let lastError = null;
   for (const candidateSql of attempts) {
