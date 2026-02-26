@@ -76,9 +76,8 @@ SELECT
                                    AS observacao_os,
     ocx.observacaointerna          AS observacao_interna_os,
     os.observacao_receita          AS observacao_receita_os,
-    COALESCE(ocr.observacaoreceita, ocr.observacao)
-                                   AS observacao_receita_cadastro,
-    COALESCE(os.observacao_receita, os.obs_receita, ocr.observacaoreceita, ocr.observacao)
+    ocr.observacaoreceita          AS observacao_receita_cadastro,
+    COALESCE(os.observacao_receita, os.obs_receita, ocr.observacaoreceita)
                                    AS observacao_receita,
 
     -- Receita geral (ótica) com fallback do cadastro do cliente
