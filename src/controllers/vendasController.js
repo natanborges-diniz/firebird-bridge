@@ -30,12 +30,14 @@ async function resumoFormasPagamento(req, res) {
     if (!params) return;
 
     const excluirCreditos = req.query.excluirCreditos === "1" || req.query.excluirCreditos === "true";
+    const incluirDevolucoes = req.query.incluirDevolucoes === "1" || req.query.incluirDevolucoes === "true";
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
     const rows = await vendasService.getFormasPagamentoResumo({
       ...params,
       excluirCreditos,
+      incluirDevolucoes,
       useCache,
       cacheTtlMs,
     });
@@ -142,16 +144,11 @@ async function analiseFamiliaVendedor(req, res) {
     const params = validatePeriodoEmpresaQuery(req, res);
     if (!params) return;
 
-    const codEmpresaEstoque = req.query.codEmpresaEstoque
-      ? Number(req.query.codEmpresaEstoque)
-      : null;
-
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
     const rows = await vendasService.getAnaliseFamiliaVendedor({
       ...params,
-      codEmpresaEstoque,
       useCache,
       cacheTtlMs,
     });
@@ -184,11 +181,11 @@ async function analiseSku(req, res) {
 
 module.exports = {
   resumoEmpresaVendedor,
-  resumoDiarioSimples,
   resumoFormasPagamento,
+  resumoDiarioSimples,
   auditoriaFormasPagamento,
   auditoriaFormasPagamentoLight,
+  debugResumoEmpresaVendedor,
   analiseFamiliaVendedor,
   analiseSku,
-  debugResumoEmpresaVendedor,
 };
