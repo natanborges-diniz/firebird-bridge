@@ -15,14 +15,22 @@ class QueryCache {
     return `${label}:${serializedParams}`;
   }
 
-  get(key) {
+  getEntry(key, { allowExpired = false } = {}) {
     const entry = this.store.get(key);
     if (!entry) return null;
-    if (entry.expiresAt <= Date.now()) {
+
+    const isExpired = entry.expiresAt <= Date.now();
+    if (isExpired && !allowExpired) {
       this.store.delete(key);
       return null;
     }
-    return entry.value;
+
+    return entry;
+  }
+
+  get(key, options = {}) {
+    const entry = this.getEntry(key, options);
+    return entry ? entry.value : null;
   }
 
   set(key, value, ttlMs = DEFAULT_TTL_MS) {
@@ -33,9 +41,11 @@ class QueryCache {
         if (oldestKey) this.store.delete(oldestKey);
       }
     }
+    const now = Date.now();
     this.store.set(key, {
       value,
-      expiresAt: Date.now() + ttlMs,
+      createdAt: now,
+      expiresAt: now + ttlMs,
     });
   }
 
@@ -68,6 +78,21 @@ function getCachedOrFetch({ label, params, ttlMs, enabled, fetcher }) {
   });
 }
 
+function getCachedValue({ label, params, allowExpired = false }) {
+  const key = queryCache.buildKey(label, params);
+  return queryCache.get(key, { allowExpired });
+}
+
+function getCachedEntry({ label, params, allowExpired = false }) {
+  const key = queryCache.buildKey(label, params);
+  return queryCache.getEntry(key, { allowExpired });
+}
+
+function setCachedValue({ label, params, value, ttlMs = DEFAULT_TTL_MS }) {
+  const key = queryCache.buildKey(label, params);
+  queryCache.set(key, value, ttlMs);
+}
+
 function normalizeDate(value) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -97,5 +122,8 @@ module.exports = {
   LONG_TTL_MS,
   MAX_TTL_MS,
   getCachedOrFetch,
+  getCachedValue,
+  getCachedEntry,
+  setCachedValue,
   getRangeTtlMs,
 };
