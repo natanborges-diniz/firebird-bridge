@@ -3,9 +3,41 @@ const path = require("path");
 const fs = require("fs");
 const db = require("../db");
 const { parseEmpresasParam } = require("../utils/empresaHelper");
-const { DEFAULT_TTL_MS, getCachedOrFetch, getRangeTtlMs } = require("../utils/queryCache");
+const {
+  DEFAULT_TTL_MS,
+  getCachedOrFetch,
+  getCachedEntry,
+  getRangeTtlMs,
+  setCachedValue,
+} = require("../utils/queryCache");
 const sqlCreateIndexes = loadSql("debug_create_indexes.sql");
 const LOG_QUERY_TIME = process.env.LOG_QUERY_TIME === "true";
+const FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS = Number(process.env.FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS || 45000);
+const FORMAS_PAGAMENTO_STALE_MAX_AGE_MS = Number(process.env.FORMAS_PAGAMENTO_STALE_MAX_AGE_MS || 30 * 60 * 1000);
+
+function runWithTimeout(promise, timeoutMs, context) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return promise;
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      const err = new Error(`Timeout after ${timeoutMs}ms (${context})`);
+      err.code = "QUERY_TIMEOUT";
+      reject(err);
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+  });
+}
 
 function loadSql(filename) {
   const filePath = path.join(__dirname, "..", "..", "queries", "vendas", filename);
@@ -131,13 +163,45 @@ async function getFormasPagamentoResumoPorEmpresa(
   ];
   const cacheLabel = "vendas.formas_pagamento_resumo";
   const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
-  return getCachedOrFetch({
-    label: cacheLabel,
-    params,
-    ttlMs,
-    enabled: options.useCache !== false,
-    fetcher: () => db.runQuery(SQL_FORMAS_PAGAMENTO_RESUMO, params),
-  });
+
+  const fetchLive = () =>
+    runWithTimeout(
+      db.runQuery(SQL_FORMAS_PAGAMENTO_RESUMO, params),
+      options.queryTimeoutMs ?? FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS,
+      `vendas.formas_pagamento_resumo.empresa_${codEmpresa}`
+    );
+
+  if (options.useCache !== false) {
+    return getCachedOrFetch({
+      label: cacheLabel,
+      params,
+      ttlMs,
+      enabled: true,
+      fetcher: fetchLive,
+    });
+  }
+
+  try {
+    const liveResult = await fetchLive();
+    setCachedValue({ label: cacheLabel, params, value: liveResult, ttlMs });
+    return liveResult;
+  } catch (err) {
+    if (options.allowStaleOnError) {
+      const staleEntry = getCachedEntry({ label: cacheLabel, params, allowExpired: true });
+      if (staleEntry) {
+        const staleAgeMs = Date.now() - (staleEntry.createdAt || 0);
+        const maxAgeMs = options.staleMaxAgeMs ?? FORMAS_PAGAMENTO_STALE_MAX_AGE_MS;
+        if (!Number.isFinite(maxAgeMs) || maxAgeMs <= 0 || staleAgeMs <= maxAgeMs) {
+          console.warn(
+            `[VENDAS] resumo-formas-pagamento usando cache stale empresa=${codEmpresa} age_ms=${staleAgeMs} reason=${err.message}`
+          );
+          return staleEntry.value;
+        }
+      }
+    }
+
+    throw err;
+  }
 }
 
 async function getFormasPagamentoAuditoriaPorEmpresa(
@@ -294,6 +358,8 @@ async function getFormasPagamentoResumo({
 }) {
   const empresas = parseEmpresasParam(empresa);
   const startedAt = Date.now();
+  const shouldAllowStaleOnError = useCache === false;
+
   const results = await Promise.allSettled(
     empresas.map((cod) =>
       getFormasPagamentoResumoPorEmpresa(
@@ -305,25 +371,41 @@ async function getFormasPagamentoResumo({
         {
           useCache,
           cacheTtlMs,
+          allowStaleOnError: shouldAllowStaleOnError,
         }
       )
     )
   );
+
   if (LOG_QUERY_TIME) {
     console.log(
       `[VENDAS] resumo-formas-pagamento empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
     );
   }
-  return results.flatMap((result, index) => {
+
+  let failureCount = 0;
+  const flattened = results.flatMap((result, index) => {
     if (result.status === "fulfilled") {
       return result.value ?? [];
     }
+
+    failureCount += 1;
     console.error(
       `[VENDAS] resumo-formas-pagamento empresa ${empresas[index]}:`,
       result.reason?.message || result.reason
     );
     return [];
   });
+
+  if (failureCount === empresas.length) {
+    const error = new Error(
+      "Não foi possível consultar resumo de formas de pagamento no Firebird (todas as empresas falharam)."
+    );
+    error.code = "VENDAS_FORMAS_PAGAMENTO_UNAVAILABLE";
+    throw error;
+  }
+
+  return flattened;
 }
 
 async function getFormasPagamentoAuditoria({
