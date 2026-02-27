@@ -14,6 +14,9 @@ const sqlCreateIndexes = loadSql("debug_create_indexes.sql");
 const LOG_QUERY_TIME = process.env.LOG_QUERY_TIME === "true";
 const FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS = Number(process.env.FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS || 45000);
 const FORMAS_PAGAMENTO_STALE_MAX_AGE_MS = Number(process.env.FORMAS_PAGAMENTO_STALE_MAX_AGE_MS || 30 * 60 * 1000);
+const FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS = Number(
+  process.env.FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS || FORMAS_PAGAMENTO_STALE_MAX_AGE_MS
+);
 
 function runWithTimeout(promise, timeoutMs, context) {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
@@ -359,6 +362,15 @@ async function getFormasPagamentoResumo({
   const empresas = parseEmpresasParam(empresa);
   const startedAt = Date.now();
   const shouldAllowStaleOnError = useCache === false;
+  const allEmpresasCacheLabel = "vendas.formas_pagamento_resumo.all_empresas";
+  const allEmpresasCacheParams = [
+    empresas.join(","),
+    dataInicio,
+    dataFim,
+    excluirCreditos ? 1 : 0,
+    incluirDevolucoes ? 1 : 0,
+  ];
+  const ttlMs = cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
 
   const results = await Promise.allSettled(
     empresas.map((cod) =>
@@ -398,12 +410,39 @@ async function getFormasPagamentoResumo({
   });
 
   if (failureCount === empresas.length) {
+    const staleAllEmpresasEntry = getCachedEntry({
+      label: allEmpresasCacheLabel,
+      params: allEmpresasCacheParams,
+      allowExpired: true,
+    });
+
+    if (staleAllEmpresasEntry) {
+      const staleAgeMs = Date.now() - (staleAllEmpresasEntry.createdAt || 0);
+      if (
+        !Number.isFinite(FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS) ||
+        FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS <= 0 ||
+        staleAgeMs <= FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS
+      ) {
+        console.warn(
+          `[VENDAS] resumo-formas-pagamento usando cache stale all_empresas age_ms=${staleAgeMs} timeout_ms=${FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS}`
+        );
+        return staleAllEmpresasEntry.value;
+      }
+    }
+
     const error = new Error(
       "Não foi possível consultar resumo de formas de pagamento no Firebird (todas as empresas falharam)."
     );
     error.code = "VENDAS_FORMAS_PAGAMENTO_UNAVAILABLE";
     throw error;
   }
+
+  setCachedValue({
+    label: allEmpresasCacheLabel,
+    params: allEmpresasCacheParams,
+    value: flattened,
+    ttlMs,
+  });
 
   return flattened;
 }
