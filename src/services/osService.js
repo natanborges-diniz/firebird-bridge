@@ -15,6 +15,7 @@ const OSL_JOIN_COLUMN_NAME = "COD_ORDEMSERVICOCAIXA";
 const RECEITA_TABLE_NAME = "OTILJCLIENTERECEITA";
 const RECEITA_MEDICO_COLUMN_NAME = "COD_MEDICO";
 const RECEITA_OBSERVACAO_RECEITA_COLUMN_NAME = "OBSERVACAORECEITA";
+const RECEITA_OBSERVACAO_COLUMN_NAME = "OBSERVACAO";
 const PESSOA_TABLE_NAME = "PESSOA";
 const PESSOA_CRM_COLUMN_NAME = "REGISTROPROFISSIONAL";
 const ORDEMSERVICO_TABLE_NAME = "ORDEMSERVICO";
@@ -25,10 +26,9 @@ const oslJoinPattern =
 const medicoSelectPattern =
   /\s*pm\.nome\s+AS medico,\n\s*pm\.registroprofissional\s+AS crm,\n/i;
 const medicoJoinPattern = /\s*LEFT JOIN pessoa pm\s*\n\s*ON pm\.cod_pessoa = ocr\.cod_medico\s*\n/i;
-const receitaCadastroObsPattern =
-  /(?:COALESCE\(ocr\.observacaoreceita,\s*ocr\.observacao\)|ocr\.observacaoreceita|CAST\(NULL AS VARCHAR\(1000\)\))\s+AS observacao_receita_cadastro,/gi;
-const receitaConsolidadaObsPattern =
-  /COALESCE\(os\.observacao_receita,\s*os\.obs_receita(?:,\s*ocr\.observacaoreceita)?\)\s+AS observacao_receita,/gi;
+const receitaCadastroObsPattern = /COALESCE\(ocr\.observacaoreceita,\s*ocr\.observacao\)\n\s+AS observacao_receita_cadastro,/gi;
+const receitaConsolidadaObsPattern = /COALESCE\(os\.observacao_receita,\s*os\.obs_receita,\s*ocr\.observacaoreceita,\s*ocr\.observacao\)\n\s+AS observacao_receita,/gi;
+const receitaCadastroObservacaoColumnPattern = /ocr\.observacao\b/gi;
 const sqlHubReceitasFallback = sqlHubReceitas.replace(
   oslJoinPattern,
   "osl.cod_transacao = ocx.cod_transacao"
@@ -162,14 +162,17 @@ async function resolveReceitaCadastroObsColumn() {
   }
 
   try {
-    const hasObservacaoReceita = await hasColumn(
-      RECEITA_TABLE_NAME,
-      RECEITA_OBSERVACAO_RECEITA_COLUMN_NAME
-    );
+    const [hasObservacaoReceita, hasObservacao] = await Promise.all([
+      hasColumn(RECEITA_TABLE_NAME, RECEITA_OBSERVACAO_RECEITA_COLUMN_NAME),
+      hasColumn(RECEITA_TABLE_NAME, RECEITA_OBSERVACAO_COLUMN_NAME),
+    ]);
 
-    const resolvedColumn = hasObservacaoReceita
-      ? RECEITA_OBSERVACAO_RECEITA_COLUMN_NAME
-      : null;
+    let resolvedColumn = null;
+    if (hasObservacaoReceita) {
+      resolvedColumn = RECEITA_OBSERVACAO_RECEITA_COLUMN_NAME;
+    } else if (hasObservacao) {
+      resolvedColumn = RECEITA_OBSERVACAO_COLUMN_NAME;
+    }
 
     if (enableMetadataCache) {
       cachedReceitaCadastroObsColumn = resolvedColumn;
@@ -177,7 +180,7 @@ async function resolveReceitaCadastroObsColumn() {
     return resolvedColumn;
   } catch (err) {
     throw new Error(
-      `Metadata lookup failed for ${RECEITA_TABLE_NAME}.${RECEITA_OBSERVACAO_RECEITA_COLUMN_NAME}: ${err.message}`
+      `Metadata lookup failed for ${RECEITA_TABLE_NAME}.${RECEITA_OBSERVACAO_RECEITA_COLUMN_NAME} or ${RECEITA_TABLE_NAME}.${RECEITA_OBSERVACAO_COLUMN_NAME}: ${err.message}`
     );
   }
 }
@@ -186,9 +189,16 @@ function applyReceitaCadastroFallback(sql, receitaCadastroObsColumn) {
   if (receitaCadastroObsColumn === RECEITA_OBSERVACAO_RECEITA_COLUMN_NAME) {
     return sql
       .replace(receitaCadastroObsPattern, 'ocr.observacaoreceita          AS observacao_receita_cadastro,')
-      .replace(receitaConsolidadaObsPattern, 'COALESCE(os.observacao_receita, os.obs_receita, ocr.observacaoreceita)\n                                   AS observacao_receita,');
+      .replace(receitaConsolidadaObsPattern, 'COALESCE(os.observacao_receita, os.obs_receita, ocr.observacaoreceita)\n                                   AS observacao_receita,')
+      .replace(receitaCadastroObservacaoColumnPattern, 'ocr.observacaoreceita');
   }
 
+  if (receitaCadastroObsColumn === RECEITA_OBSERVACAO_COLUMN_NAME) {
+    return sql
+      .replace(receitaCadastroObsPattern, 'ocr.observacao                 AS observacao_receita_cadastro,')
+      .replace(receitaConsolidadaObsPattern, 'COALESCE(os.observacao_receita, os.obs_receita, ocr.observacao)\n                                   AS observacao_receita,')
+      .replace(/ocr\.observacaoreceita/gi, 'ocr.observacao');
+  }
 
   return sql
     .replace(receitaCadastroObsPattern, 'CAST(NULL AS VARCHAR(1000))     AS observacao_receita_cadastro,')
@@ -269,6 +279,13 @@ async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
   };
 
   pushAttempt(sql);
+  pushAttempt(sql.replace(/os\.observacao_receita/gi, "os.obs_receita"));
+  pushAttempt(sql.replace(/os\.obs_receita/gi, "os.observacao_receita"));
+  pushAttempt(sql
+    .replace(/os\.observacao_receita\s+AS observacao_receita_os,/gi, "CAST(NULL AS VARCHAR(1000))     AS observacao_receita_os,")
+    .replace(/os\.obs_receita\s+AS observacao_receita_os,/gi, "CAST(NULL AS VARCHAR(1000))     AS observacao_receita_os,")
+    .replace(/os\.observacao_receita/gi, "CAST(NULL AS VARCHAR(1000))")
+    .replace(/os\.obs_receita/gi, "CAST(NULL AS VARCHAR(1000))"));
   pushAttempt(sql.replace(/osl\.observacao/gi, "osl.obs"));
   pushAttempt(sql.replace(/COALESCE\(osl\.observacao,\s*ocx\.observacao\)/gi, "ocx.observacao"));
 
