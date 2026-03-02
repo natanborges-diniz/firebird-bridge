@@ -373,6 +373,28 @@ async function getFormasPagamentoResumo({
     ];
     const ttlMs = cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
 
+    if (shouldAllowStaleOnError && empresas.length > 1) {
+      const staleAllEmpresasEntry = getCachedEntry({
+        label: allEmpresasCacheLabel,
+        params: allEmpresasCacheParams,
+        allowExpired: true,
+      });
+
+      if (staleAllEmpresasEntry) {
+        const staleAgeMs = Date.now() - (staleAllEmpresasEntry.createdAt || 0);
+        if (
+          !Number.isFinite(FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS) ||
+          FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS <= 0 ||
+          staleAgeMs <= FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS
+        ) {
+          console.warn(
+            `[VENDAS] resumo-formas-pagamento retornando cache stale all_empresas sem consultar Firebird age_ms=${staleAgeMs}`
+          );
+          return staleAllEmpresasEntry.value;
+        }
+      }
+    }
+
     const results = await Promise.allSettled(
       empresas.map((cod) =>
         getFormasPagamentoResumoPorEmpresa(
