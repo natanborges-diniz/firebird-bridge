@@ -359,92 +359,105 @@ async function getFormasPagamentoResumo({
   useCache,
   cacheTtlMs,
 }) {
-  const empresas = parseEmpresasParam(empresa);
-  const startedAt = Date.now();
-  const shouldAllowStaleOnError = useCache === false;
-  const allEmpresasCacheLabel = "vendas.formas_pagamento_resumo.all_empresas";
-  const allEmpresasCacheParams = [
-    empresas.join(","),
-    dataInicio,
-    dataFim,
-    excluirCreditos ? 1 : 0,
-    incluirDevolucoes ? 1 : 0,
-  ];
-  const ttlMs = cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
+  try {
+    const empresas = parseEmpresasParam(empresa);
+    const startedAt = Date.now();
+    const shouldAllowStaleOnError = useCache === false;
+    const allEmpresasCacheLabel = "vendas.formas_pagamento_resumo.all_empresas";
+    const allEmpresasCacheParams = [
+      empresas.join(","),
+      dataInicio,
+      dataFim,
+      excluirCreditos ? 1 : 0,
+      incluirDevolucoes ? 1 : 0,
+    ];
+    const ttlMs = cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
 
-  const results = await Promise.allSettled(
-    empresas.map((cod) =>
-      getFormasPagamentoResumoPorEmpresa(
-        cod,
-        dataInicio,
-        dataFim,
-        excluirCreditos,
-        incluirDevolucoes,
-        {
-          useCache,
-          cacheTtlMs,
-          allowStaleOnError: shouldAllowStaleOnError,
-        }
+    const results = await Promise.allSettled(
+      empresas.map((cod) =>
+        getFormasPagamentoResumoPorEmpresa(
+          cod,
+          dataInicio,
+          dataFim,
+          excluirCreditos,
+          incluirDevolucoes,
+          {
+            useCache,
+            cacheTtlMs,
+            allowStaleOnError: shouldAllowStaleOnError,
+          }
+        )
       )
-    )
-  );
-
-  if (LOG_QUERY_TIME) {
-    console.log(
-      `[VENDAS] resumo-formas-pagamento empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
     );
-  }
 
-  let failureCount = 0;
-  const flattened = results.flatMap((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value ?? [];
+    if (LOG_QUERY_TIME) {
+      console.log(
+        `[VENDAS] resumo-formas-pagamento empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
+      );
     }
 
-    failureCount += 1;
-    console.error(
-      `[VENDAS] resumo-formas-pagamento empresa ${empresas[index]}:`,
-      result.reason?.message || result.reason
-    );
-    return [];
-  });
+    let failureCount = 0;
+    const flattened = results.flatMap((result, index) => {
+      if (result.status === "fulfilled") {
+        return result.value ?? [];
+      }
 
-  if (failureCount === empresas.length) {
-    const staleAllEmpresasEntry = getCachedEntry({
-      label: allEmpresasCacheLabel,
-      params: allEmpresasCacheParams,
-      allowExpired: true,
+      failureCount += 1;
+      console.error(
+        `[VENDAS] resumo-formas-pagamento empresa ${empresas[index]}:`,
+        result.reason?.message || result.reason
+      );
+      return [];
     });
 
-    if (staleAllEmpresasEntry) {
-      const staleAgeMs = Date.now() - (staleAllEmpresasEntry.createdAt || 0);
-      if (
-        !Number.isFinite(FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS) ||
-        FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS <= 0 ||
-        staleAgeMs <= FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS
-      ) {
-        console.warn(
-          `[VENDAS] resumo-formas-pagamento usando cache stale all_empresas age_ms=${staleAgeMs} timeout_ms=${FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS}`
-        );
-        return staleAllEmpresasEntry.value;
+    if (failureCount === empresas.length) {
+      const staleAllEmpresasEntry = getCachedEntry({
+        label: allEmpresasCacheLabel,
+        params: allEmpresasCacheParams,
+        allowExpired: true,
+      });
+
+      if (staleAllEmpresasEntry) {
+        const staleAgeMs = Date.now() - (staleAllEmpresasEntry.createdAt || 0);
+        if (
+          !Number.isFinite(FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS) ||
+          FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS <= 0 ||
+          staleAgeMs <= FORMAS_PAGAMENTO_ALL_EMPRESAS_STALE_MAX_AGE_MS
+        ) {
+          console.warn(
+            `[VENDAS] resumo-formas-pagamento usando cache stale all_empresas age_ms=${staleAgeMs} timeout_ms=${FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS}`
+          );
+          return staleAllEmpresasEntry.value;
+        }
       }
+
+      const error = new Error(
+        "Não foi possível consultar resumo de formas de pagamento no Firebird (todas as empresas falharam)."
+      );
+      error.code = "VENDAS_FORMAS_PAGAMENTO_UNAVAILABLE";
+      throw error;
     }
 
-    const error = new Error(
-      "Não foi possível consultar resumo de formas de pagamento no Firebird (todas as empresas falharam)."
+    setCachedValue({
+      label: allEmpresasCacheLabel,
+      params: allEmpresasCacheParams,
+      value: flattened,
+      ttlMs,
+    });
+
+    return flattened;
+  } catch (err) {
+    if (err?.code) {
+      throw err;
+    }
+
+    const wrappedError = new Error(
+      "Não foi possível consultar resumo de formas de pagamento no Firebird (falha inesperada)."
     );
-    error.code = "VENDAS_FORMAS_PAGAMENTO_UNAVAILABLE";
-    throw error;
+    wrappedError.code = "VENDAS_FORMAS_PAGAMENTO_UNAVAILABLE";
+    wrappedError.cause = err;
+    throw wrappedError;
   }
-
-  setCachedValue({
-    label: allEmpresasCacheLabel,
-    params: allEmpresasCacheParams,
-    value: flattened,
-    ttlMs,
-  });
-
-  return flattened;
 }
 
 async function getFormasPagamentoAuditoria({
