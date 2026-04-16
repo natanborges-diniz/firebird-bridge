@@ -10,6 +10,7 @@ function loadSql(fileName) {
 const sqlMonitorOs = loadSql("monitor.sql");
 const sqlMonitorOsUltimaEtapa = loadSql("monitor_ultima_etapa.sql");
 const sqlHubReceitas = loadSql("hub_receitas.sql");
+const sqlConsultaStatus = loadSql("consulta_status.sql");
 const OSL_TABLE_NAME = "ORDEMSERVICOOTICALENTE";
 const OSL_JOIN_COLUMN_NAME = "COD_ORDEMSERVICOCAIXA";
 const RECEITA_TABLE_NAME = "OTILJCLIENTERECEITA";
@@ -365,6 +366,38 @@ async function getHubReceitasCompleto({ os, codEmpresa }) {
   };
 }
 
+async function getConsultaStatus({ os, cpf }) {
+  const osParam = os ?? null;
+  const cpfParam = cpf ?? null;
+  const limitByCpf = cpfParam ? 5 : null;
+  const rows = await db.query(sqlConsultaStatus, [
+    osParam,
+    osParam,
+    cpfParam,
+    cpfParam,
+    cpfParam,
+  ]);
+
+  const normalizedRows = rows.map((row) => ({
+    os: String(row.os ?? '').trim(),
+    etapa: String(row.etapa ?? '').trim(),
+    statusAtraso: row.status_atraso ?? null,
+    atrasoDias: row.atraso_dias ?? null,
+    dataPrevisao: row.data_previsao ?? null,
+    dataEmissao: row.data_emissao ?? null,
+    dataSaida: row.data_saida ?? null,
+    empresa: String(row.empresa ?? '').trim(),
+    cliente: String(row.cliente ?? '').trim(),
+    vendedor: row.vendedor == null ? null : String(row.vendedor).trim(),
+  }));
+
+  if (limitByCpf) {
+    return normalizedRows.slice(0, limitByCpf);
+  }
+
+  return normalizedRows;
+}
+
 async function getReceitaMetadata({ campos, chavesOs, includeAllFields }) {
   const camposUpper = campos
     .map((campo) => String(campo || "").trim())
@@ -432,5 +465,6 @@ module.exports = {
   getMonitorOsUltimaEtapa,
   getHubReceitas,
   getHubReceitasCompleto,
+  getConsultaStatus,
   getReceitaMetadata,
 };

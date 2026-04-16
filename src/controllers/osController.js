@@ -195,6 +195,75 @@ async function hubReceitasCompleto(req, res) {
   }
 }
 
+function maskCpf(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  return `***${digits.slice(-6)}`;
+}
+
+async function consultaStatus(req, res) {
+  try {
+    const rawOs = req.query.os;
+    const rawCpf = req.query.cpf;
+
+    const hasOs = rawOs !== undefined && rawOs !== null && String(rawOs).trim() !== '';
+    const hasCpf = rawCpf !== undefined && rawCpf !== null && String(rawCpf).trim() !== '';
+
+    if (!hasOs && !hasCpf) {
+      return res.status(400).json({
+        ok: false,
+        error: {
+          code: 'INVALID_PARAMS',
+          message: 'Informe cpf ou os',
+        },
+      });
+    }
+
+    let os = null;
+    let cpf = null;
+
+    if (hasOs) {
+      os = Number(rawOs);
+      if (!Number.isFinite(os)) {
+        return failure(res, {
+          code: 'INVALID_PARAMS',
+          message: 'os deve ser numérico',
+          details: { os: rawOs },
+          status: 400,
+        });
+      }
+    }
+
+    if (hasCpf) {
+      cpf = String(rawCpf).replace(/\D/g, '');
+      if (cpf.length !== 11) {
+        return failure(res, {
+          code: 'INVALID_PARAMS',
+          message: 'cpf deve conter 11 dígitos',
+          details: { cpf: rawCpf },
+          status: 400,
+        });
+      }
+    }
+
+    console.log('[OS][consulta-status]', {
+      os: os ?? null,
+      cpf: cpf ? maskCpf(cpf) : null,
+    });
+
+    const data = await osService.getConsultaStatus({ os, cpf });
+    return res.status(200).json({
+      ok: true,
+      data,
+      meta: {
+        count: data.length,
+      },
+    });
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 async function receitaMetadata(req, res) {
   try {
     const rawCampos = req.query.campos ?? "";
@@ -275,5 +344,6 @@ module.exports = {
   monitorOsUltimaEtapa,
   hubReceitas,
   hubReceitasCompleto,
+  consultaStatus,
   receitaMetadata,
 };

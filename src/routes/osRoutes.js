@@ -4,6 +4,7 @@ const osController = require('../controllers/osController');
 
 router.get('/monitor', osController.monitorOs);
 router.get('/monitor-ultima-etapa', osController.monitorOsUltimaEtapa);
+router.get('/consulta-status', osController.consultaStatus);
 router.get('/hub-receitas', osController.hubReceitas);
 router.get('/hub-receitas-completo', osController.hubReceitasCompleto);
 router.get('/receitas-metadata', osController.receitaMetadata);
