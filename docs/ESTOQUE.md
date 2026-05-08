@@ -63,20 +63,28 @@ GET /api/v1/estoque/completo?empresa=206
   "ok": true,
   "data": [
     {
-      "empresa_nome": "Antonio Agú",
-      "cod_empresa": 206,
-      "fornecedor_cod_pessoa": 123,
+      "cod_sku": 12345,
+      "codigo_barras": "7891234567890",
+      "descricao": "ARMAÇÃO RAY-BAN RB5154 2000 51",
       "fornecedor_nome": "FORNECEDOR ABC",
       "grife": "RAYBAN",
-      "codigo_barras": "7891234567890",
-      "descricao_item": "ARMAÇÃO RAY-BAN RB5154 2000 51",
       "quantidade_estoque": 5,
       "preco_custo": 150.00,
+      "preco_venda": 0,
       "data_ultima_entrada": "2024-10-15",
       "data_ultima_venda": "2024-12-20",
+      "dias_estoque": 106,
       "dias_sem_venda": 40,
-      "cod_armacao": 12345
+      "acao_sugerida": "ACOMPANHAMENTO"
     }
   ],
   "error": null
 }
+
+### Regra de unicidade
+
+O endpoint retorna **uma linha por `cod_sku`**. Quando um produto possui mais de
+um vínculo em `fornecedor_item`, a query ranqueia as linhas por
+`data_ultima_entrada DESC NULLS LAST` e, em empate, por `fornecedor_nome ASC`,
+mantendo apenas a primeira linha de cada SKU. O campo `quantidade_estoque`
+continua vindo do saldo consolidado por produto em estoque, sem soma por vínculo.
