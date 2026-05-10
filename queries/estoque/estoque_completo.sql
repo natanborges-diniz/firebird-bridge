@@ -2,19 +2,12 @@
 -- Estoque completo (apenas prateleira) com dados de venda e custo.
 -- Contrato: uma linha por cod_sku. O estoque já vem consolidado por produto
 -- em tbestoque; portanto, não deve ser somado novamente por vínculo de fornecedor.
+-- Performance: o filtro de empresa é aplicado em tbestoque antes de qualquer
+-- window function para evitar ranquear vínculos do catálogo inteiro.
 -- Parâmetros:
 --   1) empresa (int)
 
 WITH
-  tbEMPRESA AS (
-    SELECT
-      EMPRESA.COD_EMPRESA,
-      PESSOA.NOME AS EMPRESA
-    FROM
-      EMPRESA
-      JOIN PESSOA ON PESSOA.COD_PESSOA = EMPRESA.COD_EMPRESA
-  ),
-
   tbestoque AS (
     SELECT
       estoque.cod_empresa,
@@ -23,7 +16,8 @@ WITH
     FROM
       estoque
     WHERE
-      estoque.cod_estoquelocal = 1
+      estoque.cod_empresa = CAST(? AS INTEGER)
+      AND estoque.cod_estoquelocal = 1
       AND estoque.saldo > 0
     GROUP BY
       1, 2
@@ -37,6 +31,8 @@ WITH
       itemclassificacao
       JOIN item_itemclassificacao
         ON item_itemclassificacao.cod_itemclassificacao = itemclassificacao.cod_itemclassificacao
+      JOIN tbestoque
+        ON tbestoque.cod_produto = item_itemclassificacao.cod_item
     WHERE
       itemclassificacao.cod_dwitemclassificacao = 42
   ),
@@ -54,6 +50,9 @@ WITH
       JOIN transacao_item
         ON transacao_item.cod_transacao = transacao.cod_transacao
        AND transacao_item.cod_empresa = transacao.cod_empresa
+      JOIN tbestoque
+        ON tbestoque.cod_produto = transacao_item.cod_item
+       AND tbestoque.cod_empresa = transacao.cod_empresa
       JOIN naturezaoperacao
         ON naturezaoperacao.cod_naturezaoperacao = transacao_item.cod_naturezaoperacao
     WHERE
@@ -78,6 +77,9 @@ WITH
       JOIN transacao_item
         ON transacao_item.cod_transacao = transacao.cod_transacao
        AND transacao_item.cod_empresa = transacao.cod_empresa
+      JOIN tbestoque
+        ON tbestoque.cod_produto = transacao_item.cod_item
+       AND tbestoque.cod_empresa = transacao.cod_empresa
       JOIN naturezaoperacao
         ON naturezaoperacao.cod_naturezaoperacao = transacao_item.cod_naturezaoperacao
     WHERE
@@ -96,6 +98,9 @@ WITH
       JOIN transacao_item
         ON transacao_item.cod_transacao = transacao.cod_transacao
        AND transacao_item.cod_empresa = transacao.cod_empresa
+      JOIN tbestoque
+        ON tbestoque.cod_produto = transacao_item.cod_item
+       AND tbestoque.cod_empresa = transacao.cod_empresa
       JOIN naturezaoperacao
         ON naturezaoperacao.cod_naturezaoperacao = transacao_item.cod_naturezaoperacao
     WHERE
@@ -104,52 +109,40 @@ WITH
       1, 2
   ),
 
-  tbFornecedorPreferencial AS (
+  tbFornecedorVinculosLoja AS (
     SELECT
-      fornecedor_rank.cod_item,
-      fornecedor_rank.cod_fornecedor,
-      fornecedor_rank.nome
-    FROM (
-      SELECT
-        fornecedor_item.cod_item,
-        fornecedor_item.cod_fornecedor,
-        pessoafornecedor.nome,
-        ROW_NUMBER() OVER (
-          PARTITION BY fornecedor_item.cod_item
-          ORDER BY
-            pessoafornecedor.nome ASC,
-            fornecedor_item.cod_fornecedor ASC
-        ) AS rn
-      FROM
-        fornecedor_item
-        JOIN pessoa pessoafornecedor
-          ON pessoafornecedor.cod_pessoa = fornecedor_item.cod_fornecedor
-    ) fornecedor_rank
-    WHERE
-      fornecedor_rank.rn = 1
+      fornecedor_item.cod_item,
+      fornecedor_item.cod_fornecedor,
+      pessoafornecedor.nome AS fornecedor_nome
+    FROM
+      fornecedor_item
+      JOIN tbestoque
+        ON tbestoque.cod_produto = fornecedor_item.cod_item
+      JOIN pessoa pessoafornecedor
+        ON pessoafornecedor.cod_pessoa = fornecedor_item.cod_fornecedor
   ),
 
   tbEstoqueCompletoBase AS (
     SELECT
-      produto.cod_produto                             AS cod_sku,
-      produto.codigobarra                             AS codigo_barras,
-      item.descricao                                  AS descricao,
-      COALESCE(tbFornecedorPreferencial.nome, 'SEM FORNECEDOR')
-                                                      AS fornecedor_nome,
+      produto.cod_produto                              AS cod_sku,
+      produto.codigobarra                              AS codigo_barras,
+      item.descricao                                   AS descricao,
+      COALESCE(tbFornecedorVinculosLoja.fornecedor_nome, 'SEM FORNECEDOR')
+                                                       AS fornecedor_nome,
       COALESCE(tbmarcamodeloar.descricao, 'SEM MARCA') AS grife,
-      tbestoque.saldo                                 AS quantidade_estoque,
-      COALESCE(tbUltimoCusto.custo_unitario, 0)       AS preco_custo,
-      0                                               AS preco_venda,
-      tbUltimaEntrada.data_ultima_entrada             AS data_ultima_entrada,
-      tbUltimaVenda.data_ultima_venda                 AS data_ultima_venda,
+      tbestoque.saldo                                  AS quantidade_estoque,
+      COALESCE(tbUltimoCusto.custo_unitario, 0)        AS preco_custo,
+      0                                                AS preco_venda,
+      tbUltimaEntrada.data_ultima_entrada              AS data_ultima_entrada,
+      tbUltimaVenda.data_ultima_venda                  AS data_ultima_venda,
       CASE
         WHEN tbUltimaEntrada.data_ultima_entrada IS NULL THEN NULL
         ELSE DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE)
-      END                                             AS dias_estoque,
+      END                                              AS dias_estoque,
       CASE
         WHEN tbUltimaVenda.data_ultima_venda IS NULL THEN NULL
         ELSE DATEDIFF(DAY FROM tbUltimaVenda.data_ultima_venda TO CURRENT_DATE)
-      END                                             AS dias_sem_venda,
+      END                                              AS dias_sem_venda,
       CASE
         WHEN tbUltimaEntrada.data_ultima_entrada IS NULL THEN 'SEM MOVIMENTO'
         WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) BETWEEN 0 AND 90 THEN 'ANALISE PARA RECOMPRA'
@@ -159,17 +152,15 @@ WITH
         WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) BETWEEN 361 AND 720 THEN 'LIQUIDA 30%'
         WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) > 720 THEN 'LIQUIDA 50%'
         ELSE 'DADOS INSUFICIENTES'
-      END                                             AS acao_sugerida
+      END                                              AS acao_sugerida
     FROM
-      item
+      tbestoque
       JOIN produto
-        ON produto.cod_produto = item.cod_item
-      JOIN tbestoque
-        ON tbestoque.cod_produto = produto.cod_produto
-      JOIN tbEMPRESA
-        ON tbEMPRESA.cod_empresa = tbestoque.cod_empresa
-      LEFT JOIN tbFornecedorPreferencial
-        ON tbFornecedorPreferencial.cod_item = item.cod_item
+        ON produto.cod_produto = tbestoque.cod_produto
+      JOIN item
+        ON item.cod_item = produto.cod_produto
+      LEFT JOIN tbFornecedorVinculosLoja
+        ON tbFornecedorVinculosLoja.cod_item = item.cod_item
       LEFT JOIN tbmarcamodeloar
         ON tbmarcamodeloar.cod_item = item.cod_item
       LEFT JOIN tbUltimaEntrada
@@ -181,39 +172,40 @@ WITH
       LEFT JOIN tbUltimaVenda
         ON tbUltimaVenda.cod_produto = produto.cod_produto
        AND tbUltimaVenda.cod_empresa = tbestoque.cod_empresa
-    WHERE
-      tbestoque.cod_empresa = CAST(? AS INTEGER)
+  ),
+
+  tbEstoqueCompletoRank AS (
+    SELECT
+      tbEstoqueCompletoBase.*,
+      ROW_NUMBER() OVER (
+        PARTITION BY tbEstoqueCompletoBase.cod_sku
+        ORDER BY
+          tbEstoqueCompletoBase.data_ultima_entrada DESC NULLS LAST,
+          tbEstoqueCompletoBase.fornecedor_nome ASC
+      ) AS rn
+    FROM
+      tbEstoqueCompletoBase
   )
 
 SELECT
-  estoque_rank.cod_sku,
-  estoque_rank.codigo_barras,
-  estoque_rank.descricao,
-  estoque_rank.fornecedor_nome,
-  estoque_rank.grife,
-  estoque_rank.quantidade_estoque,
-  estoque_rank.preco_custo,
-  estoque_rank.preco_venda,
-  estoque_rank.data_ultima_entrada,
-  estoque_rank.data_ultima_venda,
-  estoque_rank.dias_estoque,
-  estoque_rank.dias_sem_venda,
-  estoque_rank.acao_sugerida
-FROM (
-  SELECT
-    tbEstoqueCompletoBase.*,
-    ROW_NUMBER() OVER (
-      PARTITION BY tbEstoqueCompletoBase.cod_sku
-      ORDER BY
-        tbEstoqueCompletoBase.data_ultima_entrada DESC NULLS LAST,
-        tbEstoqueCompletoBase.fornecedor_nome ASC
-    ) AS rn
-  FROM
-    tbEstoqueCompletoBase
-) estoque_rank
+  tbEstoqueCompletoRank.cod_sku,
+  tbEstoqueCompletoRank.codigo_barras,
+  tbEstoqueCompletoRank.descricao,
+  tbEstoqueCompletoRank.fornecedor_nome,
+  tbEstoqueCompletoRank.grife,
+  tbEstoqueCompletoRank.quantidade_estoque,
+  tbEstoqueCompletoRank.preco_custo,
+  tbEstoqueCompletoRank.preco_venda,
+  tbEstoqueCompletoRank.data_ultima_entrada,
+  tbEstoqueCompletoRank.data_ultima_venda,
+  tbEstoqueCompletoRank.dias_estoque,
+  tbEstoqueCompletoRank.dias_sem_venda,
+  tbEstoqueCompletoRank.acao_sugerida
+FROM
+  tbEstoqueCompletoRank
 WHERE
-  estoque_rank.rn = 1
+  tbEstoqueCompletoRank.rn = 1
 ORDER BY
-  estoque_rank.quantidade_estoque DESC,
-  estoque_rank.cod_sku ASC
+  tbEstoqueCompletoRank.quantidade_estoque DESC,
+  tbEstoqueCompletoRank.cod_sku ASC
 ;
