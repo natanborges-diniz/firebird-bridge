@@ -263,7 +263,7 @@ async function getAnaliseFamiliaVendedorPorEmpresa(codEmpresa, dataInicio, dataF
 }
 
 async function getAnaliseSkuPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
-  const params = [codEmpresa, codEmpresa, dataInicio, dataFim];
+  const params = [codEmpresa, codEmpresa, dataInicio, dataFim, codEmpresa, codEmpresa, dataInicio, dataFim];
   const cacheLabel = "vendas.analise_sku";
   const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
   return getCachedOrFetch({
