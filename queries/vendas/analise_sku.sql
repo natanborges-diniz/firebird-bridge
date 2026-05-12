@@ -1,10 +1,14 @@
 -- queries/vendas/analise_sku.sql
 -- Vendas por empresa e SKU (item) com estoque e dados de compra
 -- Parâmetros:
---   1) empresa (int)
---   2) empresa (int) (repetido p/ regra 13/18)
---   3) dataInicio (date)
---   4) dataFim (date)
+--   1) empresa (int) para giro real
+--   2) empresa (int) para giro real (repetido p/ regra 13/18)
+--   3) dataInicio (date) para giro real
+--   4) dataFim (date) para giro real
+--   5) empresa (int)
+--   6) empresa (int) (repetido p/ regra 13/18)
+--   7) dataInicio (date)
+--   8) dataFim (date)
 
 WITH
   tbestoque AS (
@@ -74,6 +78,103 @@ WITH
       naturezaoperacao.tipo = 2
     GROUP BY
       1, 2
+  ),
+
+  tbGiroAnaliseBase AS (
+    SELECT
+      t_giro.cod_empresaestoque AS cod_empresa,
+      ti_giro.cod_item,
+      t_giro.dataencerramento AS data_venda,
+      ti_giro.quantidade,
+      (
+        SELECT FIRST 1
+          transacao_entrada.dataencerramento
+        FROM
+          transacao transacao_entrada
+          JOIN entrada
+            ON entrada.cod_empresa = transacao_entrada.cod_empresa
+           AND entrada.cod_entrada = transacao_entrada.cod_transacao
+          JOIN transacao_item ti_entrada
+            ON ti_entrada.cod_transacao = transacao_entrada.cod_transacao
+           AND ti_entrada.cod_empresa = transacao_entrada.cod_empresa
+          JOIN naturezaoperacao nat_entrada
+            ON nat_entrada.cod_naturezaoperacao = ti_entrada.cod_naturezaoperacao
+        WHERE
+          nat_entrada.tipo = 2
+          AND transacao_entrada.cod_empresa = t_giro.cod_empresaestoque
+          AND ti_entrada.cod_item = ti_giro.cod_item
+          AND transacao_entrada.dataencerramento <= t_giro.dataencerramento
+        ORDER BY
+          transacao_entrada.dataencerramento DESC
+      ) AS data_entrada_referencia
+    FROM
+      transacao t_giro
+      JOIN transacao_item ti_giro
+        ON t_giro.cod_transacao = ti_giro.cod_transacao
+       AND t_giro.cod_empresa = ti_giro.cod_empresa
+      JOIN naturezaoperacao nat_giro
+        ON ti_giro.cod_naturezaoperacao = nat_giro.cod_naturezaoperacao
+      JOIN saida s_giro
+        ON s_giro.cod_saida = t_giro.cod_transacao
+       AND s_giro.cod_empresa = t_giro.cod_empresa
+      JOIN empresa emp_giro
+        ON emp_giro.cod_empresa = t_giro.cod_empresaestoque
+    WHERE
+      emp_giro.cod_empresa NOT IN (3, 5, 7, 8, 11, 12)
+      AND nat_giro.tipo = 1
+      AND (
+        emp_giro.cod_empresa = CAST(? AS INTEGER)
+        OR (
+          CAST(? AS INTEGER) IN (13, 18)
+          AND emp_giro.cod_empresa IN (13, 18)
+        )
+      )
+      AND t_giro.dataencerramento BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+  ),
+
+  tbGiroAnaliseCalc AS (
+    SELECT
+      tbGiroAnaliseBase.cod_empresa,
+      tbGiroAnaliseBase.cod_item,
+      tbGiroAnaliseBase.data_venda,
+      tbGiroAnaliseBase.quantidade,
+      DATEDIFF(DAY FROM tbGiroAnaliseBase.data_entrada_referencia TO tbGiroAnaliseBase.data_venda) AS dias_giro
+    FROM
+      tbGiroAnaliseBase
+    WHERE
+      tbGiroAnaliseBase.data_entrada_referencia IS NOT NULL
+  ),
+
+  tbGiroAnaliseRank AS (
+    SELECT
+      tbGiroAnaliseCalc.*,
+      ROW_NUMBER() OVER (
+        PARTITION BY tbGiroAnaliseCalc.cod_empresa, tbGiroAnaliseCalc.cod_item
+        ORDER BY
+          tbGiroAnaliseCalc.data_venda DESC
+      ) AS rn_ultima_venda
+    FROM
+      tbGiroAnaliseCalc
+  ),
+
+  tbGiroAnaliseSku AS (
+    SELECT
+      tbGiroAnaliseRank.cod_empresa,
+      tbGiroAnaliseRank.cod_item,
+      SUM(CAST(tbGiroAnaliseRank.dias_giro AS DOUBLE PRECISION) * tbGiroAnaliseRank.quantidade)
+        / NULLIF(SUM(tbGiroAnaliseRank.quantidade), 0) AS dias_giro_medio,
+      MEDIAN(tbGiroAnaliseRank.dias_giro) AS dias_giro_mediano,
+      MAX(
+        CASE
+          WHEN tbGiroAnaliseRank.rn_ultima_venda = 1 THEN tbGiroAnaliseRank.dias_giro
+          ELSE NULL
+        END
+      ) AS dias_giro_ultima_peca,
+      SUM(tbGiroAnaliseRank.quantidade) AS pecas_vendidas_consideradas
+    FROM
+      tbGiroAnaliseRank
+    GROUP BY
+      1, 2
   )
 
 SELECT
@@ -105,6 +206,15 @@ SELECT
     END,
     'OUTROS'
   )                           AS TIPO,
+  CASE
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'OC' THEN 'AR_SOLAR'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'AR' THEN 'AR_RX'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'LG' THEN 'LENTES_GRAU'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'GC' THEN 'LENTES_CONTATO'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'LC' THEN 'LENTES_CONTATO'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'AC' THEN 'ACESSORIOS'
+    ELSE 'OUTROS'
+  END                         AS SUBCATEGORIA,
   MAX(
     CASE
       WHEN pf.DESCRICAO IN ('AR', 'OC') THEN pf.DESCRICAO
@@ -125,6 +235,14 @@ SELECT
   tbUltimaVenda.data_ultima_venda AS DATA_ULTIMA_VENDA,
   DATEDIFF(DAY FROM tbUltimaVenda.data_ultima_venda TO CURRENT_DATE)
                                 AS DIAS_DESDE_ULTIMA_VENDA,
+  MAX(tbGiroAnaliseSku.dias_giro_medio)
+                                AS DIAS_GIRO_MEDIO,
+  MAX(tbGiroAnaliseSku.dias_giro_mediano)
+                                AS DIAS_GIRO_MEDIANO,
+  MAX(tbGiroAnaliseSku.dias_giro_ultima_peca)
+                                AS DIAS_GIRO_ULTIMA_PECA,
+  COALESCE(MAX(tbGiroAnaliseSku.pecas_vendidas_consideradas), 0)
+                                AS PECAS_VENDIDAS_CONSIDERADAS,
 
   tbUltimoCusto.data_ultima_entrada AS DATA_ULTIMO_CUSTO,
   tbUltimoCusto.custo_unitario      AS PRECO_CUSTO,
@@ -187,6 +305,10 @@ FROM
     ON tbUltimoCusto.cod_item = it.cod_item
    AND tbUltimoCusto.cod_empresa = t.cod_empresa
 
+  LEFT JOIN tbGiroAnaliseSku
+    ON tbGiroAnaliseSku.cod_item = it.cod_item
+   AND tbGiroAnaliseSku.cod_empresa = t.cod_empresaestoque
+
 WHERE
   emp.COD_EMPRESA NOT IN (3, 5, 7, 8, 11, 12)
   AND nat.TIPO = 1
@@ -220,6 +342,15 @@ GROUP BY
     END,
     'OUTROS'
   ),
+  CASE
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'OC' THEN 'AR_SOLAR'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'AR' THEN 'AR_RX'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'LG' THEN 'LENTES_GRAU'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'GC' THEN 'LENTES_CONTATO'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'LC' THEN 'LENTES_CONTATO'
+    WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'AC' THEN 'ACESSORIOS'
+    ELSE 'OUTROS'
+  END,
   pf.DESCRICAO,
   tbestoque.saldo,
   tbUltimaVenda.data_ultima_venda,
