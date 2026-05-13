@@ -263,7 +263,7 @@ async function getAnaliseFamiliaVendedorPorEmpresa(codEmpresa, dataInicio, dataF
 }
 
 async function getAnaliseSkuPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
-  const params = [codEmpresa, codEmpresa, dataInicio, dataFim, codEmpresa, codEmpresa, dataInicio, dataFim];
+  const params = [codEmpresa, codEmpresa, dataInicio, dataFim];
   const cacheLabel = "vendas.analise_sku";
   const ttlMs = options.cacheTtlMs ?? getRangeTtlMs({ dataInicio, dataFim, baseTtlMs: DEFAULT_TTL_MS });
   return getCachedOrFetch({
@@ -600,7 +600,7 @@ async function getAnaliseSku({ empresa, dataInicio, dataFim, useCache, cacheTtlM
   if (LOG_QUERY_TIME) {
     console.log(`[VENDAS] analise-sku empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`);
   }
-  return results.flatMap((result, index) => {
+  const rows = results.flatMap((result, index) => {
     if (result.status === "fulfilled") {
       return result.value ?? [];
     }
@@ -610,11 +610,13 @@ async function getAnaliseSku({ empresa, dataInicio, dataFim, useCache, cacheTtlM
     );
     return [];
   });
-}
-async function debugCreateIndexes() {
-  return db.query(sqlCreateIndexes);
-}
 
+  if (results.length > 0 && results.every((result) => result.status === "rejected")) {
+    throw results[0].reason;
+  }
+
+  return rows;
+}
 module.exports = {
   getResumoEmpresaVendedor,
   getResumoDiarioSimples,
