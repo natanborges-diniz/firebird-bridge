@@ -279,6 +279,10 @@ async function debugResumoEmpresaVendedor(params) {
   return db.runQuery(SQL_DEBUG, params);
 }
 
+async function debugCreateIndexes() {
+  return db.query(sqlCreateIndexes);
+}
+
 // --------- APIS PRINCIPAIS ---------
 async function getResumoEmpresaVendedor({
   empresa,
