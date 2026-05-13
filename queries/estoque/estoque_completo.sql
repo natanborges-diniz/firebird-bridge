@@ -109,96 +109,6 @@ WITH
       1, 2
   ),
 
-  tbGiroVendaBase AS (
-    SELECT
-      transacao_item.cod_item AS cod_produto,
-      transacao.cod_empresa,
-      transacao.dataencerramento AS data_venda,
-      transacao_item.quantidade,
-      (
-        SELECT FIRST 1
-          transacao_entrada.dataencerramento
-        FROM
-          transacao transacao_entrada
-          JOIN entrada
-            ON entrada.cod_empresa = transacao_entrada.cod_empresa
-           AND entrada.cod_entrada = transacao_entrada.cod_transacao
-          JOIN transacao_item transacao_item_entrada
-            ON transacao_item_entrada.cod_transacao = transacao_entrada.cod_transacao
-           AND transacao_item_entrada.cod_empresa = transacao_entrada.cod_empresa
-          JOIN naturezaoperacao natureza_entrada
-            ON natureza_entrada.cod_naturezaoperacao = transacao_item_entrada.cod_naturezaoperacao
-        WHERE
-          natureza_entrada.tipo = 2
-          AND transacao_entrada.cod_empresa = transacao.cod_empresa
-          AND transacao_item_entrada.cod_item = transacao_item.cod_item
-          AND transacao_entrada.dataencerramento <= transacao.dataencerramento
-        ORDER BY
-          transacao_entrada.dataencerramento DESC
-      ) AS data_entrada_referencia
-    FROM
-      transacao
-      JOIN saida
-        ON saida.cod_saida = transacao.cod_transacao
-       AND saida.cod_empresa = transacao.cod_empresa
-      JOIN transacao_item
-        ON transacao_item.cod_transacao = transacao.cod_transacao
-       AND transacao_item.cod_empresa = transacao.cod_empresa
-      JOIN tbestoque
-        ON tbestoque.cod_produto = transacao_item.cod_item
-       AND tbestoque.cod_empresa = transacao.cod_empresa
-      JOIN naturezaoperacao
-        ON naturezaoperacao.cod_naturezaoperacao = transacao_item.cod_naturezaoperacao
-    WHERE
-      naturezaoperacao.tipo = 1
-      AND transacao.dataencerramento BETWEEN DATEADD(-180 DAY TO CURRENT_DATE) AND CURRENT_DATE
-  ),
-
-  tbGiroVendaCalc AS (
-    SELECT
-      tbGiroVendaBase.cod_produto,
-      tbGiroVendaBase.cod_empresa,
-      tbGiroVendaBase.data_venda,
-      tbGiroVendaBase.quantidade,
-      DATEDIFF(DAY FROM tbGiroVendaBase.data_entrada_referencia TO tbGiroVendaBase.data_venda) AS dias_giro
-    FROM
-      tbGiroVendaBase
-    WHERE
-      tbGiroVendaBase.data_entrada_referencia IS NOT NULL
-  ),
-
-  tbGiroVendaRank AS (
-    SELECT
-      tbGiroVendaCalc.*,
-      ROW_NUMBER() OVER (
-        PARTITION BY tbGiroVendaCalc.cod_empresa, tbGiroVendaCalc.cod_produto
-        ORDER BY
-          tbGiroVendaCalc.data_venda DESC
-      ) AS rn_ultima_venda
-    FROM
-      tbGiroVendaCalc
-  ),
-
-  tbGiroSku AS (
-    SELECT
-      tbGiroVendaRank.cod_produto,
-      tbGiroVendaRank.cod_empresa,
-      SUM(CAST(tbGiroVendaRank.dias_giro AS DOUBLE PRECISION) * tbGiroVendaRank.quantidade)
-        / NULLIF(SUM(tbGiroVendaRank.quantidade), 0) AS dias_giro_medio,
-      MEDIAN(tbGiroVendaRank.dias_giro) AS dias_giro_mediano,
-      MAX(
-        CASE
-          WHEN tbGiroVendaRank.rn_ultima_venda = 1 THEN tbGiroVendaRank.dias_giro
-          ELSE NULL
-        END
-      ) AS dias_giro_ultima_peca,
-      SUM(tbGiroVendaRank.quantidade) AS pecas_vendidas_consideradas
-    FROM
-      tbGiroVendaRank
-    GROUP BY
-      1, 2
-  ),
-
   tbFornecedorVinculosLoja AS (
     SELECT
       fornecedor_item.cod_item,
@@ -242,11 +152,10 @@ WITH
       0                                                AS preco_venda,
       tbUltimaEntrada.data_ultima_entrada              AS data_ultima_entrada,
       tbUltimaVenda.data_ultima_venda                  AS data_ultima_venda,
-      tbGiroSku.dias_giro_medio                        AS dias_giro_medio,
-      tbGiroSku.dias_giro_mediano                      AS dias_giro_mediano,
-      tbGiroSku.dias_giro_ultima_peca                  AS dias_giro_ultima_peca,
-      COALESCE(tbGiroSku.pecas_vendidas_consideradas, 0)
-                                                       AS pecas_vendidas_consideradas,
+      CAST(NULL AS INTEGER)                            AS dias_giro_medio,
+      CAST(NULL AS INTEGER)                            AS dias_giro_mediano,
+      CAST(NULL AS INTEGER)                            AS dias_giro_ultima_peca,
+      0                                                AS pecas_vendidas_consideradas,
       CASE
         WHEN tbUltimaEntrada.data_ultima_entrada IS NULL THEN NULL
         ELSE DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE)
@@ -284,9 +193,6 @@ WITH
       LEFT JOIN tbUltimaVenda
         ON tbUltimaVenda.cod_produto = produto.cod_produto
        AND tbUltimaVenda.cod_empresa = tbestoque.cod_empresa
-      LEFT JOIN tbGiroSku
-        ON tbGiroSku.cod_produto = produto.cod_produto
-       AND tbGiroSku.cod_empresa = tbestoque.cod_empresa
   ),
 
   tbEstoqueCompletoRank AS (
