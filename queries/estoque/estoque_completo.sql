@@ -152,10 +152,30 @@ WITH
       0                                                AS preco_venda,
       tbUltimaEntrada.data_ultima_entrada              AS data_ultima_entrada,
       tbUltimaVenda.data_ultima_venda                  AS data_ultima_venda,
-      CAST(NULL AS INTEGER)                            AS dias_giro_medio,
-      CAST(NULL AS INTEGER)                            AS dias_giro_mediano,
-      CAST(NULL AS INTEGER)                            AS dias_giro_ultima_peca,
-      0                                                AS pecas_vendidas_consideradas,
+      CASE
+        WHEN tbUltimaEntrada.data_ultima_entrada IS NULL
+          OR tbUltimaVenda.data_ultima_venda IS NULL
+          OR tbUltimaVenda.data_ultima_venda < tbUltimaEntrada.data_ultima_entrada THEN NULL
+        ELSE DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO tbUltimaVenda.data_ultima_venda)
+      END                                              AS dias_giro_medio,
+      CASE
+        WHEN tbUltimaEntrada.data_ultima_entrada IS NULL
+          OR tbUltimaVenda.data_ultima_venda IS NULL
+          OR tbUltimaVenda.data_ultima_venda < tbUltimaEntrada.data_ultima_entrada THEN NULL
+        ELSE DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO tbUltimaVenda.data_ultima_venda)
+      END                                              AS dias_giro_mediano,
+      CASE
+        WHEN tbUltimaEntrada.data_ultima_entrada IS NULL
+          OR tbUltimaVenda.data_ultima_venda IS NULL
+          OR tbUltimaVenda.data_ultima_venda < tbUltimaEntrada.data_ultima_entrada THEN NULL
+        ELSE DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO tbUltimaVenda.data_ultima_venda)
+      END                                              AS dias_giro_ultima_peca,
+      CASE
+        WHEN tbUltimaEntrada.data_ultima_entrada IS NULL
+          OR tbUltimaVenda.data_ultima_venda IS NULL
+          OR tbUltimaVenda.data_ultima_venda < tbUltimaEntrada.data_ultima_entrada THEN 0
+        ELSE 1
+      END                                              AS pecas_vendidas_consideradas,
       CASE
         WHEN tbUltimaEntrada.data_ultima_entrada IS NULL THEN NULL
         ELSE DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE)
