@@ -32,7 +32,7 @@ async function getEstoqueCompleto(empresa) {
     empresas.map((codEmpresa) => db.query(sqlEstoqueCompleto, [codEmpresa]))
   );
 
-  return results.flatMap((result, index) => {
+  const rows = results.flatMap((result, index) => {
     if (result.status === "fulfilled") {
       return result.value ?? [];
     }
@@ -42,6 +42,12 @@ async function getEstoqueCompleto(empresa) {
     );
     return [];
   });
+
+  if (results.length > 0 && results.every((result) => result.status === "rejected")) {
+    throw results[0].reason;
+  }
+
+  return rows;
 }
 
 module.exports = {
