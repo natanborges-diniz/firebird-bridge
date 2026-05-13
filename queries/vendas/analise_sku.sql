@@ -134,10 +134,26 @@ SELECT
   tbUltimaVenda.data_ultima_venda AS DATA_ULTIMA_VENDA,
   DATEDIFF(DAY FROM tbUltimaVenda.data_ultima_venda TO CURRENT_DATE)
                                 AS DIAS_DESDE_ULTIMA_VENDA,
-  CAST(NULL AS INTEGER)       AS DIAS_GIRO_MEDIO,
-  CAST(NULL AS INTEGER)       AS DIAS_GIRO_MEDIANO,
-  CAST(NULL AS INTEGER)       AS DIAS_GIRO_ULTIMA_PECA,
-  0                           AS PECAS_VENDIDAS_CONSIDERADAS,
+  CASE
+    WHEN tbUltimoCusto.data_ultima_entrada IS NULL
+      OR MAX(t.DATAENCERRAMENTO) < tbUltimoCusto.data_ultima_entrada THEN NULL
+    ELSE DATEDIFF(DAY FROM tbUltimoCusto.data_ultima_entrada TO MAX(t.DATAENCERRAMENTO))
+  END                         AS DIAS_GIRO_MEDIO,
+  CASE
+    WHEN tbUltimoCusto.data_ultima_entrada IS NULL
+      OR MAX(t.DATAENCERRAMENTO) < tbUltimoCusto.data_ultima_entrada THEN NULL
+    ELSE DATEDIFF(DAY FROM tbUltimoCusto.data_ultima_entrada TO MAX(t.DATAENCERRAMENTO))
+  END                         AS DIAS_GIRO_MEDIANO,
+  CASE
+    WHEN tbUltimoCusto.data_ultima_entrada IS NULL
+      OR MAX(t.DATAENCERRAMENTO) < tbUltimoCusto.data_ultima_entrada THEN NULL
+    ELSE DATEDIFF(DAY FROM tbUltimoCusto.data_ultima_entrada TO MAX(t.DATAENCERRAMENTO))
+  END                         AS DIAS_GIRO_ULTIMA_PECA,
+  CASE
+    WHEN tbUltimoCusto.data_ultima_entrada IS NULL
+      OR MAX(t.DATAENCERRAMENTO) < tbUltimoCusto.data_ultima_entrada THEN 0
+    ELSE SUM(ti.QUANTIDADE)
+  END                         AS PECAS_VENDIDAS_CONSIDERADAS,
 
   tbUltimoCusto.data_ultima_entrada AS DATA_ULTIMO_CUSTO,
   tbUltimoCusto.custo_unitario      AS PRECO_CUSTO,
@@ -233,7 +249,7 @@ GROUP BY
     END,
     'OUTROS'
   ),
-    CASE
+  CASE
     WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'OC' THEN 'AR_SOLAR'
     WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'AR' THEN 'AR_RX'
     WHEN UPPER(TRIM(it.DESCRICAO)) STARTING WITH 'LG' THEN 'LENTES_GRAU'
