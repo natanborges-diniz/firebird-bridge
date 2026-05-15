@@ -186,12 +186,12 @@ WITH
       END                                              AS dias_sem_venda,
       CASE
         WHEN tbUltimaEntrada.data_ultima_entrada IS NULL THEN 'SEM MOVIMENTO'
-        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) BETWEEN 0 AND 90 THEN 'ANALISE PARA RECOMPRA'
-        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) BETWEEN 91 AND 180 THEN 'ACOMPANHAMENTO'
-        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) BETWEEN 181 AND 270 THEN 'SINAL DE ALERTA'
-        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) BETWEEN 271 AND 360 THEN 'LIQUIDA 20%'
-        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) BETWEEN 361 AND 720 THEN 'LIQUIDA 30%'
-        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) > 720 THEN 'LIQUIDA 50%'
+        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) <= 90  THEN 'ANALISE PARA RECOMPRA'
+        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) <= 180 THEN 'ACOMPANHAMENTO'
+        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) <= 270 THEN 'PROMOCAO 20%'
+        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) <= 360 THEN 'LIQUIDA 30%'
+        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) <= 720 THEN 'LIQUIDA 50%'
+        WHEN DATEDIFF(DAY FROM tbUltimaEntrada.data_ultima_entrada TO CURRENT_DATE) > 720  THEN 'ACAO ESPECIAL'
         ELSE 'DADOS INSUFICIENTES'
       END                                              AS acao_sugerida
     FROM

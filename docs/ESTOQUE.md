@@ -32,17 +32,21 @@ GET /api/v1/estoque/analise?empresa=206&dataInicio=2025-01-01&dataFim=2025-01-31
       "vendas_periodo": 3,
       "giro": 0.25,
       "cobertura": 4,
-      "acao_sugerida": "RECOMPRA"
+      "acao_sugerida": "ANALISE PARA RECOMPRA"
     }
   ],
   "error": null
 }
 
 ### Ações sugeridas
-- RECOMPRA
-- MANTER
-- LIQUIDA_30
-- ESTOQUE_PARADO
+- SEM MOVIMENTO
+- ANALISE PARA RECOMPRA
+- ACOMPANHAMENTO
+- PROMOCAO 20%
+- LIQUIDA 30%
+- LIQUIDA 50%
+- ACAO ESPECIAL
+- DADOS INSUFICIENTES
 
 ---
 
