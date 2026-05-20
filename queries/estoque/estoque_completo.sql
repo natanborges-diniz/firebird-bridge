@@ -109,6 +109,18 @@ WITH
       1, 2
   ),
 
+  -- Produtos com pelo menos uma venda nos últimos 360 dias (por empresa).
+  -- Derivado de tbUltimaVenda para evitar re-scan de transacao.
+  tbVendas360d AS (
+    SELECT
+      tbUltimaVenda.cod_produto,
+      tbUltimaVenda.cod_empresa
+    FROM
+      tbUltimaVenda
+    WHERE
+      tbUltimaVenda.data_ultima_venda >= (CURRENT_DATE - 360)
+  ),
+
   tbFornecedorVinculosLoja AS (
     SELECT
       fornecedor_item.cod_item,
@@ -127,20 +139,30 @@ WITH
       produto.cod_produto                              AS cod_sku,
       produto.codigobarra                              AS codigo_barras,
       item.descricao                                   AS descricao,
+      -- Tipo: ARMACOES / LENTES_GRAU / LENTES_CONTATO / PRODUTOS / OUTROS
+      -- LG usa '% LG%' (espaço obrigatório antes) para evitar falso positivo em "BULGET"
       CASE
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LG' THEN 'LENTES'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'GC' THEN 'LENTES'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LC' THEN 'LENTES'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'OC' THEN 'ARMACOES'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AR' THEN 'ARMACOES'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'OC'
+          OR UPPER(TRIM(item.descricao)) STARTING WITH 'AR' THEN 'ARMACOES'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LG'
+          OR UPPER(TRIM(item.descricao)) LIKE '% LG%'       THEN 'LENTES_GRAU'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'GC'
+          OR UPPER(TRIM(item.descricao)) LIKE '% GC%'       THEN 'LENTES_CONTATO'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LC'
+          OR UPPER(TRIM(item.descricao)) LIKE '% LC%'       THEN 'LENTES_CONTATO'
+        WHEN tbVendas360d.cod_produto IS NOT NULL           THEN 'PRODUTOS'
         ELSE 'OUTROS'
       END                                              AS tipo,
+      -- Subcategoria: detalhe dentro de ARMACOES e LENTES (mantida intacta)
       CASE
         WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'OC' THEN 'AR_SOLAR'
         WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AR' THEN 'AR_RX'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LG' THEN 'LENTES_GRAU'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'GC' THEN 'LENTES_CONTATO'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LC' THEN 'LENTES_CONTATO'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LG'
+          OR UPPER(TRIM(item.descricao)) LIKE '% LG%'       THEN 'LENTES_GRAU'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'GC'
+          OR UPPER(TRIM(item.descricao)) LIKE '% GC%'       THEN 'LENTES_CONTATO'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LC'
+          OR UPPER(TRIM(item.descricao)) LIKE '% LC%'       THEN 'LENTES_CONTATO'
         WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AC' THEN 'ACESSORIOS'
         ELSE 'OUTROS'
       END                                              AS subcategoria,
@@ -213,6 +235,9 @@ WITH
       LEFT JOIN tbUltimaVenda
         ON tbUltimaVenda.cod_produto = produto.cod_produto
        AND tbUltimaVenda.cod_empresa = tbestoque.cod_empresa
+      LEFT JOIN tbVendas360d
+        ON tbVendas360d.cod_produto = produto.cod_produto
+       AND tbVendas360d.cod_empresa = tbestoque.cod_empresa
   ),
 
   tbEstoqueCompletoRank AS (
