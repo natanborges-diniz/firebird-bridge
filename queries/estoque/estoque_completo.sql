@@ -140,30 +140,27 @@ WITH
       produto.codigobarra                              AS codigo_barras,
       item.descricao                                   AS descricao,
       -- Tipo: ARMACOES / LENTES_GRAU / LENTES_CONTATO / PRODUTOS / OUTROS
-      -- LG usa '% LG%' (espaço obrigatório antes) para evitar falso positivo em "BULGET"
+      -- LG/GC/LC são reconhecidos como PALAVRA ISOLADA (espaços em ambos os lados)
+      -- usando o truque: ' '||desc||' ' LIKE '% LG %'
+      -- Cobre início ('LG SYNC...'), meio ('6.00 LG SYNC...') e fim ('... LG')
+      -- Evita falsos positivos como BULGET (B-U-L-G-E-T) onde LG não é palavra isolada
       CASE
         WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'OC'
-          OR UPPER(TRIM(item.descricao)) STARTING WITH 'AR' THEN 'ARMACOES'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LG'
-          OR UPPER(TRIM(item.descricao)) LIKE '% LG%'       THEN 'LENTES_GRAU'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'GC'
-          OR UPPER(TRIM(item.descricao)) LIKE '% GC%'       THEN 'LENTES_CONTATO'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LC'
-          OR UPPER(TRIM(item.descricao)) LIKE '% LC%'       THEN 'LENTES_CONTATO'
-        WHEN tbVendas360d.cod_produto IS NOT NULL           THEN 'PRODUTOS'
+          OR UPPER(TRIM(item.descricao)) STARTING WITH 'AR'          THEN 'ARMACOES'
+        WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LG %' THEN 'LENTES_GRAU'
+        WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% GC %' THEN 'LENTES_CONTATO'
+        WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LC %' THEN 'LENTES_CONTATO'
+        WHEN tbVendas360d.cod_produto IS NOT NULL                     THEN 'PRODUTOS'
         ELSE 'OUTROS'
       END                                              AS tipo,
       -- Subcategoria: detalhe dentro de ARMACOES e LENTES (mantida intacta)
       CASE
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'OC' THEN 'AR_SOLAR'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AR' THEN 'AR_RX'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LG'
-          OR UPPER(TRIM(item.descricao)) LIKE '% LG%'       THEN 'LENTES_GRAU'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'GC'
-          OR UPPER(TRIM(item.descricao)) LIKE '% GC%'       THEN 'LENTES_CONTATO'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'LC'
-          OR UPPER(TRIM(item.descricao)) LIKE '% LC%'       THEN 'LENTES_CONTATO'
-        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AC' THEN 'ACESSORIOS'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'OC'          THEN 'AR_SOLAR'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AR'          THEN 'AR_RX'
+        WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LG %' THEN 'LENTES_GRAU'
+        WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% GC %' THEN 'LENTES_CONTATO'
+        WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LC %' THEN 'LENTES_CONTATO'
+        WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AC'          THEN 'ACESSORIOS'
         ELSE 'OUTROS'
       END                                              AS subcategoria,
       COALESCE(tbFornecedorVinculosLoja.fornecedor_nome, 'SEM FORNECEDOR')
