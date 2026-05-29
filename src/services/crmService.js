@@ -34,16 +34,28 @@ const FILTRO_OS_REGULAR_SQL =
  *
  *   alias  -> [candidatos de coluna...]
  */
+// [alias, [candidatos de coluna...], tipo]
+//   tipo "email" -> mantido so com formato minimo (x@y.z)
+//   tipo "texto" -> TRIM + NULLIF (vazio vira NULL)
 const COLUNAS_OPCIONAIS = [
-  ["email", ["EMAIL"]],
-  ["endereco", ["ENDERECO", "LOGRADOURO"]],
-  ["numero", ["NUMERO"]],
-  ["complemento", ["COMPLEMENTO"]],
-  ["bairro", ["BAIRRO"]],
-  ["cep", ["CEP"]],
-  ["cidade", ["CIDADE", "MUNICIPIO"]],
-  ["uf", ["UF", "ESTADO"]],
+  ["email", ["EMAIL"], "email"],
+  ["endereco", ["ENDERECO", "LOGRADOURO"], "texto"],
+  ["numero", ["NUMERO"], "texto"],
+  ["complemento", ["COMPLEMENTO"], "texto"],
+  ["bairro", ["BAIRRO"], "texto"],
+  ["cep", ["CEP"], "texto"],
+  ["cidade", ["CIDADE", "MUNICIPIO"], "texto"],
+  ["uf", ["UF", "ESTADO"], "texto"],
 ];
+
+/** Monta a expressao SQL (com limpeza) de uma coluna opcional. */
+function exprColunaOpcional(alias, coluna, tipo) {
+  const c = `pc.${coluna.toLowerCase()}`;
+  if (tipo === "email") {
+    return `CASE WHEN TRIM(${c}) LIKE '%@%.%' THEN TRIM(${c}) ELSE NULL END AS ${alias}`;
+  }
+  return `NULLIF(TRIM(${c}), '') AS ${alias}`;
+}
 
 // Cache de metadados (schema só muda com restart da aplicação).
 const enableMetadataCache = process.env.NODE_ENV !== "test";
@@ -92,12 +104,12 @@ async function buildColunasOpcionaisSql() {
 
   const pedacos = [];
 
-  for (const [alias, candidatos] of COLUNAS_OPCIONAIS) {
+  for (const [alias, candidatos, tipo] of COLUNAS_OPCIONAIS) {
     for (const coluna of candidatos) {
       // eslint-disable-next-line no-await-in-loop
       const existe = await hasColumn(PESSOA_TABLE_NAME, coluna);
       if (existe) {
-        pedacos.push(`pc.${coluna.toLowerCase()} AS ${alias}`);
+        pedacos.push(exprColunaOpcional(alias, coluna, tipo));
         break; // usa o primeiro candidato que existir
       }
     }
@@ -125,9 +137,42 @@ async function buildFiltroOsRegularSql() {
 }
 
 /**
+ * Deduplica clientes por CPF, mantendo o registro de maior
+ * cod_cliente (cadastro mais recente) por CPF. Clientes sem CPF
+ * sao todos preservados (sao pessoas distintas desconhecidas).
+ * A ordem original (ORDER BY do SQL) e preservada.
+ */
+function dedupPorCpf(rows) {
+  const normalizaCpf = (r) => (r.cpf == null ? "" : String(r.cpf).trim());
+
+  // 1) descobre, por CPF, o maior cod_cliente
+  const melhorCodPorCpf = new Map();
+  for (const r of rows) {
+    const cpf = normalizaCpf(r);
+    if (!cpf) continue;
+    const cod = r.cod_cliente ?? 0;
+    const atual = melhorCodPorCpf.get(cpf);
+    if (atual === undefined || cod > atual) {
+      melhorCodPorCpf.set(cpf, cod);
+    }
+  }
+
+  // 2) mantem so o vencedor de cada CPF (e todos sem CPF)
+  const vistos = new Set();
+  return rows.filter((r) => {
+    const cpf = normalizaCpf(r);
+    if (!cpf) return true;
+    if ((r.cod_cliente ?? 0) !== melhorCodPorCpf.get(cpf)) return false;
+    if (vistos.has(cpf)) return false; // empate de cod_cliente: fica o 1o
+    vistos.add(cpf);
+    return true;
+  });
+}
+
+/**
  * Retorna a base de clientes para entrega de uma empresa,
  * considerando apenas OS regulares de venda (garantia/reparo
- * sao desconsideradas).
+ * sao desconsideradas) e deduplicada por CPF.
  * @param {{ codEmpresa: number|null }} params
  */
 async function getBaseClientesEntrega({ codEmpresa = null } = {}) {
@@ -143,7 +188,8 @@ async function getBaseClientesEntrega({ codEmpresa = null } = {}) {
     .replace(FILTRO_OS_REGULAR_PLACEHOLDER, filtroOsRegular);
 
   const params = [empresaParam, empresaParam];
-  return db.query(sql, params);
+  const rows = await db.query(sql, params);
+  return dedupPorCpf(rows);
 }
 
 module.exports = {
@@ -152,4 +198,5 @@ module.exports = {
   hasColumn,
   buildColunasOpcionaisSql,
   buildFiltroOsRegularSql,
+  dedupPorCpf,
 };

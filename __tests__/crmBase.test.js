@@ -84,12 +84,17 @@ describe('GET /api/v1/crm/base', () => {
     expect(res.body.data).toEqual(linhas);
 
     const [sql, params] = getDataQueryCall();
-    // colunas verificadas sempre presentes
+    // colunas verificadas sempre presentes (com limpeza)
     expect(sql).toMatch(/pc\.cod_pessoa\s+AS cod_cliente/i);
-    expect(sql).toMatch(/pc\.telefonecelular\s+AS telefone_celular/i);
-    // opcionais existentes injetadas
-    expect(sql).toMatch(/pc\.email AS email/i);
-    expect(sql).toMatch(/pc\.bairro AS bairro/i);
+    expect(sql).toMatch(/TRIM\(pc\.nome\)/i);
+    // telefones sanitizados (digitos validados)
+    expect(sql).toMatch(/telefone_celular/i);
+    expect(sql).toMatch(/SIMILAR TO '\[0-9\]\{8,15\}'/i);
+    // email sanitizado (formato minimo)
+    expect(sql).toMatch(/TRIM\(pc\.email\) LIKE '%@%\.%'/i);
+    expect(sql).toMatch(/AS email/i);
+    // bairro com TRIM/NULLIF
+    expect(sql).toMatch(/NULLIF\(TRIM\(pc\.bairro\), ''\) AS bairro/i);
     // opcionais inexistentes NÃO entram
     expect(sql).not.toMatch(/AS endereco/i);
     expect(sql).not.toMatch(/AS cep/i);
@@ -106,9 +111,9 @@ describe('GET /api/v1/crm/base', () => {
 
     expect(res.status).toBe(200);
     const [sql] = getDataQueryCall();
-    expect(sql).toMatch(/pc\.logradouro AS endereco/i);
-    expect(sql).toMatch(/pc\.municipio AS cidade/i);
-    expect(sql).not.toMatch(/pc\.endereco AS endereco/i); // ENDERECO não existe -> usa LOGRADOURO
+    expect(sql).toMatch(/NULLIF\(TRIM\(pc\.logradouro\), ''\) AS endereco/i);
+    expect(sql).toMatch(/NULLIF\(TRIM\(pc\.municipio\), ''\) AS cidade/i);
+    expect(sql).not.toMatch(/pc\.endereco/i); // ENDERECO não existe -> usa LOGRADOURO
   });
 
   it('aceita empresa=ALL como filtro nulo (todas as empresas)', async () => {
@@ -145,6 +150,29 @@ describe('GET /api/v1/crm/base', () => {
     const [sql] = getDataQueryCall();
     expect(sql).not.toMatch(/from\s+vendagarantia_item/i);
     expect(sql).not.toContain('__FILTRO_OS_REGULAR__');
+  });
+
+  it('deduplica por CPF mantendo o maior cod_cliente e preserva clientes sem CPF', async () => {
+    const linhas = [
+      { cod_cliente: 5, cliente: 'FULANO', cpf: '111' },
+      { cod_cliente: 9, cliente: 'FULANO (cadastro novo)', cpf: '111' },
+      { cod_cliente: 7, cliente: 'SEM CPF A', cpf: null },
+      { cod_cliente: 8, cliente: 'SEM CPF B', cpf: '' },
+    ];
+    mockSchema({ colunasExistentes: [], temGarantia: true, linhas });
+
+    const res = await request(app).get('/api/v1/crm/base').query({ empresa: 1 });
+
+    expect(res.status).toBe(200);
+    const data = res.body.data;
+    // CPF 111 colapsa para 1 registro (o de maior cod_cliente = 9)
+    const cpf111 = data.filter((r) => (r.cpf || '').trim() === '111');
+    expect(cpf111).toHaveLength(1);
+    expect(cpf111[0].cod_cliente).toBe(9);
+    // clientes sem CPF (null e '') são preservados
+    expect(data.some((r) => r.cod_cliente === 7)).toBe(true);
+    expect(data.some((r) => r.cod_cliente === 8)).toBe(true);
+    expect(data).toHaveLength(3);
   });
 
   it('retorna 500 estruturado quando o banco falha', async () => {
