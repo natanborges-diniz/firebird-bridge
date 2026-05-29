@@ -9,9 +9,13 @@ function loadSql(fileName) {
 }
 
 const sqlBaseClientesEntrega = loadSql("base_clientes_entrega.sql");
+const sqlEntregasPorData     = loadSql("entregas_por_data.sql");
+const sqlAniversariantes     = loadSql("aniversariantes.sql");
 
 const PESSOA_TABLE_NAME = "PESSOA";
-const OPCIONAIS_PLACEHOLDER = "/*__COLUNAS_OPCIONAIS__*/";
+const OPCIONAIS_PLACEHOLDER          = "/*__COLUNAS_OPCIONAIS__*/";
+const DATA_NASCIMENTO_PLACEHOLDER    = "/*__DATA_NASCIMENTO__*/";
+const GROUP_DATA_NASCIMENTO_PLACEHOLDER = "/*__GROUP_DATA_NASCIMENTO__*/";
 
 // OS de garantia/reparo (nao sao venda) possuem linha em
 // vendagarantia_item. Usamos isso para exclui-las da base.
@@ -61,6 +65,7 @@ function exprColunaOpcional(alias, coluna, tipo) {
 const enableMetadataCache = process.env.NODE_ENV !== "test";
 const columnLookupCache = new Map();
 let cachedColunasOpcionaisSql = null;
+let cachedDataNascimentoExists = null;
 
 /**
  * Verifica se uma coluna existe em uma tabela do Firebird
@@ -121,6 +126,27 @@ async function buildColunasOpcionaisSql() {
     cachedColunasOpcionaisSql = sql;
   }
   return sql;
+}
+
+/**
+ * Verifica se PESSOA.DATANASCIMENTO existe (coluna opcional em alguns schemas).
+ * Retorna o trecho SQL para o SELECT e o GROUP BY, ou strings vazias.
+ */
+async function buildDataNascimentoSql() {
+  if (enableMetadataCache && cachedDataNascimentoExists !== null) {
+    return cachedDataNascimentoExists;
+  }
+
+  const existe = await hasColumn(PESSOA_TABLE_NAME, "DATANASCIMENTO");
+  const result = {
+    select: existe ? ",\n  pc.datanascimento AS data_nascimento" : "",
+    group:  existe ? ",\n  pc.datanascimento" : "",
+  };
+
+  if (enableMetadataCache) {
+    cachedDataNascimentoExists = result;
+  }
+  return result;
 }
 
 /**
@@ -192,11 +218,74 @@ async function getBaseClientesEntrega({ codEmpresa = null } = {}) {
   return dedupPorCpf(rows);
 }
 
+/**
+ * Retorna clientes com OS entregue (etapa 08) dentro do intervalo
+ * [dataIni, dataFim], filtrado por empresa.
+ * Um registro por (cod_cliente, data_entrega), deduplicado por CPF.
+ *
+ * @param {{ codEmpresa: number|null, dataIni: string, dataFim: string }} params
+ *   dataIni/dataFim: strings ISO (YYYY-MM-DD)
+ */
+async function getEntregasPorData({ codEmpresa = null, dataIni, dataFim } = {}) {
+  if (!dataIni || !dataFim) {
+    throw new Error("dataIni e dataFim são obrigatórios");
+  }
+
+  const empresaParam = codEmpresa ?? null;
+  const [dataNasc, filtroOsRegular] = await Promise.all([
+    buildDataNascimentoSql(),
+    buildFiltroOsRegularSql(),
+  ]);
+
+  const sql = sqlEntregasPorData
+    .replace(DATA_NASCIMENTO_PLACEHOLDER, dataNasc.select)
+    .replace(FILTRO_OS_REGULAR_PLACEHOLDER, filtroOsRegular);
+
+  // Parâmetros: dataIni, dataFim (filtro log), empresa, empresa (filtro ocx)
+  const params = [dataIni, dataFim, empresaParam, empresaParam];
+  const rows = await db.query(sql, params);
+  return dedupPorCpf(rows);
+}
+
+/**
+ * Retorna clientes aniversariantes na data alvo (mês+dia),
+ * filtrado por empresa. Deduplicado por CPF.
+ *
+ * @param {{ codEmpresa: number|null, dataAlvo: string }} params
+ *   dataAlvo: string ISO (YYYY-MM-DD)
+ */
+async function getAniversariantes({ codEmpresa = null, dataAlvo } = {}) {
+  if (!dataAlvo) {
+    throw new Error("dataAlvo é obrigatório");
+  }
+
+  const empresaParam = codEmpresa ?? null;
+  const [dataNasc, filtroOsRegular] = await Promise.all([
+    buildDataNascimentoSql(),
+    buildFiltroOsRegularSql(),
+  ]);
+
+  // aniversariantes.sql usa /*__DATA_NASCIMENTO__*/ no SELECT e
+  // /*__GROUP_DATA_NASCIMENTO__*/ no GROUP BY
+  const sql = sqlAniversariantes
+    .replace(DATA_NASCIMENTO_PLACEHOLDER, dataNasc.select)
+    .replace(GROUP_DATA_NASCIMENTO_PLACEHOLDER, dataNasc.group)
+    .replace(FILTRO_OS_REGULAR_PLACEHOLDER, filtroOsRegular);
+
+  // Parâmetros: dataAlvo (MONTH), dataAlvo (DAY), empresa, empresa
+  const params = [dataAlvo, dataAlvo, empresaParam, empresaParam];
+  const rows = await db.query(sql, params);
+  return dedupPorCpf(rows);
+}
+
 module.exports = {
   getBaseClientesEntrega,
+  getEntregasPorData,
+  getAniversariantes,
   // exportado para testes/inspeção
   hasColumn,
   buildColunasOpcionaisSql,
+  buildDataNascimentoSql,
   buildFiltroOsRegularSql,
   dedupPorCpf,
 };
