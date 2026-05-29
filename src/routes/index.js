@@ -10,6 +10,7 @@ const debugRoutes       = require('./debugRoutes');
 const estoqueRoutes     = require('./estoqueRoutes'); // ⬅ novo
 const osRoutes          = require('./osRoutes');
 const empresaRoutes     = require('./empresaRoutes');
+const crmRoutes         = require('./crmRoutes');
 
 // Health check
 router.get('/health', healthController.health);
@@ -31,5 +32,8 @@ router.use('/os', osRoutes);
 
 // Moculo Empresa
 router.use('/empresas', empresaRoutes);
+
+// Módulo CRM
+router.use('/crm', crmRoutes);
 
 module.exports = router;
