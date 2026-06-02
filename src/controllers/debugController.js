@@ -22,10 +22,17 @@ async function investigarProduto(req, res) {
       []
     );
     const sample = await db.query(
-      `SELECT FIRST 10 p.COD_PRODUTO, p.CODIGOBARRA FROM PRODUTO p`,
+      `SELECT FIRST 20 p.COD_PRODUTO, p.CODIGOBARRA, p.GTIN FROM PRODUTO p ORDER BY p.COD_PRODUTO DESC`,
       []
     );
-    return success(res, { campos, sample });
+    const gtin_stats = await db.query(
+      `SELECT COUNT(*) AS total,
+              SUM(CASE WHEN p.GTIN IS NULL OR TRIM(p.GTIN) = '' THEN 1 ELSE 0 END) AS sem_gtin,
+              SUM(CASE WHEN p.CODIGOBARRA IS NULL OR TRIM(p.CODIGOBARRA) = '' THEN 1 ELSE 0 END) AS sem_codigobarra
+       FROM PRODUTO p`,
+      []
+    );
+    return success(res, { campos, sample, gtin_stats });
   } catch (err) {
     return res.status(500).json({ ok: false, erro: err.message, stack: err.stack });
   }
