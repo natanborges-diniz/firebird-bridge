@@ -92,7 +92,7 @@ GET /api/v1/estoque/completo?empresa=206
 | Campo | Fonte Firebird | Nullável | Descrição |
 |---|---|---|---|
 | `cod_barras_interno` | `PRODUTO.CODIGOBARRA` | Não (0%) | Cód. Barras gerado pela Diniz — sequencial, usado no PDV/scanner/etiqueta |
-| `ean` | `PRODUTO.GTIN` | Sim (~61%) | EAN do fabricante — pode ser null quando não cadastrado |
+| `ean` | `PRODUTO.GTIN` | Sim | EAN do fabricante — null quando não cadastrado ou quando o campo contém valor inválido (campo histórico com lixo: textos, placeholders). Só retorna valores numéricos de 8–14 dígitos |
 | `codigo_barras` | `PRODUTO.CODIGOBARRA` | Não | **Deprecated** — igual a `cod_barras_interno`, mantido para compatibilidade com o Frontend atual. Será removido após migração |
 
 ### Regra de unicidade

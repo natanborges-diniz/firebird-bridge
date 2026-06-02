@@ -139,7 +139,10 @@ WITH
       produto.cod_produto                              AS cod_sku,
       produto.codigobarra                              AS cod_barras_interno,
       produto.codigobarra                              AS codigo_barras,
-      NULLIF(TRIM(produto.gtin), '')                   AS ean,
+      CASE
+        WHEN TRIM(produto.gtin) SIMILAR TO '[0-9]{8,14}' THEN TRIM(produto.gtin)
+        ELSE NULL
+      END                                              AS ean,
       item.descricao                                   AS descricao,
       -- Tipo: ARMACOES / LENTES_GRAU / LENTES_CONTATO / PRODUTOS / OUTROS
       -- LG/GC/LC são reconhecidos como PALAVRA ISOLADA (espaços em ambos os lados)
