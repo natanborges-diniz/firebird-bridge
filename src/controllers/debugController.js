@@ -1,5 +1,5 @@
 // src/controllers/debugController.js
-const { success, failure } = require('../utils/apiResponse');
+const { success, handleControllerError } = require('../utils/apiResponse');
 const db = require('../db');
 
 async function testarEmpresas(req, res) {
@@ -40,7 +40,7 @@ async function investigarProduto(req, res) {
 
     return success(res, { campos: campos.map(r => r.campo || Object.values(r)[0]), sample });
   } catch (err) {
-    return failure(res, err.message, 500);
+    return handleControllerError(res, err);
   }
 }
 
