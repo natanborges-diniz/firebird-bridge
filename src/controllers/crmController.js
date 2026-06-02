@@ -112,8 +112,50 @@ async function aniversariantes(req, res) {
   }
 }
 
+// GET /api/v1/crm/venda?numero=<n>[&empresa=<cod>]
+async function getVenda(req, res) {
+  try {
+    const rawNumero = req.query.numero;
+    if (!rawNumero || String(rawNumero).trim() === "") {
+      return failure(res, {
+        code: "INVALID_PARAMS",
+        message: "Informe o número da venda em ?numero=",
+        status: 400,
+      });
+    }
+
+    const numero = Number(rawNumero);
+    if (!Number.isFinite(numero)) {
+      return failure(res, {
+        code: "INVALID_PARAMS",
+        message: "numero deve ser numérico",
+        details: { numero: rawNumero },
+        status: 400,
+      });
+    }
+
+    const codEmpresa = normalizeCodEmpresa(req, res);
+    if (codEmpresa === undefined) return;
+
+    const data = await crmService.getVenda({ numero, codEmpresa });
+
+    if (data === null) {
+      return failure(res, {
+        code: "NOT_FOUND",
+        message: `Venda ${numero} não encontrada`,
+        status: 404,
+      });
+    }
+
+    return success(res, data);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 module.exports = {
   baseClientesEntrega,
   entregasPorData,
   aniversariantes,
+  getVenda,
 };

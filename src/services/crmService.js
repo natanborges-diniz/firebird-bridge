@@ -11,6 +11,7 @@ function loadSql(fileName) {
 const sqlBaseClientesEntrega = loadSql("base_clientes_entrega.sql");
 const sqlEntregasPorData     = loadSql("entregas_por_data.sql");
 const sqlAniversariantes     = loadSql("aniversariantes.sql");
+const sqlVenda               = loadSql("venda.sql");
 
 const PESSOA_TABLE_NAME = "PESSOA";
 const OPCIONAIS_PLACEHOLDER          = "/*__COLUNAS_OPCIONAIS__*/";
@@ -278,10 +279,106 @@ async function getAniversariantes({ codEmpresa = null, dataAlvo } = {}) {
   return dedupPorCpf(rows);
 }
 
+/**
+ * SQL para lookup de NUMEROVENDA → cod_venda na tabela VENDA.
+ * A tabela VENDA é uma extensão POS-específica de TRANSACAO
+ * (cod_venda = cod_transacao). NUMEROVENDA é uma sequência
+ * independente de TRANSACAO.NUMEROTRANSACAO.
+ */
+const SQL_LOOKUP_VENDA = `
+  SELECT FIRST 1
+    v.cod_venda,
+    v.numerovenda,
+    t.total
+  FROM venda v
+  JOIN transacao t ON t.cod_transacao = v.cod_venda
+  WHERE v.numerovenda = CAST(? AS INTEGER)
+    AND (? IS NULL OR v.cod_empresa = CAST(? AS INTEGER))
+`;
+
+const SQL_LOOKUP_OS = `
+  SELECT FIRST 1
+    ocx.cod_transacao AS cod_venda,
+    t.total
+  FROM ordemservicocaixa ocx
+  JOIN transacao t ON t.cod_transacao = ocx.cod_transacao
+  WHERE ocx.numeroordemservico = CAST(? AS INTEGER)
+    AND (? IS NULL OR ocx.cod_empresaorigem = CAST(? AS INTEGER))
+`;
+
+/**
+ * Retorna o cabeçalho + lista de OS de uma venda.
+ *
+ * Lookup primário: VENDA.NUMEROVENDA.
+ * Fallback:        ORDEMSERVICOCAIXA.NUMEROORDEMSERVICO.
+ *
+ * Retorna null se não encontrado.
+ *
+ * @param {{ numero: number|string, codEmpresa: number|null }} params
+ */
+async function getVenda({ numero, codEmpresa = null } = {}) {
+  if (numero === undefined || numero === null) {
+    throw new Error("numero é obrigatório");
+  }
+
+  const numeroInt = parseInt(numero, 10);
+  if (!Number.isFinite(numeroInt)) {
+    throw new Error("numero deve ser inteiro");
+  }
+
+  const empresaParam = codEmpresa ?? null;
+
+  // 1. Lookup por NUMEROVENDA (primary)
+  const vendaRows = await db.query(SQL_LOOKUP_VENDA, [
+    numeroInt,
+    empresaParam,
+    empresaParam,
+  ]);
+
+  let codVenda, numerovenda, valorTotal;
+
+  if (vendaRows.length > 0) {
+    ({ cod_venda: codVenda, numerovenda, total: valorTotal } = vendaRows[0]);
+  } else {
+    // 2. Fallback: lookup por NUMEROORDEMSERVICO
+    const osLookup = await db.query(SQL_LOOKUP_OS, [
+      numeroInt,
+      empresaParam,
+      empresaParam,
+    ]);
+
+    if (osLookup.length === 0) return null;
+    codVenda   = osLookup[0].cod_venda;
+    valorTotal = osLookup[0].total;
+    numerovenda = null;
+  }
+
+  // 3. Busca detalhes das OS
+  const [dataNasc, filtroOsRegular] = await Promise.all([
+    buildDataNascimentoSql(),
+    buildFiltroOsRegularSql(),
+  ]);
+
+  const sql = sqlVenda
+    .replace(DATA_NASCIMENTO_PLACEHOLDER, dataNasc.select)
+    .replace(FILTRO_OS_REGULAR_PLACEHOLDER, filtroOsRegular);
+
+  // 5 parâmetros: cada CTE e o WHERE principal recebem cod_venda
+  const params = Array(5).fill(codVenda);
+  const osRows = await db.query(sql, params);
+
+  return {
+    numerovenda: numerovenda ?? numeroInt,
+    valor_total: valorTotal,
+    os: osRows,
+  };
+}
+
 module.exports = {
   getBaseClientesEntrega,
   getEntregasPorData,
   getAniversariantes,
+  getVenda,
   // exportado para testes/inspeção
   hasColumn,
   buildColunasOpcionaisSql,

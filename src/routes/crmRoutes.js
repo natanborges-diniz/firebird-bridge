@@ -13,4 +13,7 @@ router.get("/entregas", crmController.entregasPorData);
 // GET /api/v1/crm/aniversariantes?empresa=1[&data=YYYY-MM-DD]
 router.get("/aniversariantes", crmController.aniversariantes);
 
+// GET /api/v1/crm/venda?numero=<n>[&empresa=<cod>]
+router.get("/venda", crmController.getVenda);
+
 module.exports = router;
