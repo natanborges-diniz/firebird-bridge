@@ -62,6 +62,7 @@ const financeiroRoutes = require('./src/routes/financeiroRoutes');
 const estoqueRoutes = require('./src/routes/estoqueRoutes');
 const osRoutes = require('./src/routes/osRoutes');
 const crmRoutes = require('./src/routes/crmRoutes');
+const debugRoutes = require('./src/routes/debugRoutes');
 
 /**
  * ============================================================
@@ -74,6 +75,7 @@ app.use('/api/v1/financeiro', financeiroRoutes);
 app.use('/api/v1/estoque', estoqueRoutes);
 app.use('/api/v1/os', osRoutes);
 app.use('/api/v1/crm', crmRoutes);
+app.use('/api/v1/debug', debugRoutes);
 
 /**
  * ============================================================
