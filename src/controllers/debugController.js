@@ -22,7 +22,7 @@ async function investigarProduto(req, res) {
       []
     );
     const sample = await db.query(
-      `SELECT FIRST 10 p.COD_PRODUTO, p.CODIGOBARRA FROM PRODUTO p WHERE p.COD_PRODUTO > 0`,
+      `SELECT FIRST 10 p.COD_PRODUTO, p.CODIGOBARRA FROM PRODUTO p`,
       []
     );
     return success(res, { campos, sample });
