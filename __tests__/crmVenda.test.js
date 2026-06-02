@@ -25,6 +25,8 @@ const OS_ENTREGUE = {
   data_entrega:   '2026-05-29',
   cpf:            '12345678901',
   produto:        'ARMACAO MODELO X',
+  devolvida:      0,
+  is_garantia:    0,
 };
 
 const OS_EM_LAB = {
@@ -35,15 +37,41 @@ const OS_EM_LAB = {
   data_entrega:   null,
   cpf:            '98765432100',
   produto:        'LENTE PROGRESSIVE',
+  devolvida:      0,
+  is_garantia:    0,
+};
+
+const OS_DEVOLVIDA = {
+  os_numero:      97648,
+  classificacao:  'producao',
+  passou_pronto:  1,
+  data_pronto:    '2026-05-28',
+  data_entrega:   '2026-05-30',
+  cpf:            '11122233344',
+  produto:        'ARMACAO DEVOLVIDA',
+  devolvida:      1,
+  is_garantia:    0,
+};
+
+const OS_GARANTIA = {
+  os_numero:      97649,
+  classificacao:  'imediata',
+  passou_pronto:  0,
+  data_pronto:    null,
+  data_entrega:   '2026-05-31',
+  cpf:            '55566677788',
+  produto:        'SERVICO GARANTIA',
+  devolvida:      0,
+  is_garantia:    1,
 };
 
 /**
  * Monta o mock completo para um fluxo de getVenda.
  *
  * Sequência de db.query esperada:
- *   1) VENDA lookup
- *   2) hasColumn DATANASCIMENTO
- *   3) hasColumn VENDAGARANTIA_ITEM
+ *   1) VENDA lookup (ou OS lookup de fallback)
+ *   2) hasColumn DATANASCIMENTO  } em Promise.all
+ *   3) hasColumn VENDAGARANTIA_ITEM } em Promise.all
  *   4) OS detail query
  */
 function mockVendaFlow({
@@ -115,11 +143,14 @@ describe('GET /api/v1/crm/venda', () => {
     });
     expect(res.body.data.os).toHaveLength(2);
     expect(res.body.data.os[0]).toMatchObject({
-      os_numero:     97646,
-      classificacao: 'producao',
-      passou_pronto: 1,
-      data_entrega:  '2026-05-29',
-      cpf:           '12345678901',
+      os_numero:      97646,
+      classificacao:  'producao',
+      passou_pronto:  1,
+      data_entrega:   '2026-05-29',
+      cpf:            '12345678901',
+      devolvida:      0,
+      is_garantia:    0,
+      entrega_valida: 1,
     });
   });
 
@@ -194,5 +225,73 @@ describe('GET /api/v1/crm/venda', () => {
 
     const res = await request(app).get('/api/v1/crm/venda').query({ numero: '1234' });
     expect(res.status).toBe(200);
+  });
+
+  // ── Flags devolvida / is_garantia / entrega_valida ───────────────────
+
+  it('entrega_valida=0 quando OS está devolvida', async () => {
+    mockVendaFlow({
+      vendaRow: { cod_venda: 504293, numerovenda: 1234, total: 1000 },
+      osRows:   [OS_DEVOLVIDA],
+    });
+
+    const res = await request(app).get('/api/v1/crm/venda').query({ numero: '1234' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.os[0]).toMatchObject({
+      devolvida:      1,
+      is_garantia:    0,
+      entrega_valida: 0,
+    });
+  });
+
+  it('entrega_valida=0 quando OS é garantia', async () => {
+    mockVendaFlow({
+      vendaRow: { cod_venda: 504293, numerovenda: 1234, total: 0 },
+      osRows:   [OS_GARANTIA],
+    });
+
+    const res = await request(app).get('/api/v1/crm/venda').query({ numero: '1234' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.os[0]).toMatchObject({
+      devolvida:      0,
+      is_garantia:    1,
+      entrega_valida: 0,
+    });
+  });
+
+  it('entrega_valida=0 quando data_entrega é null (OS ainda em lab)', async () => {
+    mockVendaFlow({
+      vendaRow: { cod_venda: 504293, numerovenda: 1234, total: 1417 },
+      osRows:   [OS_EM_LAB],
+    });
+
+    const res = await request(app).get('/api/v1/crm/venda').query({ numero: '1234' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.os[0]).toMatchObject({
+      devolvida:      0,
+      is_garantia:    0,
+      entrega_valida: 0,
+    });
+  });
+
+  it('retorna todas as OS da venda incluindo devolvidas e garantias', async () => {
+    mockVendaFlow({
+      vendaRow: { cod_venda: 504293, numerovenda: 1234, total: 1417 },
+      osRows:   [OS_ENTREGUE, OS_DEVOLVIDA, OS_GARANTIA, OS_EM_LAB],
+    });
+
+    const res = await request(app).get('/api/v1/crm/venda').query({ numero: '1234' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.os).toHaveLength(4);
+
+    const [entregue, devolvida, garantia, emLab] = res.body.data.os;
+    expect(entregue.entrega_valida).toBe(1);
+    expect(devolvida.entrega_valida).toBe(0);
+    expect(garantia.entrega_valida).toBe(0);
+    expect(emLab.entrega_valida).toBe(0);
   });
 });

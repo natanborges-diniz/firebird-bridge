@@ -19,7 +19,8 @@ const DATA_NASCIMENTO_PLACEHOLDER    = "/*__DATA_NASCIMENTO__*/";
 const GROUP_DATA_NASCIMENTO_PLACEHOLDER = "/*__GROUP_DATA_NASCIMENTO__*/";
 
 // OS de garantia/reparo (nao sao venda) possuem linha em
-// vendagarantia_item. Usamos isso para exclui-las da base.
+// vendagarantia_item. Usamos isso para exclui-las da base e,
+// no endpoint /venda, para expor o flag is_garantia por OS.
 const VENDA_GARANTIA_TABLE_NAME = "VENDAGARANTIA_ITEM";
 const VENDA_GARANTIA_OS_COLUMN_NAME = "COD_ORDEMSERVICOCAIXA";
 const FILTRO_OS_REGULAR_PLACEHOLDER = "/*__FILTRO_OS_REGULAR__*/";
@@ -29,6 +30,16 @@ const FILTRO_OS_REGULAR_SQL =
   "          FROM vendagarantia_item vgi\n" +
   "         WHERE vgi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa\n" +
   "      )";
+
+const IS_GARANTIA_PLACEHOLDER = "/*__IS_GARANTIA__*/";
+// Inserido após AS devolvida; inicia com vírgula para não precisar de
+// vírgula trailing no campo anterior.
+const IS_GARANTIA_SQL =
+  ",\n  CASE WHEN EXISTS (\n" +
+  "      SELECT 1 FROM vendagarantia_item vgi\n" +
+  "       WHERE vgi.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa\n" +
+  "    ) THEN 1 ELSE 0 END AS is_garantia";
+const IS_GARANTIA_FALLBACK = ",\n  0 AS is_garantia";
 
 /**
  * Colunas opcionais de endereço/contato da tabela PESSOA.
@@ -354,23 +365,30 @@ async function getVenda({ numero, codEmpresa = null } = {}) {
   }
 
   // 3. Busca detalhes das OS
-  const [dataNasc, filtroOsRegular] = await Promise.all([
+  const [dataNasc, temVendaGarantia] = await Promise.all([
     buildDataNascimentoSql(),
-    buildFiltroOsRegularSql(),
+    hasColumn(VENDA_GARANTIA_TABLE_NAME, VENDA_GARANTIA_OS_COLUMN_NAME),
   ]);
 
   const sql = sqlVenda
-    .replace(DATA_NASCIMENTO_PLACEHOLDER, dataNasc.select)
-    .replace(FILTRO_OS_REGULAR_PLACEHOLDER, filtroOsRegular);
+    .replace(IS_GARANTIA_PLACEHOLDER, temVendaGarantia ? IS_GARANTIA_SQL : IS_GARANTIA_FALLBACK)
+    .replace(DATA_NASCIMENTO_PLACEHOLDER, dataNasc.select);
 
   // 5 parâmetros: cada CTE e o WHERE principal recebem cod_venda
   const params = Array(5).fill(codVenda);
   const osRows = await db.query(sql, params);
 
+  // entrega_valida: data_entrega presente, não devolvida e não garantia
+  const os = osRows.map((row) => ({
+    ...row,
+    entrega_valida:
+      row.data_entrega != null && !row.devolvida && !row.is_garantia ? 1 : 0,
+  }));
+
   return {
     numerovenda: numerovenda ?? numeroInt,
     valor_total: valorTotal,
-    os: osRows,
+    os,
   };
 }
 

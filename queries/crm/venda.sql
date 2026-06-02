@@ -2,7 +2,8 @@
  * CRM — OS de uma venda por VENDA.NUMEROVENDA (ou fallback OS)
  * ------------------------------------------------------------
  * Retorna uma linha por OS da venda, com dados de entrega,
- * produto, CPF e flag de "passou pelo pronto".
+ * produto, CPF e flags de status por OS.
+ * entrega_valida é calculada no service (JS), não aqui.
  *
  * Parâmetros posicionais (5× cod_venda = VENDA.COD_VENDA):
  *   1) cod_venda — JOIN do CTE pronto
@@ -12,8 +13,8 @@
  *   5) cod_venda — WHERE principal
  *
  * Placeholders substituídos em runtime pelo crmService:
+ *   /*__IS_GARANTIA__*/       → EXISTS(vendagarantia_item) ou 0
  *   /*__DATA_NASCIMENTO__*/   → pc.datanascimento se existir
- *   /*__FILTRO_OS_REGULAR__*/ → NOT EXISTS (vendagarantia_item)
  * ============================================================ */
 WITH
 -- Primeira passagem pelo pronto (etapa 5 = OS na loja; 6 = venda concluída na loja)
@@ -83,7 +84,26 @@ SELECT
     ELSE NULLIF(TRIM(CAST(pc.cpf AS VARCHAR(20))), '')
   END                                                            AS cpf,
   COALESCE(NULLIF(TRIM(pt.produto), ''),
-           NULLIF(TRIM(ptx.produto), ''))                        AS produto
+           NULLIF(TRIM(ptx.produto), ''))                        AS produto,
+  -- devolvida: última etapa é cancelamento/devolução OU venda fiscalmente cancelada
+  CASE
+    WHEN EXISTS (
+      SELECT 1
+      FROM ordemservicocaixalog l_ult
+      WHERE l_ult.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
+        AND l_ult.cod_etapa IN (9, 13)
+        AND l_ult.datahoraentrada = (
+          SELECT MAX(l2.datahoraentrada)
+          FROM ordemservicocaixalog l2
+          WHERE l2.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
+        )
+    ) OR EXISTS (
+      SELECT 1
+      FROM vendacancelada_item vci
+      WHERE vci.cod_venda = ocx.cod_transacao
+    ) THEN 1 ELSE 0
+  END                                                            AS devolvida
+  /*__IS_GARANTIA__*/
   /*__DATA_NASCIMENTO__*/
 FROM ordemservicocaixa ocx
 JOIN pessoa pc ON pc.cod_pessoa = ocx.cod_cliente
@@ -92,16 +112,4 @@ LEFT JOIN entrega_log el ON el.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN produtos pt ON pt.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 LEFT JOIN produtos_tx ptx ON 1 = 1
 WHERE ocx.cod_transacao = CAST(? AS INTEGER)
-  /*__FILTRO_OS_REGULAR__*/
-  AND NOT EXISTS (
-    SELECT 1
-    FROM ordemservicocaixalog l_ult
-    WHERE l_ult.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
-      AND l_ult.cod_etapa IN (9, 13)
-      AND l_ult.datahoraentrada = (
-        SELECT MAX(l2.datahoraentrada)
-        FROM ordemservicocaixalog l2
-        WHERE l2.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
-      )
-  )
 ORDER BY ocx.numeroordemservico
