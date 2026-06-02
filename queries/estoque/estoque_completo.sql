@@ -137,7 +137,9 @@ WITH
   tbEstoqueCompletoBase AS (
     SELECT
       produto.cod_produto                              AS cod_sku,
+      produto.codigobarra                              AS cod_barras_interno,
       produto.codigobarra                              AS codigo_barras,
+      NULLIF(TRIM(produto.gtin), '')                   AS ean,
       item.descricao                                   AS descricao,
       -- Tipo: ARMACOES / LENTES_GRAU / LENTES_CONTATO / PRODUTOS / OUTROS
       -- LG/GC/LC são reconhecidos como PALAVRA ISOLADA (espaços em ambos os lados)
@@ -252,7 +254,9 @@ WITH
 
 SELECT
   tbEstoqueCompletoRank.cod_sku,
+  tbEstoqueCompletoRank.cod_barras_interno,
   tbEstoqueCompletoRank.codigo_barras,
+  tbEstoqueCompletoRank.ean,
   tbEstoqueCompletoRank.descricao,
   tbEstoqueCompletoRank.tipo,
   tbEstoqueCompletoRank.subcategoria,

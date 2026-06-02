@@ -4,6 +4,5 @@ const router = express.Router();
 const debugController = require('../controllers/debugController');
 
 router.get('/empresas', debugController.testarEmpresas);
-router.get('/investigar-produto', debugController.investigarProduto);
 
 module.exports = router;

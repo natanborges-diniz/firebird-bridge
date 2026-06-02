@@ -68,7 +68,9 @@ GET /api/v1/estoque/completo?empresa=206
   "data": [
     {
       "cod_sku": 12345,
-      "codigo_barras": "7891234567890",
+      "cod_barras_interno": "1234567",
+      "codigo_barras": "1234567",
+      "ean": "7891234567890",
       "descricao": "ARMAÇÃO RAY-BAN RB5154 2000 51",
       "fornecedor_nome": "FORNECEDOR ABC",
       "grife": "RAYBAN",
@@ -84,6 +86,14 @@ GET /api/v1/estoque/completo?empresa=206
   ],
   "error": null
 }
+
+### Campos de código de barras
+
+| Campo | Fonte Firebird | Nullável | Descrição |
+|---|---|---|---|
+| `cod_barras_interno` | `PRODUTO.CODIGOBARRA` | Não (0%) | Cód. Barras gerado pela Diniz — sequencial, usado no PDV/scanner/etiqueta |
+| `ean` | `PRODUTO.GTIN` | Sim (~61%) | EAN do fabricante — pode ser null quando não cadastrado |
+| `codigo_barras` | `PRODUTO.CODIGOBARRA` | Não | **Deprecated** — igual a `cod_barras_interno`, mantido para compatibilidade com o Frontend atual. Será removido após migração |
 
 ### Regra de unicidade
 
