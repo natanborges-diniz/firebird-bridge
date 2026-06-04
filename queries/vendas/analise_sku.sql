@@ -92,7 +92,12 @@ SELECT
 
   it.COD_ITEM                 AS COD_SKU,
   it.DESCRICAO                AS DESCRICAO_ITEM,
+  p.CODIGOBARRA               AS COD_BARRAS_INTERNO,
   p.CODIGOBARRA               AS CODIGO_BARRAS,
+  CASE
+    WHEN TRIM(p.GTIN) SIMILAR TO '[0-9]{8,14}' THEN TRIM(p.GTIN)
+    ELSE NULL
+  END                         AS EAN,
   tbmarcamodeloar.descricao   AS MARCA,
   pessoafornecedor.nome       AS FORNECEDOR,
   COALESCE(pf.COD_PRODUTOFAMILIA, ti.COD_PRODUTOFAMILIA, p.COD_PRODUTOFAMILIA)
@@ -237,6 +242,7 @@ GROUP BY
   it.COD_ITEM,
   it.DESCRICAO,
   p.CODIGOBARRA,
+  p.GTIN,
   tbmarcamodeloar.descricao,
   pessoafornecedor.nome,
   COALESCE(pf.COD_PRODUTOFAMILIA, ti.COD_PRODUTOFAMILIA, p.COD_PRODUTOFAMILIA),
