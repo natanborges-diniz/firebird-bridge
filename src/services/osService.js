@@ -391,6 +391,7 @@ async function getConsultaStatus({ os, cpf }) {
     return {
       os: String(row.os ?? '').trim(),
       etapa: String(row.etapa ?? '').trim(),
+      codEtapa: row.cod_etapa == null ? null : Number(row.cod_etapa),
       statusAtraso: row.status_atraso ?? null,
       atrasoDias: row.atraso_dias ?? null,
       dataPrevisao: row.data_previsao ?? null,

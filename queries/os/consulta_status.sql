@@ -52,6 +52,7 @@ SELECT
         WHEN 18 THEN 'Devolver para o laboratório'
         ELSE '<DESCONHECIDA>'
     END AS etapa,
+    l.cod_etapa AS cod_etapa,
     CASE
         WHEN l.cod_etapa = 8 THEN 'ENTREGUE'
         WHEN ocx.dataprevisao IS NULL THEN 'SEM_DATA'
