@@ -4,6 +4,28 @@ WITH ultlog AS (
         MAX(l.datahoraentrada) AS max_datahoraentrada
     FROM ordemservicocaixalog l
     GROUP BY l.cod_ordemservicocaixa
+),
+
+-- Agrega lentes (OD/OE) e armacao por OS em 1 linha.
+-- Todos os JOINs são LEFT: OS sem receita (reparo) gera linha com NULLs
+-- e continua aparecendo no resultado final via LEFT JOIN abaixo.
+-- GROUP BY cod_ordemservicocaixa + MAX(CASE WHEN) pivota as 2 lentes sem
+-- multiplicar linhas — mesmo padrão da CTE itens_lente do hub_receitas.
+itens_os AS (
+    SELECT
+        ocx.cod_ordemservicocaixa,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 2 THEN ocrl.descricaolente END) AS lente_od,
+        MAX(CASE WHEN ocrl.cod_clientereceitalente = 1 THEN ocrl.descricaolente END) AS lente_oe,
+        MAX(COALESCE(otoi_cte.descricaoarmacao, ocr_cte.descricaoarmacao))           AS armacao
+    FROM ordemservicocaixa ocx
+    LEFT JOIN otiljclientereceita ocr_cte
+      ON ocr_cte.cod_clientereceita = ocx.cod_clientereceita
+    LEFT JOIN otiljclientereceita_lente ocrl
+      ON ocrl.cod_clientereceita = ocr_cte.cod_clientereceita
+    LEFT JOIN otiordemservicootica otoi_cte
+      ON otoi_cte.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
+    WHERE ocx.cod_ordemservicocaixa IS NOT NULL
+    GROUP BY ocx.cod_ordemservicocaixa
 )
 
 SELECT
@@ -53,7 +75,10 @@ SELECT
     CAST(l.datahorasaida AS DATE) AS data_saida,
     pe.nome AS empresa,
     COALESCE(otoi.nomepaciente, pc.nome) AS cliente,
-    pv.nome AS vendedor
+    pv.nome AS vendedor,
+    itens.lente_od AS lente_od,
+    itens.lente_oe AS lente_oe,
+    itens.armacao  AS armacao
 FROM ordemservicocaixa ocx
 JOIN pessoa pe ON pe.cod_pessoa = ocx.cod_empresaorigem
 JOIN pessoa pc ON pc.cod_pessoa = ocx.cod_cliente
@@ -64,6 +89,8 @@ JOIN ultlog ul
 JOIN ordemservicocaixalog l
   ON l.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
  AND l.datahoraentrada = ul.max_datahoraentrada
+LEFT JOIN itens_os itens
+  ON itens.cod_ordemservicocaixa = ocx.cod_ordemservicocaixa
 WHERE
     ( ? IS NULL OR ocx.numeroordemservico = CAST(? AS INTEGER) )
     AND ( ? IS NULL OR RIGHT('00000000000' || TRIM(CAST(pc.cpf AS VARCHAR(20))), 11) = ? )

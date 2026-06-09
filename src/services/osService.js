@@ -378,18 +378,30 @@ async function getConsultaStatus({ os, cpf }) {
     cpfParam,
   ]);
 
-  const normalizedRows = rows.map((row) => ({
-    os: String(row.os ?? '').trim(),
-    etapa: String(row.etapa ?? '').trim(),
-    statusAtraso: row.status_atraso ?? null,
-    atrasoDias: row.atraso_dias ?? null,
-    dataPrevisao: row.data_previsao ?? null,
-    dataEmissao: row.data_emissao ?? null,
-    dataSaida: row.data_saida ?? null,
-    empresa: String(row.empresa ?? '').trim(),
-    cliente: String(row.cliente ?? '').trim(),
-    vendedor: row.vendedor == null ? null : String(row.vendedor).trim(),
-  }));
+  const normalizedRows = rows.map((row) => {
+    const produtosRaw = [
+      { tipo: 'lente_od', descricao: row.lente_od },
+      { tipo: 'lente_oe', descricao: row.lente_oe },
+      { tipo: 'armacao',  descricao: row.armacao  },
+    ];
+    const produtos = produtosRaw.filter(
+      (p) => p.descricao != null && String(p.descricao).trim() !== ''
+    );
+
+    return {
+      os: String(row.os ?? '').trim(),
+      etapa: String(row.etapa ?? '').trim(),
+      statusAtraso: row.status_atraso ?? null,
+      atrasoDias: row.atraso_dias ?? null,
+      dataPrevisao: row.data_previsao ?? null,
+      dataEmissao: row.data_emissao ?? null,
+      dataSaida: row.data_saida ?? null,
+      empresa: String(row.empresa ?? '').trim(),
+      cliente: String(row.cliente ?? '').trim(),
+      vendedor: row.vendedor == null ? null : String(row.vendedor).trim(),
+      produtos,
+    };
+  });
 
   if (limitByCpf) {
     return normalizedRows.slice(0, limitByCpf);
