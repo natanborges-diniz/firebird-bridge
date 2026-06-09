@@ -61,18 +61,18 @@ SELECT
     END AS status_atraso,
     CASE
         WHEN ocx.dataprevisao IS NULL THEN NULL
-        WHEN l.cod_etapa = 8 AND l.datahorasaida IS NOT NULL THEN
+        WHEN l.cod_etapa = 8 THEN
             IIF(
-                CAST(l.datahorasaida AS DATE) <= ocx.dataprevisao,
+                CAST(l.datahoraentrada AS DATE) <= ocx.dataprevisao,
                 0,
-                DATEDIFF(DAY FROM ocx.dataprevisao TO CAST(l.datahorasaida AS DATE))
+                DATEDIFF(DAY FROM ocx.dataprevisao TO CAST(l.datahoraentrada AS DATE))
             )
         WHEN CURRENT_DATE <= ocx.dataprevisao THEN 0
         ELSE DATEDIFF(DAY FROM ocx.dataprevisao TO CURRENT_DATE)
     END AS atraso_dias,
     ocx.dataprevisao AS data_previsao,
     ocx.dataemissao AS data_emissao,
-    CAST(l.datahorasaida AS DATE) AS data_saida,
+    CAST(l.datahoraentrada AS DATE) AS data_saida,
     pe.nome AS empresa,
     COALESCE(otoi.nomepaciente, pc.nome) AS cliente,
     pv.nome AS vendedor,
