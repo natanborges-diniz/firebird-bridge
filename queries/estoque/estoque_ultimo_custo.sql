@@ -59,7 +59,9 @@ WITH
     JOIN tbestoque
       ON tbestoque.cod_produto = el.cod_produto
      AND tbestoque.cod_empresa = el.cod_empresa
-    WHERE el.precocusto > 0
+    -- filtro explícito p/ Firebird usar índice em estoquelog (não enxerga através da CTE)
+    WHERE el.cod_empresa = CAST(? AS INTEGER)
+      AND el.precocusto > 0
   )
 
 SELECT

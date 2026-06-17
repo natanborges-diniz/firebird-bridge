@@ -60,7 +60,8 @@ async function getEstoqueCompleto(empresa) {
 async function getEstoqueUltimoCusto(empresa) {
   const empresas = parseEmpresasParam(empresa);
   const results = await Promise.allSettled(
-    empresas.map((codEmpresa) => db.query(sqlUltimoCusto, [codEmpresa]))
+    // empresa passada duas vezes: tbestoque (pos 1) e tbCustoLog (pos 2)
+    empresas.map((codEmpresa) => db.query(sqlUltimoCusto, [codEmpresa, codEmpresa]))
   );
 
   const rows = results.flatMap((result, index) => {
