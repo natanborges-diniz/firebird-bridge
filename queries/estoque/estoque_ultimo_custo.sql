@@ -3,12 +3,13 @@
 -- Fallback: se não houver NFe (tipo=2), usa precocusto do ESTOQUELOG mais recente.
 -- SKUs sem nenhum histórico retornam custo NULL e origem_custo NULL.
 --
--- Estratégia de performance para o fallback ESTOQUELOG:
---   Subquery correlacionada com FIRST 1 ORDER BY DESC em vez de ROW_NUMBER() CTE.
---   ROW_NUMBER() força sort de toda a tabela; FIRST 1 para na primeira linha do índice.
+-- Estratégia ESTOQUELOG: GROUP BY + MAX(cod_estoquelog) + lookup de PK.
+--   Uma única varredura do ESTOQUELOG filtrada por empresa, sem sort nem window func.
+--   Assume cod_estoquelog auto-incremento (MAX ≈ mais recente).
 --
 -- Parâmetros:
---   1) empresa (int)
+--   1) empresa (int) — tbestoque
+--   2) empresa (int) — tbCustoLog (Firebird não enxerga através de CTE)
 
 WITH
   tbestoque AS (
@@ -46,42 +47,43 @@ WITH
     JOIN naturezaoperacao nat
       ON nat.cod_naturezaoperacao = ti.cod_naturezaoperacao
     WHERE nat.tipo = 2
+  ),
+
+  tbCustoLog AS (
+    SELECT
+      el.cod_produto,
+      el.cod_empresa,
+      NULLIF(el.precocusto, 0)  AS custo_estoquelog,
+      el.data                   AS data_estoquelog
+    FROM estoquelog el
+    -- lookup de PK: uma linha por produto, sem sort
+    JOIN (
+      SELECT cod_empresa, cod_produto, MAX(cod_estoquelog) AS max_id
+      FROM estoquelog
+      WHERE cod_empresa = CAST(? AS INTEGER)
+        AND precocusto > 0
+      GROUP BY cod_empresa, cod_produto
+    ) mx ON mx.max_id = el.cod_estoquelog
+    JOIN tbestoque
+      ON tbestoque.cod_produto = el.cod_produto
+     AND tbestoque.cod_empresa = el.cod_empresa
   )
 
 SELECT
-  tbestoque.cod_produto                AS cod_sku,
-  COALESCE(
-    tbEntradas.custo_ultima_compra,
-    (SELECT FIRST 1 NULLIF(el.precocusto, 0)
-     FROM estoquelog el
-     WHERE el.cod_empresa = tbestoque.cod_empresa
-       AND el.cod_produto = tbestoque.cod_produto
-       AND el.precocusto > 0
-     ORDER BY el.data DESC, el.cod_estoquelog DESC)
-  )                                    AS custo_ultima_compra,
-  COALESCE(
-    tbEntradas.data_ultima_compra,
-    (SELECT FIRST 1 el.data
-     FROM estoquelog el
-     WHERE el.cod_empresa = tbestoque.cod_empresa
-       AND el.cod_produto = tbestoque.cod_produto
-       AND el.precocusto > 0
-     ORDER BY el.data DESC, el.cod_estoquelog DESC)
-  )                                    AS data_ultima_compra,
+  tbestoque.cod_produto                                                        AS cod_sku,
+  COALESCE(tbEntradas.custo_ultima_compra, tbCustoLog.custo_estoquelog)        AS custo_ultima_compra,
+  COALESCE(tbEntradas.data_ultima_compra,  tbCustoLog.data_estoquelog)         AS data_ultima_compra,
   CASE
-    WHEN tbEntradas.custo_ultima_compra IS NOT NULL
-      THEN 'NFE'
-    WHEN EXISTS (
-      SELECT 1 FROM estoquelog el
-      WHERE el.cod_empresa = tbestoque.cod_empresa
-        AND el.cod_produto = tbestoque.cod_produto
-        AND el.precocusto > 0
-    ) THEN 'ESTOQUELOG'
+    WHEN tbEntradas.custo_ultima_compra IS NOT NULL THEN 'NFE'
+    WHEN tbCustoLog.custo_estoquelog    IS NOT NULL THEN 'ESTOQUELOG'
     ELSE NULL
-  END                                  AS origem_custo
+  END                                                                          AS origem_custo
 FROM tbestoque
 LEFT JOIN tbEntradas
   ON tbEntradas.cod_produto = tbestoque.cod_produto
  AND tbEntradas.cod_empresa = tbestoque.cod_empresa
  AND tbEntradas.rn = 1
+LEFT JOIN tbCustoLog
+  ON tbCustoLog.cod_produto = tbestoque.cod_produto
+ AND tbCustoLog.cod_empresa = tbestoque.cod_empresa
 ORDER BY tbestoque.cod_produto ASC

@@ -41,12 +41,13 @@ describe('queries/estoque/estoque_ultimo_custo.sql', () => {
     expect(sql).toMatch(/NULLIF\s*\(\s*ti\.valorunitario\s*,\s*0\s*\)/i);
   });
 
-  it('inclui fallback ESTOQUELOG via subquery correlacionada (FIRST 1)', () => {
+  it('inclui CTE tbCustoLog com fallback ESTOQUELOG via MAX(cod_estoquelog)', () => {
+    expect(sql).toMatch(/tbCustoLog\s+AS\s*\(/i);
     expect(sql).toMatch(/estoquelog/i);
     expect(sql).toMatch(/el\.precocusto/i);
     expect(sql).toMatch(/NULLIF\s*\(\s*el\.precocusto\s*,\s*0\s*\)/i);
-    expect(sql).toMatch(/FIRST\s+1/i);
-    expect(sql).toMatch(/ORDER\s+BY\s+el\.data\s+DESC/i);
+    expect(sql).toMatch(/MAX\s*\(\s*cod_estoquelog\s*\)/i);
+    expect(sql).toMatch(/GROUP\s+BY\s+cod_empresa\s*,\s*cod_produto/i);
   });
 
   it('usa COALESCE para preferir NFe e cair no ESTOQUELOG', () => {
@@ -67,8 +68,9 @@ describe('queries/estoque/estoque_ultimo_custo.sql', () => {
     expect(sql).toMatch(/CASE/i);
   });
 
-  it('faz LEFT JOIN para incluir SKUs sem qualquer histórico (custo NULL)', () => {
+  it('faz LEFT JOIN tbEntradas e tbCustoLog para incluir SKUs sem histórico (custo NULL)', () => {
     expect(sql).toMatch(/LEFT\s+JOIN\s+tbEntradas/i);
+    expect(sql).toMatch(/LEFT\s+JOIN\s+tbCustoLog/i);
     expect(sql).toMatch(/tbEntradas\.rn\s*=\s*1/i);
   });
 });
