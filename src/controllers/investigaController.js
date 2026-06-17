@@ -52,18 +52,17 @@ async function cobertura(req, res) {
          FROM transacao t
          JOIN entrada en ON en.cod_empresa = t.cod_empresa AND en.cod_entrada = t.cod_transacao
          JOIN transacao_item ti ON ti.cod_transacao = t.cod_transacao AND ti.cod_empresa = t.cod_empresa
-         JOIN naturezaoperacao no ON no.cod_naturezaoperacao = ti.cod_naturezaoperacao
+         JOIN naturezaoperacao nat ON nat.cod_naturezaoperacao = ti.cod_naturezaoperacao
          JOIN estoque e ON e.cod_produto = ti.cod_item AND e.cod_empresa = t.cod_empresa
            AND e.cod_estoquelocal = 1 AND e.saldo > 0
-         WHERE no.tipo = 2`,
+         WHERE nat.tipo = 2`,
         []
       ),
-      // Q1c: SKUs com precocusto > 0 via ESTOQUELOG (via transacao_item p/ obter cod_item)
+      // Q1c: SKUs com precocusto > 0 via ESTOQUELOG (cod_produto existe diretamente)
       db.query(
-        `SELECT DISTINCT el.cod_empresa, ti.cod_item AS cod_produto
+        `SELECT DISTINCT el.cod_empresa, el.cod_produto
          FROM estoquelog el
-         JOIN transacao_item ti ON ti.cod_transacao = el.cod_transacao AND ti.cod_empresa = el.cod_empresa
-         JOIN estoque e ON e.cod_produto = ti.cod_item AND e.cod_empresa = el.cod_empresa
+         JOIN estoque e ON e.cod_produto = el.cod_produto AND e.cod_empresa = el.cod_empresa
            AND e.cod_estoquelocal = 1 AND e.saldo > 0
          WHERE el.precocusto > 0`,
         []
@@ -141,8 +140,8 @@ async function amostraEmp18(req, res) {
            SELECT 1 FROM transacao t
            JOIN entrada en ON en.cod_empresa = t.cod_empresa AND en.cod_entrada = t.cod_transacao
            JOIN transacao_item ti ON ti.cod_transacao = t.cod_transacao AND ti.cod_empresa = t.cod_empresa
-           JOIN naturezaoperacao no ON no.cod_naturezaoperacao = ti.cod_naturezaoperacao
-           WHERE no.tipo = 2 AND ti.cod_item = e.cod_produto AND t.cod_empresa = 18
+           JOIN naturezaoperacao nat ON nat.cod_naturezaoperacao = ti.cod_naturezaoperacao
+           WHERE nat.tipo = 2 AND ti.cod_item = e.cod_produto AND t.cod_empresa = 18
          )
        ORDER BY e.cod_produto`,
       []
@@ -157,19 +156,19 @@ async function amostraEmp18(req, res) {
     const logRows = await db.query(
       `SELECT FIRST 20
          el.cod_empresa,
-         ti.cod_item AS cod_produto,
+         el.cod_produto,
          el.precocusto,
          t.dataencerramento,
          t.cod_transacao,
-         no.tipo AS tipo_nao
+         nat.tipo AS tipo_nao
        FROM estoquelog el
        JOIN transacao t ON t.cod_transacao = el.cod_transacao AND t.cod_empresa = el.cod_empresa
        JOIN transacao_item ti ON ti.cod_transacao = t.cod_transacao AND ti.cod_empresa = t.cod_empresa
-       JOIN naturezaoperacao no ON no.cod_naturezaoperacao = ti.cod_naturezaoperacao
+       JOIN naturezaoperacao nat ON nat.cod_naturezaoperacao = ti.cod_naturezaoperacao
        WHERE el.cod_empresa = 18
          AND el.precocusto > 0
-         AND ti.cod_item IN (${placeholders})
-       ORDER BY ti.cod_item, t.dataencerramento DESC`,
+         AND el.cod_produto IN (${placeholders})
+       ORDER BY el.cod_produto, t.dataencerramento DESC`,
       skus
     );
 
@@ -199,12 +198,12 @@ async function tiposNao(req, res) {
   if (!checkToken(req, res)) return;
   try {
     const rows = await db.query(
-      `SELECT no.tipo, TRIM(no.descricao) AS descricao, COUNT(*) AS qtd_transacoes
+      `SELECT nat.tipo, TRIM(nat.descricao) AS descricao, COUNT(*) AS qtd_transacoes
        FROM transacao t
        JOIN transacao_item ti ON ti.cod_transacao = t.cod_transacao AND ti.cod_empresa = t.cod_empresa
-       JOIN naturezaoperacao no ON no.cod_naturezaoperacao = ti.cod_naturezaoperacao
+       JOIN naturezaoperacao nat ON nat.cod_naturezaoperacao = ti.cod_naturezaoperacao
        WHERE t.dataencerramento >= DATEADD(-365 DAY TO CURRENT_DATE)
-       GROUP BY no.tipo, no.descricao
+       GROUP BY nat.tipo, nat.descricao
        ORDER BY qtd_transacoes DESC`,
       []
     );
