@@ -36,8 +36,4 @@ router.use('/empresas', empresaRoutes);
 // Módulo CRM
 router.use('/crm', crmRoutes);
 
-// Investigação TEMP (Passo A — ESTOQUELOG)
-const investigaRoutes = require('./investigaRoutes');
-router.use('/investiga', investigaRoutes);
-
 module.exports = router;

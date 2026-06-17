@@ -26,7 +26,7 @@ describe('queries/estoque/estoque_ultimo_custo.sql', () => {
     expect(sql).toMatch(/saldo\s*>\s*0/i);
   });
 
-  it('usa ROW_NUMBER() por dataencerramento DESC para pegar entrada mais recente', () => {
+  it('usa ROW_NUMBER() por dataencerramento DESC para pegar entrada mais recente (NFe)', () => {
     expect(sql).toMatch(/ROW_NUMBER\(\)\s+OVER\s*\(/i);
     expect(sql).toMatch(/PARTITION\s+BY\s+ti\.cod_item.*t\.cod_empresa/is);
     expect(sql).toMatch(/ORDER\s+BY\s+t\.dataencerramento\s+DESC/i);
@@ -34,22 +34,43 @@ describe('queries/estoque/estoque_ultimo_custo.sql', () => {
 
   it('filtra apenas entradas de compra (naturezaoperacao.tipo = 2)', () => {
     expect(sql).toMatch(/naturezaoperacao/i);
-    expect(sql).toMatch(/no\.tipo\s*=\s*2/i);
+    expect(sql).toMatch(/nat\.tipo\s*=\s*2/i);
   });
 
   it('usa NULLIF para converter valorunitario=0 em NULL', () => {
     expect(sql).toMatch(/NULLIF\s*\(\s*ti\.valorunitario\s*,\s*0\s*\)/i);
   });
 
-  it('expõe o contrato de colunas esperado pelo endpoint', () => {
+  it('inclui CTE tbCustoLog com fallback ESTOQUELOG', () => {
+    expect(sql).toMatch(/tbCustoLog\s+AS\s*\(/i);
+    expect(sql).toMatch(/estoquelog/i);
+    expect(sql).toMatch(/el\.precocusto/i);
+    expect(sql).toMatch(/NULLIF\s*\(\s*el\.precocusto\s*,\s*0\s*\)/i);
+  });
+
+  it('usa COALESCE para preferir NFe e cair no ESTOQUELOG', () => {
+    expect(sql).toMatch(/COALESCE\s*\(\s*tbEntradas\.custo_ultima_compra\s*,\s*tbCustoLog\.custo_estoquelog\s*\)/i);
+    expect(sql).toMatch(/COALESCE\s*\(\s*tbEntradas\.data_ultima_compra\s*,\s*tbCustoLog\.data_estoquelog\s*\)/i);
+  });
+
+  it('expõe contrato de colunas: cod_sku, custo_ultima_compra, data_ultima_compra, origem_custo', () => {
     expect(sql).toMatch(/AS\s+cod_sku/i);
     expect(sql).toMatch(/AS\s+custo_ultima_compra/i);
     expect(sql).toMatch(/AS\s+data_ultima_compra/i);
+    expect(sql).toMatch(/AS\s+origem_custo/i);
   });
 
-  it('faz LEFT JOIN para incluir SKUs sem histórico de entrada (custo NULL)', () => {
+  it("origem_custo = 'NFE' | 'ESTOQUELOG' | NULL via CASE", () => {
+    expect(sql).toMatch(/'NFE'/i);
+    expect(sql).toMatch(/'ESTOQUELOG'/i);
+    expect(sql).toMatch(/CASE/i);
+  });
+
+  it('faz LEFT JOIN para incluir SKUs sem qualquer histórico (custo NULL)', () => {
     expect(sql).toMatch(/LEFT\s+JOIN\s+tbEntradas/i);
+    expect(sql).toMatch(/LEFT\s+JOIN\s+tbCustoLog/i);
     expect(sql).toMatch(/tbEntradas\.rn\s*=\s*1/i);
+    expect(sql).toMatch(/tbCustoLog\.rn\s*=\s*1/i);
   });
 });
 
@@ -85,10 +106,9 @@ describe('GET /api/v1/estoque/ultimo-custo', () => {
     expect(res.body).toMatchObject({ ok: true, data: [] });
   });
 
-  it('retorna linhas com contrato { cod_sku, custo_ultima_compra, data_ultima_compra }', async () => {
+  it('caso NFE: retorna origem_custo=NFE quando custo vem de entrada tipo=2', async () => {
     const mockRows = [
-      { cod_sku: 123, custo_ultima_compra: 91.66, data_ultima_compra: new Date('2024-03-15') },
-      { cod_sku: 456, custo_ultima_compra: null, data_ultima_compra: null },
+      { cod_sku: 123, custo_ultima_compra: 91.66, data_ultima_compra: new Date('2024-03-15'), origem_custo: 'NFE' },
     ];
     db.query.mockResolvedValue(mockRows);
     db.runQuery.mockResolvedValue(mockRows);
@@ -96,13 +116,41 @@ describe('GET /api/v1/estoque/ultimo-custo', () => {
       .get('/api/v1/estoque/ultimo-custo')
       .query({ empresa: '1' });
     expect(res.status).toBe(200);
-    expect(res.body.ok).toBe(true);
-    expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data.length).toBe(2);
     expect(res.body.data[0]).toMatchObject({
       cod_sku: 123,
       custo_ultima_compra: 91.66,
+      origem_custo: 'NFE',
     });
-    expect(res.body.data[1].custo_ultima_compra).toBeNull();
+  });
+
+  it('caso ESTOQUELOG: retorna origem_custo=ESTOQUELOG para transferências sem NFe', async () => {
+    const mockRows = [
+      { cod_sku: 456, custo_ultima_compra: 77.22, data_ultima_compra: new Date('2025-06-11'), origem_custo: 'ESTOQUELOG' },
+    ];
+    db.query.mockResolvedValue(mockRows);
+    db.runQuery.mockResolvedValue(mockRows);
+    const res = await request(app)
+      .get('/api/v1/estoque/ultimo-custo')
+      .query({ empresa: '18' });
+    expect(res.status).toBe(200);
+    expect(res.body.data[0]).toMatchObject({
+      cod_sku: 456,
+      custo_ultima_compra: 77.22,
+      origem_custo: 'ESTOQUELOG',
+    });
+  });
+
+  it('caso NULL: origem_custo=null para SKUs sem qualquer histórico de custo', async () => {
+    const mockRows = [
+      { cod_sku: 789, custo_ultima_compra: null, data_ultima_compra: null, origem_custo: null },
+    ];
+    db.query.mockResolvedValue(mockRows);
+    db.runQuery.mockResolvedValue(mockRows);
+    const res = await request(app)
+      .get('/api/v1/estoque/ultimo-custo')
+      .query({ empresa: '18' });
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].custo_ultima_compra).toBeNull();
+    expect(res.body.data[0].origem_custo).toBeNull();
   });
 });
