@@ -41,16 +41,17 @@ describe('queries/estoque/estoque_ultimo_custo.sql', () => {
     expect(sql).toMatch(/NULLIF\s*\(\s*ti\.valorunitario\s*,\s*0\s*\)/i);
   });
 
-  it('inclui CTE tbCustoLog com fallback ESTOQUELOG', () => {
-    expect(sql).toMatch(/tbCustoLog\s+AS\s*\(/i);
+  it('inclui fallback ESTOQUELOG via subquery correlacionada (FIRST 1)', () => {
     expect(sql).toMatch(/estoquelog/i);
     expect(sql).toMatch(/el\.precocusto/i);
     expect(sql).toMatch(/NULLIF\s*\(\s*el\.precocusto\s*,\s*0\s*\)/i);
+    expect(sql).toMatch(/FIRST\s+1/i);
+    expect(sql).toMatch(/ORDER\s+BY\s+el\.data\s+DESC/i);
   });
 
   it('usa COALESCE para preferir NFe e cair no ESTOQUELOG', () => {
-    expect(sql).toMatch(/COALESCE\s*\(\s*tbEntradas\.custo_ultima_compra\s*,\s*tbCustoLog\.custo_estoquelog\s*\)/i);
-    expect(sql).toMatch(/COALESCE\s*\(\s*tbEntradas\.data_ultima_compra\s*,\s*tbCustoLog\.data_estoquelog\s*\)/i);
+    expect(sql).toMatch(/COALESCE\s*\(\s*tbEntradas\.custo_ultima_compra/i);
+    expect(sql).toMatch(/COALESCE\s*\(\s*tbEntradas\.data_ultima_compra/i);
   });
 
   it('expõe contrato de colunas: cod_sku, custo_ultima_compra, data_ultima_compra, origem_custo', () => {
@@ -68,9 +69,7 @@ describe('queries/estoque/estoque_ultimo_custo.sql', () => {
 
   it('faz LEFT JOIN para incluir SKUs sem qualquer histórico (custo NULL)', () => {
     expect(sql).toMatch(/LEFT\s+JOIN\s+tbEntradas/i);
-    expect(sql).toMatch(/LEFT\s+JOIN\s+tbCustoLog/i);
     expect(sql).toMatch(/tbEntradas\.rn\s*=\s*1/i);
-    expect(sql).toMatch(/tbCustoLog\.rn\s*=\s*1/i);
   });
 });
 
