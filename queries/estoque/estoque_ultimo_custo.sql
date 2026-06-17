@@ -4,7 +4,8 @@
 -- SKUs sem nenhum histórico retornam custo NULL e origem_custo NULL.
 --
 -- Parâmetros:
---   1) empresa (int)
+--   1) empresa (int) — usado em tbestoque
+--   2) empresa (int) — mesmo valor, repetido para tbCustoLog (Firebird não enxerga através de CTE)
 
 WITH
   tbestoque AS (
