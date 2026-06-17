@@ -5,7 +5,9 @@
 
 select distinct
   e.cod_empresa,
-  p.nome
+  p.nome,
+  p.cnpj,
+  p.razaosocial
 from
   empresa e
   join pessoa p

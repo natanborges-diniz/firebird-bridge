@@ -11,6 +11,9 @@ router.get('/analise-acao', estoqueController.analiseEstoqueAcao);
 // GET /estoque/completo
 router.get('/completo', estoqueController.estoqueCompleto);
 
+// GET /estoque/ultimo-custo
+router.get('/ultimo-custo', estoqueController.estoqueUltimoCusto);
+
 // GET /estoque/analise-sku
 // Alias de estoque para o mesmo contrato de /vendas/analise-sku.
 router.get('/analise-sku', vendasController.analiseSku);

@@ -18,12 +18,16 @@ async function listarEmpresas(req, res) {
           row.empresa_nome_logico ??
           nomeEmpresa ??
           null;
+        const cnpj = row.CNPJ ?? row.cnpj ?? null;
+        const razaoSocial = row.RAZAOSOCIAL ?? row.razaosocial ?? null;
 
         return {
           cod_empresa: codEmpresa,
           empresa_nome: nomeEmpresa,
           empresa_cod_logico: codEmpresa,
           empresa_nome_logico: nomeLogico,
+          cnpj: cnpj ? String(cnpj).trim() || null : null,
+          razao_social: razaoSocial ? String(razaoSocial).trim() || null : null,
         };
       })
       .sort((a, b) => (a.empresa_nome ?? '').localeCompare(b.empresa_nome ?? ''));

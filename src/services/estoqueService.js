@@ -10,7 +10,8 @@ function loadSql(fileName) {
 }
 
 const sqlAnaliseEstoqueAcao = loadSql("analise_estoque_acao.sql");
-const sqlEstoqueCompleto = loadSql("estoque_completo.sql");
+const sqlEstoqueCompleto    = loadSql("estoque_completo.sql");
+const sqlUltimoCusto        = loadSql("estoque_ultimo_custo.sql");
 
 /**
  * Análise de estoque com ação sugerida por empresa.
@@ -50,7 +51,38 @@ async function getEstoqueCompleto(empresa) {
   return rows;
 }
 
+/**
+ * Custo da última compra (entrada tipo=2, mais recente por data) por SKU.
+ * Retorna todos os SKUs em estoque; SKUs sem histórico de entrada têm
+ * custo_ultima_compra=null.
+ * @param {string|number} empresa
+ */
+async function getEstoqueUltimoCusto(empresa) {
+  const empresas = parseEmpresasParam(empresa);
+  const results = await Promise.allSettled(
+    empresas.map((codEmpresa) => db.query(sqlUltimoCusto, [codEmpresa]))
+  );
+
+  const rows = results.flatMap((result, index) => {
+    if (result.status === "fulfilled") {
+      return result.value ?? [];
+    }
+    console.error(
+      `[ESTOQUE] ultimo-custo empresa ${empresas[index]}:`,
+      result.reason?.message || result.reason
+    );
+    return [];
+  });
+
+  if (results.length > 0 && results.every((r) => r.status === "rejected")) {
+    throw results[0].reason;
+  }
+
+  return rows;
+}
+
 module.exports = {
   getAnaliseEstoqueAcao,
-  getEstoqueCompleto
+  getEstoqueCompleto,
+  getEstoqueUltimoCusto,
 };

@@ -97,7 +97,23 @@ async function estoqueCompleto(req, res) {
   }
 }
 
+/**
+ * GET /estoque/ultimo-custo?empresa=...
+ */
+async function estoqueUltimoCusto(req, res) {
+  try {
+    const empresaParam = validateEmpresaLista(req, res);
+    if (empresaParam == null) return;
+
+    const rows = await estoqueService.getEstoqueUltimoCusto(empresaParam);
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 module.exports = {
   analiseEstoqueAcao,
-  estoqueCompleto
+  estoqueCompleto,
+  estoqueUltimoCusto,
 };
