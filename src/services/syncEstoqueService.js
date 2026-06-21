@@ -64,6 +64,9 @@ function getSupabase() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausentes');
   return createClient(url, key, {
+    global: {
+      headers: { apikey: key }, // força apikey no header (chaves sb_secret_*)
+    },
     realtime: { transport: WebSocket },
     auth: { persistSession: false, autoRefreshToken: false },
   });
