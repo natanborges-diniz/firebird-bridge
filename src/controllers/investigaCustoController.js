@@ -51,6 +51,15 @@ async function investigar(req, res) {
        AND RDB$SYSTEM_FLAG = 0
      ORDER BY RDB$RELATION_NAME`);
 
+  // A4b — schema das tabelas candidatas
+  for (const tbl of ['DW$BIESTOQUE', 'V_ESTOQUE', 'MOVIMENTOESTOQUE', 'ITEMPRECO']) {
+    resultados[`schema_${tbl.replace('$','_')}`] = await run(`schema ${tbl}`,
+      `SELECT TRIM(RDB$FIELD_NAME) AS campo, RDB$FIELD_POSITION AS pos
+       FROM RDB$RELATION_FIELDS
+       WHERE RDB$RELATION_NAME = '${tbl}'
+       ORDER BY RDB$FIELD_POSITION`);
+  }
+
   return res.json({ ok: true, resultados });
 }
 
@@ -68,46 +77,23 @@ async function investigarCampos(req, res) {
      FROM produto
      WHERE precocusto > 0`);
 
-  // A2 — cobertura de custo em PRODUTO (join com estoque empresa 13)
-  resultados.A2_produto_cobertura_13 = await run('PRODUTO cobertura custo empresa 13',
-    `SELECT
-       COUNT(*) AS total_skus,
-       COUNT(NULLIF(p.precocusto, 0)) AS com_precocusto,
-       COUNT(NULLIF(p.precocompra, 0)) AS com_precocompra,
-       COUNT(NULLIF(p.precocustomedio, 0)) AS com_customedio,
-       CAST(COUNT(NULLIF(p.precocusto, 0)) * 100.0 / NULLIF(COUNT(*), 0) AS NUMERIC(5,1)) AS pct_precocusto
-     FROM estoque e
-     JOIN produto p ON p.cod_produto = e.cod_produto
+  // A2 — sample PRODUTO (apenas 5 linhas, sem JOIN — rápido)
+  resultados.A2_produto_sample_5 = await run('PRODUTO FIRST 5 com custo',
+    `SELECT FIRST 5 cod_produto, precocusto, precocompra, precocustomedio, dataultimacompra
+     FROM produto WHERE precocusto > 0`);
+
+  // A2 — cobertura: COUNT somente em PRODUTO join ESTOQUE empresa 13
+  resultados.A2_produto_cobertura_13 = await run('PRODUTO cobertura empresa 13',
+    `SELECT COUNT(*) AS total, COUNT(NULLIF(p.precocusto,0)) AS com_custo,
+            CAST(COUNT(NULLIF(p.precocusto,0))*100.0/NULLIF(COUNT(*),0) AS NUMERIC(5,1)) AS pct
+     FROM estoque e JOIN produto p ON p.cod_produto = e.cod_produto
      WHERE e.cod_empresa = 13 AND e.saldo > 0`);
 
-  // A2 — performance: custo de todos os SKUs empresa 13 via PRODUTO (deve ser <1s)
-  resultados.A2_produto_perf_13 = await run('PRODUTO custo todos SKUs empresa 13',
-    `SELECT e.cod_produto, p.precocusto, p.precocompra, p.precocustomedio, p.dataultimacompra
-     FROM estoque e
-     JOIN produto p ON p.cod_produto = e.cod_produto
-     WHERE e.cod_empresa = 13 AND e.saldo > 0
-     ORDER BY e.cod_produto`);
-
-  // A4b — schema DW$BIESTOQUE (candidato BI)
-  resultados.A4b_dwbiestoque_schema = await run('DW$BIESTOQUE campos',
-    `SELECT TRIM(RDB$FIELD_NAME) AS campo, RDB$FIELD_POSITION AS pos
-     FROM RDB$RELATION_FIELDS
-     WHERE RDB$RELATION_NAME = 'DW$BIESTOQUE'
-     ORDER BY RDB$FIELD_POSITION`);
-
-  // A4b — schema V_ESTOQUE (view)
-  resultados.A4b_vestoque_schema = await run('V_ESTOQUE campos',
-    `SELECT TRIM(RDB$FIELD_NAME) AS campo, RDB$FIELD_POSITION AS pos
-     FROM RDB$RELATION_FIELDS
-     WHERE RDB$RELATION_NAME = 'V_ESTOQUE'
-     ORDER BY RDB$FIELD_POSITION`);
-
-  // A4b — schema MOVIMENTOESTOQUE
-  resultados.A4b_movimentoestoque_schema = await run('MOVIMENTOESTOQUE campos',
-    `SELECT TRIM(RDB$FIELD_NAME) AS campo, RDB$FIELD_POSITION AS pos
-     FROM RDB$RELATION_FIELDS
-     WHERE RDB$RELATION_NAME = 'MOVIMENTOESTOQUE'
-     ORDER BY RDB$FIELD_POSITION`);
+  // A2 — FULL JOIN: custo todos SKUs empresa 13 (medimos o tempo)
+  resultados.A2_produto_full_13 = await run('PRODUTO full join empresa 13',
+    `SELECT e.cod_produto, p.precocusto, p.precocustomedio, p.dataultimacompra
+     FROM estoque e JOIN produto p ON p.cod_produto = e.cod_produto
+     WHERE e.cod_empresa = 13 AND e.saldo > 0 ORDER BY e.cod_produto`);
 
   return res.json({ ok: true, resultados });
 }
