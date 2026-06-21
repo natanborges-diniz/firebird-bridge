@@ -8,6 +8,17 @@ const estoqueService = require('./estoqueService');
 const EMPRESAS_ATIVAS = [1, 2, 4, 6, 9, 10, 13, 14, 15, 16, 17, 18];
 const BATCH_SIZE = 500;
 const THROTTLE_ENTRE_LOJAS_MS = 1000;
+const TIMEOUT_FIREBIRD_MS = 180_000;  // 3min por chamada Firebird
+const TIMEOUT_EMPRESA_MS  = 300_000;  // 5min por empresa (total)
+
+// Rejeita com erro de timeout se a promise não resolver dentro de ms.
+function withTimeout(promise, ms, label) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`Timeout ${ms}ms: ${label}`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
 
 // ============================================================
 // FAIXAS DE SANEAMENTO (Princípio #31)
@@ -66,11 +77,11 @@ async function syncEmpresa(empresa, supabase, startedAt) {
   try {
     console.log(`[sync-estoque] empresa ${empresa}: iniciando`);
 
-    // 1. Buscar dados Firebird em paralelo
+    // 1. Buscar dados Firebird em paralelo (180s de timeout por chamada)
     // lowercase_keys: true já está configurado em db/index.js — campos chegam em minúsculas.
     const [estoqueRows, custoRows] = await Promise.all([
-      estoqueService.getEstoqueCompleto(String(empresa)),
-      estoqueService.getEstoqueUltimoCusto(String(empresa)),
+      withTimeout(estoqueService.getEstoqueCompleto(String(empresa)),    TIMEOUT_FIREBIRD_MS, `getEstoqueCompleto(${empresa})`),
+      withTimeout(estoqueService.getEstoqueUltimoCusto(String(empresa)), TIMEOUT_FIREBIRD_MS, `getEstoqueUltimoCusto(${empresa})`),
     ]);
 
     // 2. Indexar custos por cod_sku para lookup O(1)
@@ -177,7 +188,17 @@ async function syncTodasEmpresas(empresaOpcional = null) {
   const resultados = [];
 
   for (let i = 0; i < empresas.length; i++) {
-    const resultado = await syncEmpresa(empresas[i], supabase, startedAt);
+    let resultado;
+    try {
+      resultado = await withTimeout(
+        syncEmpresa(empresas[i], supabase, startedAt),
+        TIMEOUT_EMPRESA_MS,
+        `syncEmpresa(${empresas[i]})`
+      );
+    } catch (err) {
+      console.error(`[sync-estoque] empresa ${empresas[i]}: timeout geral:`, err.message);
+      resultado = { empresa: empresas[i], registros: 0, erro: err.message };
+    }
     resultados.push(resultado);
     if (i < empresas.length - 1) {
       await new Promise(resolve => setTimeout(resolve, THROTTLE_ENTRE_LOJAS_MS));
