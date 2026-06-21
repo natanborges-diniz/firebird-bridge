@@ -77,30 +77,26 @@ async function syncEmpresa(empresa, supabase, startedAt) {
   try {
     console.log(`[sync-estoque] empresa ${empresa}: iniciando`);
 
-    // 1. Buscar dados Firebird em paralelo (180s de timeout por chamada)
+    // 1. Buscar dados Firebird (180s de timeout)
     // lowercase_keys: true já está configurado em db/index.js — campos chegam em minúsculas.
-    const [estoqueRows, custoRows] = await Promise.all([
-      withTimeout(estoqueService.getEstoqueCompleto(String(empresa)),    TIMEOUT_FIREBIRD_MS, `getEstoqueCompleto(${empresa})`),
-      withTimeout(estoqueService.getEstoqueUltimoCusto(String(empresa)), TIMEOUT_FIREBIRD_MS, `getEstoqueUltimoCusto(${empresa})`),
-    ]);
+    // Custo vem de PRODUTO.precocusto embutido no estoque_completo.sql (campo preco_custo).
+    const estoqueRows = await withTimeout(
+      estoqueService.getEstoqueCompleto(String(empresa)),
+      TIMEOUT_FIREBIRD_MS,
+      `getEstoqueCompleto(${empresa})`
+    );
 
-    // 2. Indexar custos por cod_sku para lookup O(1)
-    const custoMap = new Map();
-    for (const c of (custoRows || [])) {
-      custoMap.set(Number(c.cod_sku), c);
-    }
-
-    // 3. Mapear para o schema de estoque_sincronizado
+    // 2. Mapear para o schema de estoque_sincronizado
     // Mapeamento de campos Firebird → Supabase:
-    //   tipo            → categoria
-    //   fornecedor_nome → fornecedor
-    //   grife           → marca
-    //   preco_custo     → preco_custo (custo unitário vindo do Firebird)
-    //   dias_estoque    → dias_em_estoque
-    //   dias_sem_venda  → dias_desde_ultima_venda
+    //   tipo               → categoria
+    //   fornecedor_nome    → fornecedor
+    //   grife              → marca
+    //   preco_custo        → custo_ultima_compra (PRODUTO.precocusto, ~92% cobertura)
+    //   data_ultima_compra → data_ultima_compra (PRODUTO.dataultimacompra)
+    //   dias_estoque       → dias_em_estoque
+    //   dias_sem_venda     → dias_desde_ultima_venda
     //   pecas_vendidas_consideradas → qtd_vendidos_180d
     const rowsParaUpsert = (estoqueRows || []).map(r => {
-      const custo = custoMap.get(Number(r.cod_sku));
       const isArmacao = r.tipo === 'ARMACOES';
 
       let faixa = null;
@@ -128,9 +124,9 @@ async function syncEmpresa(empresa, supabase, startedAt) {
         ean:                      r.ean || null,
         quantidade_estoque:       r.quantidade_estoque,
         valor_estoque_custo:      valorEstoqueCusto,
-        custo_ultima_compra:      custo?.custo_ultima_compra ?? null,
-        data_ultima_compra:       custo?.data_ultima_compra ?? null,
-        origem_custo:             custo?.origem_custo ?? null,
+        custo_ultima_compra:      r.preco_custo > 0 ? r.preco_custo : null,
+        data_ultima_compra:       r.data_ultima_compra ?? null,
+        origem_custo:             r.preco_custo > 0 ? 'PRODUTO' : null,
         data_ultima_entrada:      r.data_ultima_entrada ?? null,
         data_ultima_venda:        r.data_ultima_venda ?? null,
         dias_em_estoque:          r.dias_estoque ?? null,

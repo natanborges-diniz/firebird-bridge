@@ -4,6 +4,7 @@
 -- em tbestoque; portanto, não deve ser somado novamente por vínculo de fornecedor.
 -- Performance: o filtro de empresa é aplicado em tbestoque antes de qualquer
 -- window function para evitar ranquear vínculos do catálogo inteiro.
+-- Custo: PRODUTO.precocusto (cadastro global do ERP, ~92% cobertura).
 -- Parâmetros:
 --   1) empresa (int)
 
@@ -42,33 +43,6 @@ WITH
       transacao_item.cod_item AS cod_produto,
       transacao.cod_empresa,
       MAX(transacao.dataencerramento) AS data_ultima_entrada
-    FROM
-      transacao
-      JOIN entrada
-        ON entrada.cod_empresa = transacao.cod_empresa
-       AND entrada.cod_entrada = transacao.cod_transacao
-      JOIN transacao_item
-        ON transacao_item.cod_transacao = transacao.cod_transacao
-       AND transacao_item.cod_empresa = transacao.cod_empresa
-      JOIN tbestoque
-        ON tbestoque.cod_produto = transacao_item.cod_item
-       AND tbestoque.cod_empresa = transacao.cod_empresa
-      JOIN naturezaoperacao
-        ON naturezaoperacao.cod_naturezaoperacao = transacao_item.cod_naturezaoperacao
-    WHERE
-      naturezaoperacao.tipo = 2
-    GROUP BY
-      1, 2
-  ),
-
-  tbUltimoCusto AS (
-    SELECT
-      transacao_item.cod_item AS cod_produto,
-      transacao.cod_empresa,
-      MAX(
-        (transacao_item.total - transacao_item.valordesconto - transacao_item.totalipi)
-        / NULLIF(transacao_item.quantidade, 0)
-      ) AS custo_unitario
     FROM
       transacao
       JOIN entrada
@@ -172,8 +146,9 @@ WITH
                                                        AS fornecedor_nome,
       COALESCE(tbmarcamodeloar.descricao, 'SEM MARCA') AS grife,
       tbestoque.saldo                                  AS quantidade_estoque,
-      COALESCE(tbUltimoCusto.custo_unitario, 0)        AS preco_custo,
-      0                                                AS preco_venda,
+      COALESCE(produto.precocusto, 0)                  AS preco_custo,
+      COALESCE(item.precovenda, 0)                     AS preco_venda,
+      produto.dataultimacompra                         AS data_ultima_compra,
       tbUltimaEntrada.data_ultima_entrada              AS data_ultima_entrada,
       tbUltimaVenda.data_ultima_venda                  AS data_ultima_venda,
       CASE
@@ -231,9 +206,6 @@ WITH
       LEFT JOIN tbUltimaEntrada
         ON tbUltimaEntrada.cod_produto = produto.cod_produto
        AND tbUltimaEntrada.cod_empresa = tbestoque.cod_empresa
-      LEFT JOIN tbUltimoCusto
-        ON tbUltimoCusto.cod_produto = produto.cod_produto
-       AND tbUltimoCusto.cod_empresa = tbestoque.cod_empresa
       LEFT JOIN tbUltimaVenda
         ON tbUltimaVenda.cod_produto = produto.cod_produto
        AND tbUltimaVenda.cod_empresa = tbestoque.cod_empresa
@@ -268,6 +240,7 @@ SELECT
   tbEstoqueCompletoRank.quantidade_estoque,
   tbEstoqueCompletoRank.preco_custo,
   tbEstoqueCompletoRank.preco_venda,
+  tbEstoqueCompletoRank.data_ultima_compra,
   tbEstoqueCompletoRank.data_ultima_entrada,
   tbEstoqueCompletoRank.data_ultima_venda,
   tbEstoqueCompletoRank.dias_giro_medio,
