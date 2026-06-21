@@ -10,5 +10,6 @@ router.get('/inv-custo/campos',    inv.investigarCampos);             // TEMPOR�
 router.get('/inv-custo/produto',   inv.investigarProduto);            // TEMPORÁRIO
 router.get('/inv-custo/itempreco', inv.investigarItemPreco);          // TEMPORÁRIO
 router.get('/inv-custo/movesto',   inv.investigarMovimentoEstoque);   // TEMPORÁRIO
+router.get('/inv-custo/q',         inv.investigarQ);                  // TEMPORÁRIO
 
 module.exports = router;
