@@ -62,6 +62,7 @@ const financeiroRoutes = require('./src/routes/financeiroRoutes');
 const estoqueRoutes = require('./src/routes/estoqueRoutes');
 const osRoutes = require('./src/routes/osRoutes');
 const crmRoutes = require('./src/routes/crmRoutes');
+const syncRoutes = require('./src/routes/syncRoutes');
 
 /**
  * ============================================================
@@ -74,6 +75,7 @@ app.use('/api/v1/financeiro', financeiroRoutes);
 app.use('/api/v1/estoque', estoqueRoutes);
 app.use('/api/v1/os', osRoutes);
 app.use('/api/v1/crm', crmRoutes);
+app.use('/api/v1/sync', syncRoutes);
 
 /**
  * ============================================================
@@ -102,3 +104,29 @@ app.listen(PORT, () => {
   console.log(` Ambiente: ${process.env.NODE_ENV || 'development'}`);
   console.log('========================================');
 });
+
+/**
+ * ============================================================
+ * Cron — sync de estoque para Supabase (07:00 BRT diariamente)
+ * ============================================================
+ */
+const cron = require('node-cron');
+const syncEstoqueService = require('./src/services/syncEstoqueService');
+
+cron.schedule('0 7 * * *', async () => {
+  console.log('[CRON] sync-estoque: disparando');
+  try {
+    const resultado = await syncEstoqueService.syncTodasEmpresas();
+    console.log('[CRON] sync-estoque: concluído', JSON.stringify({
+      ok: resultado.ok,
+      total_registros: resultado.total_registros,
+      total_erros: resultado.total_erros,
+    }));
+  } catch (err) {
+    console.error('[CRON] sync-estoque: falhou:', err.message);
+  }
+}, {
+  timezone: 'America/Sao_Paulo',
+});
+
+console.log('[CRON] sync-estoque agendado para 07:00 BRT diariamente');
