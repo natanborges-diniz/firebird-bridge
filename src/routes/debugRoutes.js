@@ -2,7 +2,10 @@
 const express = require('express');
 const router = express.Router();
 const debugController = require('../controllers/debugController');
+const inv = require('../controllers/investigaCustoController'); // TEMPORÁRIO
 
 router.get('/empresas', debugController.testarEmpresas);
+router.get('/inv-custo/schema', inv.investigar);       // TEMPORÁRIO
+router.get('/inv-custo/campos', inv.investigarCampos); // TEMPORÁRIO
 
 module.exports = router;
