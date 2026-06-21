@@ -77,23 +77,52 @@ async function investigarCampos(req, res) {
      FROM produto
      WHERE precocusto > 0`);
 
-  // A2 — sample PRODUTO (apenas 5 linhas, sem JOIN — rápido)
-  resultados.A2_produto_sample_5 = await run('PRODUTO FIRST 5 com custo',
-    `SELECT FIRST 5 cod_produto, precocusto, precocompra, precocustomedio, dataultimacompra
-     FROM produto WHERE precocusto > 0`);
+  // --- ITEMPRECO: tabela por empresa (maior candidato) ---
 
-  // A2 — cobertura: COUNT somente em PRODUTO join ESTOQUE empresa 13
-  resultados.A2_produto_cobertura_13 = await run('PRODUTO cobertura empresa 13',
-    `SELECT COUNT(*) AS total, COUNT(NULLIF(p.precocusto,0)) AS com_custo,
-            CAST(COUNT(NULLIF(p.precocusto,0))*100.0/NULLIF(COUNT(*),0) AS NUMERIC(5,1)) AS pct
-     FROM estoque e JOIN produto p ON p.cod_produto = e.cod_produto
+  // Sample ITEMPRECO empresa 13
+  resultados.IP_sample = await run('ITEMPRECO sample empresa 13',
+    `SELECT FIRST 5 cod_item, cod_empresa, precocusto, precocompra, precocustomedio, ultimaalteracao
+     FROM itempreco WHERE cod_empresa = 13 AND precocusto > 0`);
+
+  // ITEMPRECO: todos os SKUs em estoque empresa 13 (join + filtro custo)
+  resultados.IP_full_13 = await run('ITEMPRECO full join estoque empresa 13',
+    `SELECT e.cod_produto, ip.precocusto, ip.precocustomedio, ip.ultimaalteracao
+     FROM estoque e
+     JOIN itempreco ip ON ip.cod_item = e.cod_produto AND ip.cod_empresa = e.cod_empresa
+     WHERE e.cod_empresa = 13 AND e.saldo > 0
+     ORDER BY e.cod_produto`);
+
+  // ITEMPRECO: cobertura empresa 13
+  resultados.IP_cobertura_13 = await run('ITEMPRECO cobertura empresa 13',
+    `SELECT COUNT(*) AS total_skus_estoque,
+            SUM(CASE WHEN ip.cod_item IS NOT NULL THEN 1 ELSE 0 END) AS tem_itempreco,
+            SUM(CASE WHEN ip.precocusto > 0 THEN 1 ELSE 0 END) AS com_custo_preenchido,
+            CAST(SUM(CASE WHEN ip.precocusto > 0 THEN 1 ELSE 0 END)*100.0/NULLIF(COUNT(*),0) AS NUMERIC(5,1)) AS pct_custo
+     FROM estoque e
+     LEFT JOIN itempreco ip ON ip.cod_item = e.cod_produto AND ip.cod_empresa = e.cod_empresa
      WHERE e.cod_empresa = 13 AND e.saldo > 0`);
 
-  // A2 — FULL JOIN: custo todos SKUs empresa 13 (medimos o tempo)
-  resultados.A2_produto_full_13 = await run('PRODUTO full join empresa 13',
-    `SELECT e.cod_produto, p.precocusto, p.precocustomedio, p.dataultimacompra
-     FROM estoque e JOIN produto p ON p.cod_produto = e.cod_produto
-     WHERE e.cod_empresa = 13 AND e.saldo > 0 ORDER BY e.cod_produto`);
+  // --- MOVIMENTOESTOQUE: custo por movimento ---
+
+  // Sample MOVIMENTOESTOQUE empresa 13
+  resultados.ME_sample = await run('MOVIMENTOESTOQUE sample empresa 13',
+    `SELECT FIRST 5 cod_produto, cod_empresa, data, precocusto, cod_movimentoestoquetipo
+     FROM movimentoestoque WHERE cod_empresa = 13 AND precocusto > 0
+     ORDER BY data DESC`);
+
+  // MOVIMENTOESTOQUE: custo mais recente por SKU empresa 13
+  resultados.ME_ultimo_por_sku = await run('MOVIMENTOESTOQUE ultimo custo empresa 13',
+    `SELECT me.cod_produto, me.precocusto, me.data
+     FROM movimentoestoque me
+     JOIN (
+       SELECT cod_produto, MAX(cod_movimentoestoque) AS max_id
+       FROM movimentoestoque
+       WHERE cod_empresa = 13 AND precocusto > 0
+       GROUP BY cod_produto
+     ) mx ON mx.max_id = me.cod_movimentoestoque
+     JOIN estoque e ON e.cod_produto = me.cod_produto AND e.cod_empresa = 13
+     WHERE e.saldo > 0
+     ORDER BY me.cod_produto`);
 
   return res.json({ ok: true, resultados });
 }
