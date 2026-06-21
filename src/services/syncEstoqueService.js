@@ -43,11 +43,19 @@ function classificarItemP31(r) {
 // CLIENTE SUPABASE
 // ============================================================
 
+// Node 20 não tem WebSocket nativo — necessário para @supabase/realtime-js.
+// Usamos apenas REST (upsert/delete), mas o cliente inicializa Realtime na
+// construção e falha sem WebSocket. ws resolve sem abrir conexão real.
+const WebSocket = require('ws');
+
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausentes');
-  return createClient(url, key);
+  return createClient(url, key, {
+    realtime: { transport: WebSocket },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
 
 // ============================================================
