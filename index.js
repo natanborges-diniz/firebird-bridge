@@ -63,6 +63,7 @@ const estoqueRoutes = require('./src/routes/estoqueRoutes');
 const osRoutes = require('./src/routes/osRoutes');
 const crmRoutes = require('./src/routes/crmRoutes');
 const syncRoutes = require('./src/routes/syncRoutes');
+const debugRoutes = require('./src/routes/debugRoutes'); // TEMPORÁRIO
 
 /**
  * ============================================================
@@ -76,6 +77,7 @@ app.use('/api/v1/estoque', estoqueRoutes);
 app.use('/api/v1/os', osRoutes);
 app.use('/api/v1/crm', crmRoutes);
 app.use('/api/v1/sync', syncRoutes);
+app.use('/api/v1/debug', debugRoutes); // TEMPORÁRIO
 
 /**
  * ============================================================
