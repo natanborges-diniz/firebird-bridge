@@ -116,14 +116,20 @@ async function investigarCampos(req, res) { return investigarItemPreco(req, res)
 
 // Rota Q — query única por nome (para isolar performance de cada query)
 const QUERIES = {
-  ip_sample:  `SELECT FIRST 5 cod_item, cod_empresa, precocusto, precocustomedio, ultimaalteracao FROM itempreco WHERE cod_empresa = 13 AND precocusto > 0`,
-  ip_full:    `SELECT e.cod_produto, ip.precocusto, ip.precocustomedio, ip.ultimaalteracao FROM estoque e JOIN itempreco ip ON ip.cod_item = e.cod_produto AND ip.cod_empresa = e.cod_empresa WHERE e.cod_empresa = 13 AND e.saldo > 0 ORDER BY e.cod_produto`,
-  ip_cob:     `SELECT COUNT(*) AS total, SUM(CASE WHEN ip.cod_item IS NOT NULL THEN 1 ELSE 0 END) AS tem_ip, SUM(CASE WHEN ip.precocusto > 0 THEN 1 ELSE 0 END) AS com_custo FROM estoque e LEFT JOIN itempreco ip ON ip.cod_item = e.cod_produto AND ip.cod_empresa = e.cod_empresa WHERE e.cod_empresa = 13 AND e.saldo > 0`,
-  me_sample:  `SELECT FIRST 5 cod_produto, data, precocusto, cod_movimentoestoquetipo FROM movimentoestoque WHERE cod_empresa = 13 AND precocusto > 0 ORDER BY data DESC`,
-  me_count:   `SELECT COUNT(*) AS total FROM movimentoestoque WHERE cod_empresa = 13 AND precocusto > 0`,
-  me_ultimo:  `SELECT me.cod_produto, me.precocusto, me.data FROM movimentoestoque me JOIN (SELECT cod_produto, MAX(cod_movimentoestoque) AS max_id FROM movimentoestoque WHERE cod_empresa = 13 AND precocusto > 0 GROUP BY cod_produto) mx ON mx.max_id = me.cod_movimentoestoque JOIN estoque e ON e.cod_produto = me.cod_produto AND e.cod_empresa = 13 WHERE e.saldo > 0 ORDER BY me.cod_produto`,
-  prod_cob:   `SELECT COUNT(*) AS total, COUNT(NULLIF(p.precocusto,0)) AS com_custo, CAST(COUNT(NULLIF(p.precocusto,0))*100.0/NULLIF(COUNT(*),0) AS NUMERIC(5,1)) AS pct FROM estoque e JOIN produto p ON p.cod_produto = e.cod_produto WHERE e.cod_empresa = 13 AND e.saldo > 0`,
-  prod_full:  `SELECT e.cod_produto, p.precocusto, p.precocustomedio, p.dataultimacompra FROM estoque e JOIN produto p ON p.cod_produto = e.cod_produto WHERE e.cod_empresa = 13 AND e.saldo > 0 ORDER BY e.cod_produto`,
+  ip_sample:     `SELECT FIRST 5 cod_item, cod_empresa, precocusto, precocustomedio, ultimaalteracao FROM itempreco WHERE cod_empresa = 13 AND precocusto > 0`,
+  ip_full:       `SELECT e.cod_produto, ip.precocusto, ip.precocustomedio, ip.ultimaalteracao FROM estoque e JOIN itempreco ip ON ip.cod_item = e.cod_produto AND ip.cod_empresa = e.cod_empresa WHERE e.cod_empresa = 13 AND e.saldo > 0 ORDER BY e.cod_produto`,
+  ip_cob:        `SELECT COUNT(*) AS total, SUM(CASE WHEN ip.cod_item IS NOT NULL THEN 1 ELSE 0 END) AS tem_ip, SUM(CASE WHEN ip.precocusto > 0 THEN 1 ELSE 0 END) AS com_custo FROM estoque e LEFT JOIN itempreco ip ON ip.cod_item = e.cod_produto AND ip.cod_empresa = e.cod_empresa WHERE e.cod_empresa = 13 AND e.saldo > 0`,
+  ip_total:      `SELECT COUNT(*) AS total_geral FROM itempreco`,
+  ip_e1:         `SELECT FIRST 5 cod_item, cod_empresa, precocusto, precocustomedio, ultimaalteracao FROM itempreco WHERE cod_empresa = 1 AND precocusto > 0`,
+  ip_empresas:   `SELECT FIRST 20 cod_empresa, COUNT(*) AS total, SUM(CASE WHEN precocusto > 0 THEN 1 ELSE 0 END) AS com_custo FROM itempreco GROUP BY cod_empresa ORDER BY COUNT(*) DESC`,
+  me_sample:     `SELECT FIRST 5 cod_produto, data, precocusto, cod_movimentoestoquetipo FROM movimentoestoque WHERE cod_empresa = 13 AND precocusto > 0 ORDER BY data DESC`,
+  me_count:      `SELECT COUNT(*) AS total FROM movimentoestoque WHERE cod_empresa = 13 AND precocusto > 0`,
+  me_ultimo:     `SELECT me.cod_produto, me.precocusto, me.data FROM movimentoestoque me JOIN (SELECT cod_produto, MAX(cod_movimentoestoque) AS max_id FROM movimentoestoque WHERE cod_empresa = 13 AND precocusto > 0 GROUP BY cod_produto) mx ON mx.max_id = me.cod_movimentoestoque JOIN estoque e ON e.cod_produto = me.cod_produto AND e.cod_empresa = 13 WHERE e.saldo > 0 ORDER BY me.cod_produto`,
+  me_ult2:       `SELECT me.cod_produto, me.precocusto, me.data FROM movimentoestoque me JOIN (SELECT cod_produto, MAX(cod_movimentoestoque) AS max_id FROM movimentoestoque WHERE cod_empresa = 13 AND precocusto > 0 GROUP BY cod_produto) mx ON mx.max_id = me.cod_movimentoestoque ORDER BY me.cod_produto`,
+  prod_count:    `SELECT COUNT(*) AS total, COUNT(NULLIF(precocusto,0)) AS com_custo FROM produto`,
+  prod_cob:      `SELECT COUNT(*) AS total, COUNT(NULLIF(p.precocusto,0)) AS com_custo, CAST(COUNT(NULLIF(p.precocusto,0))*100.0/NULLIF(COUNT(*),0) AS NUMERIC(5,1)) AS pct FROM estoque e JOIN produto p ON p.cod_produto = e.cod_produto WHERE e.cod_empresa = 13 AND e.saldo > 0`,
+  prod_cob2:     `SELECT COUNT(*) AS total_em_estoque, COUNT(NULLIF(p.precocusto,0)) AS com_custo FROM estoque e JOIN produto p ON p.cod_produto = e.cod_produto WHERE e.cod_empresa = 13 AND e.saldo > 0`,
+  prod_full:     `SELECT e.cod_produto, p.precocusto, p.precocustomedio, p.dataultimacompra FROM estoque e JOIN produto p ON p.cod_produto = e.cod_produto WHERE e.cod_empresa = 13 AND e.saldo > 0 ORDER BY e.cod_produto`,
 };
 
 async function investigarQ(req, res) {
