@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const osController = require('../controllers/osController');
 
+router.get('/movimentadas', osController.osMovimentadas);
 router.get('/monitor', osController.monitorOs);
 router.get('/monitor-ultima-etapa', osController.monitorOsUltimaEtapa);
 router.get('/consulta-status', osController.consultaStatus);

@@ -339,6 +339,39 @@ async function receitaMetadata(req, res) {
   }
 }
 
+async function osMovimentadas(req, res) {
+  try {
+    const { data, codEtapa, codEmpresa, empresa } = req.query;
+
+    if (!data || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      return failure(res, {
+        code: 'INVALID_PARAMS',
+        message: 'Parâmetro obrigatório ausente ou inválido: data (YYYY-MM-DD)',
+        status: 400,
+      });
+    }
+
+    const rawEmpresa = codEmpresa ?? empresa;
+    let codEmpresaNum = null;
+    if (rawEmpresa && String(rawEmpresa).toUpperCase() !== 'ALL') {
+      codEmpresaNum = Number(rawEmpresa);
+      if (!Number.isFinite(codEmpresaNum)) {
+        return failure(res, {
+          code: 'INVALID_PARAMS',
+          message: 'codEmpresa deve ser numérico ou ALL',
+          details: { codEmpresa: rawEmpresa },
+          status: 400,
+        });
+      }
+    }
+
+    const rows = await osService.getOsMovimentadas({ data, codEtapa, codEmpresa: codEmpresaNum });
+    return success(res, rows);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 module.exports = {
   monitorOs,
   monitorOsUltimaEtapa,
@@ -346,4 +379,5 @@ module.exports = {
   hubReceitasCompleto,
   consultaStatus,
   receitaMetadata,
+  osMovimentadas,
 };

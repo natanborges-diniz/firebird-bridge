@@ -11,6 +11,7 @@ const sqlMonitorOs = loadSql("monitor.sql");
 const sqlMonitorOsUltimaEtapa = loadSql("monitor_ultima_etapa.sql");
 const sqlHubReceitas = loadSql("hub_receitas.sql");
 const sqlConsultaStatus = loadSql("consulta_status.sql");
+const sqlOsMovimentadas = loadSql("movimentadas.sql");
 const OSL_TABLE_NAME = "ORDEMSERVICOOTICALENTE";
 const OSL_JOIN_COLUMN_NAME = "COD_ORDEMSERVICOCAIXA";
 const RECEITA_TABLE_NAME = "OTILJCLIENTERECEITA";
@@ -473,6 +474,39 @@ async function getReceitaMetadata({ campos, chavesOs, includeAllFields }) {
   return { matches, fieldsByTable };
 }
 
+async function getOsMovimentadas({ data, codEtapa, codEmpresa }) {
+  const empresaParam = codEmpresa != null ? Number(codEmpresa) : null;
+  const rows = await db.query(sqlOsMovimentadas, [data, empresaParam, empresaParam]);
+
+  const etapas = codEtapa
+    ? String(codEtapa).split(',').map(e => parseInt(e.trim(), 10)).filter(n => !isNaN(n))
+    : [];
+
+  const filtered = etapas.length > 0
+    ? rows.filter(r => etapas.includes(Number(r.cod_etapa)))
+    : rows;
+
+  return filtered.map(r => ({
+    os:                  String(r.os ?? '').trim(),
+    codEmpresa:          r.cod_empresa != null ? Number(r.cod_empresa) : null,
+    empresa:             String(r.empresa ?? '').trim(),
+    codEtapa:            r.cod_etapa != null ? Number(r.cod_etapa) : null,
+    etapa:               String(r.etapa ?? '').trim(),
+    dataMovimentacao:    r.data_movimentacao ?? null,
+    dataEmissao:         r.data_emissao ?? null,
+    dataPrevisao:        r.data_previsao ?? null,
+    cliente:             String(r.cliente ?? '').trim(),
+    cpf:                 r.cpf ? String(r.cpf).trim() : null,
+    telefoneCelular:     r.telefone_celular ? String(r.telefone_celular).trim() : null,
+    telefoneResidencial: r.telefone_residencial ? String(r.telefone_residencial).trim() : null,
+    produtos: [
+      r.armacao  ? { tipo: 'armacao',  descricao: String(r.armacao).trim()  } : null,
+      r.lente_od ? { tipo: 'lente_od', descricao: String(r.lente_od).trim() } : null,
+      r.lente_oe ? { tipo: 'lente_oe', descricao: String(r.lente_oe).trim() } : null,
+    ].filter(Boolean),
+  }));
+}
+
 module.exports = {
   getMonitorOs,
   getMonitorOsUltimaEtapa,
@@ -480,4 +514,5 @@ module.exports = {
   getHubReceitasCompleto,
   getConsultaStatus,
   getReceitaMetadata,
+  getOsMovimentadas,
 };
