@@ -7,6 +7,35 @@ function loadSql(fileName) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+function sanitizarWhatsApp(raw) {
+  if (!raw) return null;
+  let d = String(raw).replace(/\D/g, "");
+  if (!d) return null;
+  if (d.length >= 12 && d.startsWith("55")) d = d.slice(2);
+  d = d.replace(/^0+/, "");
+  let ddd, numero;
+  if (d.length === 11) {
+    ddd = d.slice(0, 2); numero = d.slice(2);
+  } else if (d.length === 10) {
+    const ult9 = d.slice(1);
+    if (ult9[0] === "9" && d[0] !== "9") { ddd = "11"; numero = ult9; }
+    else return null;
+  } else if (d.length === 9) {
+    ddd = "11"; numero = d;
+  } else return null;
+  if (numero.length !== 9 || numero[0] !== "9") return null;
+  if (!/^[1-9][0-9]$/.test(ddd)) return null;
+  return `55${ddd}${numero}`;
+}
+
+function escolherWhatsApp(celular, residencial, comercial) {
+  for (const cand of [celular, residencial, comercial]) {
+    const ok = sanitizarWhatsApp(cand);
+    if (ok) return ok;
+  }
+  return null;
+}
+
 const sqlMonitorOs = loadSql("monitor.sql");
 const sqlMonitorOsUltimaEtapa = loadSql("monitor_ultima_etapa.sql");
 const sqlHubReceitas = loadSql("hub_receitas.sql");
@@ -400,6 +429,7 @@ async function getConsultaStatus({ os, cpf }) {
       dataSaida: row.data_saida ?? null,
       empresa: String(row.empresa ?? '').trim(),
       cliente: String(row.cliente ?? '').trim(),
+      telefone: escolherWhatsApp(row.tel_celular, row.tel_residencial, row.tel_comercial),
       vendedor: row.vendedor == null ? null : String(row.vendedor).trim(),
       produtos,
     };
