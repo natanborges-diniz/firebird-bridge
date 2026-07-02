@@ -1,6 +1,7 @@
 // src/controllers/debugController.js
 const { success, handleControllerError } = require('../utils/apiResponse');
 const { pingDatabase } = require('../db');
+const debugProdutoTipoService = require('../services/debugProdutoTipoService');
 
 async function testarEmpresas(req, res) {
   // Array "sujo": empresa normal, lixo e as duas SUPER
@@ -60,7 +61,22 @@ async function firebirdConfig(req, res) {
   }
 }
 
+async function mapearProdutoTipo(req, res) {
+  try {
+    const raw = req.query.empresa_foco ?? req.query.empresaFoco ?? 13;
+    const codEmpresaFoco = Number(raw);
+    if (!Number.isFinite(codEmpresaFoco)) {
+      return handleControllerError(res, new Error(`empresa_foco invalido: ${raw}`));
+    }
+    const data = await debugProdutoTipoService.mapearProdutoTipo({ codEmpresaFoco });
+    return success(res, data);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 module.exports = {
   testarEmpresas,
   firebirdConfig,
+  mapearProdutoTipo,
 };
