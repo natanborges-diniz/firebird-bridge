@@ -38,12 +38,27 @@ async function fetchMetadata() {
   }
 }
 
+async function safeRun(label, fn) {
+  const t0 = Date.now();
+  try {
+    const rows = await fn();
+    return { label, ok: true, ms: Date.now() - t0, rows };
+  } catch (err) {
+    return {
+      label,
+      ok: false,
+      ms: Date.now() - t0,
+      error: err.message || String(err),
+    };
+  }
+}
+
 async function mapearProdutoTipo({ codEmpresaFoco = 13 } = {}) {
   const [porEmpresa, agregado, meta, samples] = await Promise.all([
-    db.query(sqlPorEmpresa, [codEmpresaFoco]),
-    db.query(sqlAgregado),
-    fetchMetadata(),
-    db.query(sqlSamples),
+    safeRun('empresa_foco', () => db.query(sqlPorEmpresa, [codEmpresaFoco])),
+    safeRun('agregado_12_lojas', () => db.query(sqlAgregado)),
+    safeRun('metadata', () => fetchMetadata()),
+    safeRun('samples', () => db.query(sqlSamples)),
   ]);
 
   return {
