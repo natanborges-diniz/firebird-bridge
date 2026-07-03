@@ -1,19 +1,22 @@
 -- queries/debug/produto_tipo_meta_check.sql
--- [INVESTIGACAO] Verifica se existe uma tabela de metadata para cod_produto_tipo.
--- Firebird armazena nomes de tabela sem system flag em rdb$relations.
+-- [INVESTIGACAO] Todas as dwitemclassificacao existentes com contagem de
+-- itens classificados. Uma dessas provavelmente eh o "tipo de produto"
+-- (revenda x insumo).
 -- Nenhum parametro.
 SELECT
-  TRIM(rdb$relation_name) AS nome
+  dwitemclassificacao.cod_dwitemclassificacao         AS cod_dw,
+  dwitemclassificacao.descricao                       AS descricao_dw,
+  COUNT(DISTINCT itemclassificacao.cod_itemclassificacao) AS valores_distintos,
+  COUNT(item_itemclassificacao.cod_item)              AS itens_classificados
 FROM
-  rdb$relations
-WHERE
-  rdb$system_flag = 0
-  AND UPPER(TRIM(rdb$relation_name)) IN (
-    'PRODUTO_TIPO',
-    'PRODUTOTIPO',
-    'TIPO_PRODUTO',
-    'TIPOPRODUTO',
-    'DWPRODUTO_TIPO',
-    'DWPRODUTOTIPO'
-  )
+  dwitemclassificacao
+  LEFT JOIN itemclassificacao
+    ON itemclassificacao.cod_dwitemclassificacao = dwitemclassificacao.cod_dwitemclassificacao
+  LEFT JOIN item_itemclassificacao
+    ON item_itemclassificacao.cod_itemclassificacao = itemclassificacao.cod_itemclassificacao
+GROUP BY
+  dwitemclassificacao.cod_dwitemclassificacao,
+  dwitemclassificacao.descricao
+ORDER BY
+  itens_classificados DESC
 ;

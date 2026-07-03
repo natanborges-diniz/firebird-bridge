@@ -1,48 +1,26 @@
 -- queries/debug/produto_tipo_samples.sql
--- [INVESTIGACAO] Exemplos concretos de SKU por cod_produto_tipo.
--- Universo: estoque prateleira nas 12 lojas Diniz (saldo > 0),
--- 3 SKUs por tipo com maior saldo para ilustrar o que o tipo eh.
+-- [INVESTIGACAO] Achar o SKU "CABO PP" (insumo conhecido) e trazer todas as
+-- classificacoes que ele tem. Vai revelar qual dwitemclassificacao separa
+-- revenda de insumo.
 -- Nenhum parametro.
-WITH
-  tbestoque AS (
-    SELECT
-      estoque.cod_produto,
-      SUM(estoque.saldo) AS total_pecas
-    FROM
-      estoque
-    WHERE
-      estoque.saldo > 0
-      AND estoque.cod_estoquelocal = 1
-      AND estoque.cod_empresa IN (1,2,4,6,9,10,13,14,15,16,17,18)
-    GROUP BY
-      estoque.cod_produto
-  ),
-  tbBase AS (
-    SELECT
-      produto.cod_produto_tipo,
-      produto.cod_produto,
-      item.descricao,
-      tbestoque.total_pecas,
-      ROW_NUMBER() OVER (
-        PARTITION BY produto.cod_produto_tipo
-        ORDER BY tbestoque.total_pecas DESC, produto.cod_produto ASC
-      ) AS rn
-    FROM
-      tbestoque
-      JOIN produto ON produto.cod_produto = tbestoque.cod_produto
-      JOIN item    ON item.cod_item       = produto.cod_produto
-  )
-SELECT
-  tbBase.cod_produto_tipo,
-  tbBase.rn                       AS rank,
-  tbBase.cod_produto              AS cod_sku,
-  tbBase.descricao,
-  tbBase.total_pecas
+SELECT FIRST 20
+  item.cod_item                                         AS cod_sku,
+  item.descricao                                        AS descricao,
+  dwitemclassificacao.cod_dwitemclassificacao           AS cod_dw,
+  dwitemclassificacao.descricao                         AS categoria,
+  itemclassificacao.cod_itemclassificacao               AS cod_valor,
+  itemclassificacao.descricao                           AS valor
 FROM
-  tbBase
+  item
+  LEFT JOIN item_itemclassificacao
+    ON item_itemclassificacao.cod_item = item.cod_item
+  LEFT JOIN itemclassificacao
+    ON itemclassificacao.cod_itemclassificacao = item_itemclassificacao.cod_itemclassificacao
+  LEFT JOIN dwitemclassificacao
+    ON dwitemclassificacao.cod_dwitemclassificacao = itemclassificacao.cod_dwitemclassificacao
 WHERE
-  tbBase.rn <= 3
+  UPPER(item.descricao) LIKE 'CABO PP%'
 ORDER BY
-  tbBase.cod_produto_tipo,
-  tbBase.rn
+  item.cod_item,
+  dwitemclassificacao.cod_dwitemclassificacao
 ;

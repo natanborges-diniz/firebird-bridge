@@ -63,12 +63,7 @@ async function firebirdConfig(req, res) {
 
 async function mapearProdutoTipo(req, res) {
   try {
-    const raw = req.query.empresa_foco ?? req.query.empresaFoco ?? 13;
-    const codEmpresaFoco = Number(raw);
-    if (!Number.isFinite(codEmpresaFoco)) {
-      return handleControllerError(res, new Error(`empresa_foco invalido: ${raw}`));
-    }
-    const data = await debugProdutoTipoService.mapearProdutoTipo({ codEmpresaFoco });
+    const data = await debugProdutoTipoService.mapearProdutoTipo();
     return success(res, data);
   } catch (err) {
     return handleControllerError(res, err);

@@ -1,23 +1,29 @@
 -- queries/debug/produto_tipo_por_empresa.sql
--- [INVESTIGACAO] Distribuicao de cod_produto_tipo em estoque de UMA empresa.
--- Contexto: mapear quais tipos existem para decidir filtro de sync
--- (revenda x insumo/expediente). Universo: prateleira (cod_estoquelocal = 1).
--- Parametros:
---   1) cod_empresa (INTEGER)
+-- [INVESTIGACAO] Colunas da tabela PRODUTO no schema atual.
+-- Firebird armazena metadata em rdb$relation_fields.
+-- Nenhum parametro.
 SELECT
-  produto.cod_produto_tipo                     AS cod_produto_tipo,
-  COUNT(DISTINCT estoque.cod_produto)          AS skus_distintos,
-  SUM(estoque.saldo)                           AS total_pecas
+  TRIM(rf.rdb$field_name) AS nome_coluna,
+  rf.rdb$field_position   AS pos,
+  CASE f.rdb$field_type
+    WHEN 7  THEN 'SMALLINT'
+    WHEN 8  THEN 'INTEGER'
+    WHEN 10 THEN 'FLOAT'
+    WHEN 12 THEN 'DATE'
+    WHEN 13 THEN 'TIME'
+    WHEN 14 THEN 'CHAR'
+    WHEN 16 THEN 'BIGINT'
+    WHEN 27 THEN 'DOUBLE'
+    WHEN 35 THEN 'TIMESTAMP'
+    WHEN 37 THEN 'VARCHAR'
+    WHEN 261 THEN 'BLOB'
+    ELSE CAST(f.rdb$field_type AS VARCHAR(10))
+  END                     AS tipo
 FROM
-  estoque
-  JOIN produto ON produto.cod_produto = estoque.cod_produto
+  rdb$relation_fields rf
+  JOIN rdb$fields f ON f.rdb$field_name = rf.rdb$field_source
 WHERE
-  estoque.cod_empresa = CAST(? AS INTEGER)
-  AND estoque.cod_estoquelocal = 1
-  AND estoque.saldo > 0
-GROUP BY
-  produto.cod_produto_tipo
+  UPPER(TRIM(rf.rdb$relation_name)) = 'PRODUTO'
 ORDER BY
-  skus_distintos DESC,
-  total_pecas DESC
+  rf.rdb$field_position
 ;
