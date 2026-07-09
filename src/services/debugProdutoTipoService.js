@@ -32,22 +32,23 @@ async function safeRun(label, fn) {
 }
 
 async function mapearProdutoTipo() {
-  const [schemaProduto, schemaItem, classificacoes, caboSample] = await Promise.all([
-    safeRun('schema_produto', () => db.query(sqlPorEmpresa)),
-    safeRun('schema_item', () => db.query(sqlAgregado)),
-    safeRun('classificacoes', () => db.query(sqlMetaCheck)),
-    safeRun('cabo_pp_sample', () => db.query(sqlSamples)),
+  const [produtotipo, insumo, classif22, samples] = await Promise.all([
+    safeRun('produtotipo_dist', () => db.query(sqlPorEmpresa)),
+    safeRun('insumo_flag_dist', () => db.query(sqlAgregado)),
+    safeRun('classificacao_22_tipo', () => db.query(sqlMetaCheck)),
+    safeRun('samples_por_produtotipo', () => db.query(sqlSamples)),
   ]);
 
   return {
-    nota:
-      'PRODUTO.COD_PRODUTO_TIPO nao existe. Consultas trocadas por introspecao ' +
-      'de schema (colunas de PRODUTO/ITEM), listagem de dwitemclassificacao e ' +
-      'busca do SKU "CABO PP" pra revelar qual classificacao separa revenda x insumo.',
-    schema_produto: schemaProduto,
-    schema_item: schemaItem,
-    classificacoes: classificacoes,
-    cabo_pp_sample: caboSample,
+    universo: {
+      cod_estoquelocal: 1,
+      saldo_minimo: 1,
+      empresas_agregadas: [1, 2, 4, 6, 9, 10, 13, 14, 15, 16, 17, 18],
+    },
+    produtotipo_dist: produtotipo,
+    insumo_flag_dist: insumo,
+    classificacao_22_tipo: classif22,
+    samples_por_produtotipo: samples,
   };
 }
 

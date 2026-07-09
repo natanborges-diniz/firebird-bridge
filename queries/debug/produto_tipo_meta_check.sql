@@ -1,22 +1,27 @@
 -- queries/debug/produto_tipo_meta_check.sql
--- [INVESTIGACAO] Todas as dwitemclassificacao existentes com contagem de
--- itens classificados. Uma dessas provavelmente eh o "tipo de produto"
--- (revenda x insumo).
+-- [INVESTIGACAO] Valores da classificacao 22 ("Tipo") com contagem em estoque.
+-- Universo: prateleira (cod_estoquelocal = 1), saldo > 0, 12 lojas.
 -- Nenhum parametro.
 SELECT
-  dwitemclassificacao.cod_dwitemclassificacao         AS cod_dw,
-  dwitemclassificacao.descricao                       AS descricao_dw,
-  COUNT(DISTINCT itemclassificacao.cod_itemclassificacao) AS valores_distintos,
-  COUNT(item_itemclassificacao.cod_item)              AS itens_classificados
+  itemclassificacao.cod_itemclassificacao       AS cod_valor,
+  itemclassificacao.descricao                   AS valor,
+  COUNT(DISTINCT produto.cod_produto)           AS skus_distintos,
+  SUM(estoque.saldo)                            AS total_pecas
 FROM
-  dwitemclassificacao
-  LEFT JOIN itemclassificacao
-    ON itemclassificacao.cod_dwitemclassificacao = dwitemclassificacao.cod_dwitemclassificacao
-  LEFT JOIN item_itemclassificacao
-    ON item_itemclassificacao.cod_itemclassificacao = itemclassificacao.cod_itemclassificacao
+  estoque
+  JOIN produto ON produto.cod_produto = estoque.cod_produto
+  JOIN item_itemclassificacao
+    ON item_itemclassificacao.cod_item = produto.cod_produto
+  JOIN itemclassificacao
+    ON itemclassificacao.cod_itemclassificacao = item_itemclassificacao.cod_itemclassificacao
+WHERE
+  estoque.saldo > 0
+  AND estoque.cod_estoquelocal = 1
+  AND estoque.cod_empresa IN (1,2,4,6,9,10,13,14,15,16,17,18)
+  AND itemclassificacao.cod_dwitemclassificacao = 22
 GROUP BY
-  dwitemclassificacao.cod_dwitemclassificacao,
-  dwitemclassificacao.descricao
+  itemclassificacao.cod_itemclassificacao,
+  itemclassificacao.descricao
 ORDER BY
-  itens_classificados DESC
+  total_pecas DESC
 ;
