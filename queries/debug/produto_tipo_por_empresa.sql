@@ -1,6 +1,6 @@
 -- queries/debug/produto_tipo_por_empresa.sql
--- [INVESTIGACAO] PRODUTO.COD_PRODUTOTIPO distribuido no estoque das 12 lojas.
--- Universo: prateleira (cod_estoquelocal = 1), saldo > 0.
+-- [INVESTIGACAO] PRODUTO.COD_PRODUTOTIPO nas 12 lojas, TODOS os estoquelocais.
+-- (Diferente de produto_tipo_agregado que restringe a prateleira.)
 -- Nenhum parametro.
 SELECT
   produto.cod_produtotipo                       AS cod_produtotipo,
@@ -12,7 +12,6 @@ FROM
   JOIN produto ON produto.cod_produto = estoque.cod_produto
 WHERE
   estoque.saldo > 0
-  AND estoque.cod_estoquelocal = 1
   AND estoque.cod_empresa IN (1,2,4,6,9,10,13,14,15,16,17,18)
 GROUP BY
   produto.cod_produtotipo
