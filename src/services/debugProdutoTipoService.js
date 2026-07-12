@@ -31,27 +31,22 @@ async function safeRun(label, fn) {
   }
 }
 
-async function mapearProdutoTipo() {
-  const [produtotipoTodos, locais, classif22, samples] = await Promise.all([
-    safeRun('produtotipo_dist_todos_locais', () => db.query(sqlPorEmpresa)),
-    safeRun('estoquelocal_dist', () => db.query(sqlAgregado)),
-    safeRun('classificacao_22_tipo', () => db.query(sqlMetaCheck)),
-    safeRun('samples_5_por_produtotipo', () => db.query(sqlSamples)),
-  ]);
-
-  return {
-    universo: {
-      saldo_minimo: 1,
-      empresas_agregadas: [1, 2, 4, 6, 9, 10, 13, 14, 15, 16, 17, 18],
-      nota: 'produtotipo_dist_todos_locais e samples SEM filtro de cod_estoquelocal (universo amplo).',
-    },
-    produtotipo_dist_todos_locais: produtotipoTodos,
-    estoquelocal_dist: locais,
-    classificacao_22_tipo: classif22,
-    samples_5_por_produtotipo: samples,
-  };
+async function distProdutotipo() {
+  return safeRun('produtotipo_dist_todos_locais', () => db.query(sqlPorEmpresa));
+}
+async function distEstoqueLocal() {
+  return safeRun('estoquelocal_dist', () => db.query(sqlAgregado));
+}
+async function distClassificacao22() {
+  return safeRun('classificacao_22_tipo', () => db.query(sqlMetaCheck));
+}
+async function samplesPorProdutotipo() {
+  return safeRun('samples_5_por_produtotipo', () => db.query(sqlSamples));
 }
 
 module.exports = {
-  mapearProdutoTipo,
+  distProdutotipo,
+  distEstoqueLocal,
+  distClassificacao22,
+  samplesPorProdutotipo,
 };

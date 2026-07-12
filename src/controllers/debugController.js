@@ -61,17 +61,27 @@ async function firebirdConfig(req, res) {
   }
 }
 
-async function mapearProdutoTipo(req, res) {
-  try {
-    const data = await debugProdutoTipoService.mapearProdutoTipo();
-    return success(res, data);
-  } catch (err) {
-    return handleControllerError(res, err);
-  }
+function makeHandler(fn) {
+  return async function handler(_req, res) {
+    try {
+      const data = await fn();
+      return success(res, data);
+    } catch (err) {
+      return handleControllerError(res, err);
+    }
+  };
 }
+
+const distProdutotipo    = makeHandler(debugProdutoTipoService.distProdutotipo);
+const distEstoqueLocal   = makeHandler(debugProdutoTipoService.distEstoqueLocal);
+const distClassificacao22 = makeHandler(debugProdutoTipoService.distClassificacao22);
+const samplesPorProdutotipo = makeHandler(debugProdutoTipoService.samplesPorProdutotipo);
 
 module.exports = {
   testarEmpresas,
   firebirdConfig,
-  mapearProdutoTipo,
+  distProdutotipo,
+  distEstoqueLocal,
+  distClassificacao22,
+  samplesPorProdutotipo,
 };
