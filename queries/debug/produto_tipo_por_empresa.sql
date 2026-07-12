@@ -1,9 +1,14 @@
 -- queries/debug/produto_tipo_por_empresa.sql (rota /debug/produto-tipo-map/dist)
--- [INVESTIGACAO] Tenta ler direto a tabela tbtipoprodutodescricao. Se nao
--- existir, safeRun captura e reporta o erro (SQLCODE -204 no Firebird).
+-- [INVESTIGACAO] Valores distintos de ITEM.ATIVO com contagem. Confirma se
+-- e T/F, S/N, 1/0 ou outra coisa.
 -- Nenhum parametro.
-SELECT FIRST 20
-  *
+SELECT
+  CAST(item.ativo AS VARCHAR(4) CHARACTER SET NONE)  AS valor,
+  COUNT(*)                                           AS itens
 FROM
-  tbtipoprodutodescricao
+  item
+GROUP BY
+  item.ativo
+ORDER BY
+  itens DESC
 ;

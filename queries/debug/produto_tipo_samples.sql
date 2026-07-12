@@ -2,8 +2,8 @@
 -- [INVESTIGACAO] TABELA FINAL CONSOLIDADA usando os nomes REAIS descobertos
 -- na investigacao anterior:
 --   - PRODUTO.COD_PRODUTOTIPO         (nao cod_produto_tipo)
---   - PRODUTO.MOVIMENTAESTOQUE = 'S'  (equivalente a "permite_movimento")
---   - ITEM.ATIVO = 'S'                (equivalente a "produto_ativo")
+--   - PRODUTO.MOVIMENTAESTOQUE = 'T' (equivalente a "permite_movimento")
+--   - ITEM.ATIVO = 'T'               (equivalente a "produto_ativo")
 -- Como nao existe tabela tbtipoprodutodescricao, a coluna nome_oficial
 -- e derivada dos samples reportados: cesto misto, lentes, armacoes.
 -- Otimizacao: agrupa estoque primeiro pra reduzir cost do JOIN.
@@ -30,8 +30,8 @@ SELECT
     ELSE 'DESCONHECIDO'
   END                                                              AS nome_oficial,
   COUNT(*)                                                         AS skus_com_estoque,
-  SUM(CASE WHEN item.ativo = 'S' THEN 1 ELSE 0 END)                AS skus_ativos,
-  SUM(CASE WHEN produto.movimentaestoque = 'S' THEN 1 ELSE 0 END)  AS skus_permitem_mov,
+  SUM(CASE WHEN item.ativo = 'T' THEN 1 ELSE 0 END)                AS skus_ativos,
+  SUM(CASE WHEN produto.movimentaestoque = 'T' THEN 1 ELSE 0 END)  AS skus_permitem_mov,
   SUM(tbestoque.pecas)                                             AS pecas_total
 FROM
   tbestoque
