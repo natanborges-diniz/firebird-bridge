@@ -1,20 +1,19 @@
--- queries/debug/produto_tipo_agregado.sql
--- [INVESTIGACAO] Inventario de cod_estoquelocal com contagem: quantos locais
--- existem e quanto estoque cada um segura. Serve pra entender por que
--- prateleira (1) mostra 3 tipos e "todos os locais" mostra mais.
+-- queries/debug/produto_tipo_agregado.sql (rota /debug/produto-tipo-map/locais)
+-- [INVESTIGACAO] Ponto 1: tabelas cujo nome contem TIPO/CATEGORIA/CLASSIF/
+-- NATUREZA. Vamos ver se tem tabela oficial de metadata pros produtotipos.
 -- Nenhum parametro.
 SELECT
-  estoque.cod_estoquelocal                      AS cod_estoquelocal,
-  COUNT(DISTINCT estoque.cod_produto)           AS skus_distintos,
-  COUNT(*)                                      AS linhas_estoque,
-  SUM(estoque.saldo)                            AS total_pecas
+  TRIM(rdb$relation_name)                       AS tabela
 FROM
-  estoque
+  rdb$relations
 WHERE
-  estoque.saldo > 0
-  AND estoque.cod_empresa IN (1,2,4,6,9,10,13,14,15,16,17,18)
-GROUP BY
-  estoque.cod_estoquelocal
+  rdb$system_flag = 0
+  AND (
+    UPPER(TRIM(rdb$relation_name)) LIKE '%TIPO%'
+    OR UPPER(TRIM(rdb$relation_name)) LIKE '%CATEGORIA%'
+    OR UPPER(TRIM(rdb$relation_name)) LIKE '%CLASSIF%'
+    OR UPPER(TRIM(rdb$relation_name)) LIKE '%NATUREZA%'
+  )
 ORDER BY
-  total_pecas DESC
+  tabela
 ;
