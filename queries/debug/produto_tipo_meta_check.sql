@@ -1,23 +1,32 @@
 -- queries/debug/produto_tipo_meta_check.sql (rota /debug/produto-tipo-map/classif22)
--- [INVESTIGACAO] Ponto 3: distribuicao de estoque nos tipos suspeitos 1, 2, 8.
--- Se tipo 2 ou tipo 8 tiverem 0 pecas em estoque, sao ruido/dado sujo.
+-- [INVESTIGACAO] Colunas de PRODUTO cujo nome contem FLAG/DESATIVADO/PERMITE/
+-- MOVIMENTO/ATIVO/BLOQUEA. Serve pra confirmar/negar a existencia de
+-- flag_produto_desativado e flag_permite_movimento no schema.
 -- Nenhum parametro.
 SELECT
-  produto.cod_produtotipo                       AS cod_produtotipo,
-  COUNT(DISTINCT produto.cod_produto)           AS skus_em_estoque,
-  SUM(estoque.saldo)                            AS total_pecas,
-  MIN(estoque.saldo)                            AS menor_saldo,
-  MAX(estoque.saldo)                            AS maior_saldo,
-  COUNT(DISTINCT estoque.cod_empresa)           AS empresas_afetadas
+  TRIM(rf.rdb$field_name)     AS nome_coluna,
+  CASE f.rdb$field_type
+    WHEN 7  THEN 'SMALLINT'
+    WHEN 8  THEN 'INTEGER'
+    WHEN 14 THEN 'CHAR'
+    WHEN 16 THEN 'BIGINT'
+    WHEN 37 THEN 'VARCHAR'
+    ELSE CAST(f.rdb$field_type AS VARCHAR(10))
+  END                         AS tipo
 FROM
-  estoque
-  JOIN produto ON produto.cod_produto = estoque.cod_produto
+  rdb$relation_fields rf
+  JOIN rdb$fields f ON f.rdb$field_name = rf.rdb$field_source
 WHERE
-  produto.cod_produtotipo IN (1, 2, 8)
-  AND estoque.saldo > 0
-  AND estoque.cod_empresa IN (1,2,4,6,9,10,13,14,15,16,17,18)
-GROUP BY
-  produto.cod_produtotipo
+  UPPER(TRIM(rf.rdb$relation_name)) IN ('PRODUTO','ITEM')
+  AND (
+    UPPER(TRIM(rf.rdb$field_name)) LIKE 'FLAG%'
+    OR UPPER(TRIM(rf.rdb$field_name)) LIKE '%DESATIVADO%'
+    OR UPPER(TRIM(rf.rdb$field_name)) LIKE '%PERMITE%'
+    OR UPPER(TRIM(rf.rdb$field_name)) LIKE '%MOVIMENTO%'
+    OR UPPER(TRIM(rf.rdb$field_name)) LIKE '%ATIVO%'
+    OR UPPER(TRIM(rf.rdb$field_name)) LIKE '%BLOQUEA%'
+  )
 ORDER BY
-  produto.cod_produtotipo
+  rf.rdb$relation_name,
+  rf.rdb$field_name
 ;
