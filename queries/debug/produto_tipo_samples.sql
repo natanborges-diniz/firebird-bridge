@@ -1,7 +1,8 @@
 -- queries/debug/produto_tipo_samples.sql
 -- [INVESTIGACAO] 5 SKUs exemplo por cod_produtotipo nas 12 lojas,
--- TODOS os estoquelocais (nao restrito a prateleira). CAST CHARACTER SET NONE
--- pra evitar erro de transliteracao WIN1252.
+-- TODOS os estoquelocais. descricao com CAST CHARACTER SET NONE
+-- pra evitar erro de transliteracao WIN1252. Sem JOIN de marca
+-- (pesado demais em dwitemclassificacao=42, ~649k linhas).
 -- Nenhum parametro.
 WITH
   tbestoque AS (
@@ -16,23 +17,11 @@ WITH
     GROUP BY
       estoque.cod_produto
   ),
-  tbmarca AS (
-    SELECT
-      item_itemclassificacao.cod_item,
-      itemclassificacao.descricao AS marca
-    FROM
-      itemclassificacao
-      JOIN item_itemclassificacao
-        ON item_itemclassificacao.cod_itemclassificacao = itemclassificacao.cod_itemclassificacao
-    WHERE
-      itemclassificacao.cod_dwitemclassificacao = 42
-  ),
   tbBase AS (
     SELECT
       produto.cod_produtotipo,
       produto.cod_produto,
       CAST(item.descricao AS VARCHAR(200) CHARACTER SET NONE) AS descricao,
-      CAST(COALESCE(tbmarca.marca, 'SEM MARCA') AS VARCHAR(200) CHARACTER SET NONE) AS marca,
       tbestoque.total_pecas,
       ROW_NUMBER() OVER (
         PARTITION BY produto.cod_produtotipo
@@ -42,14 +31,12 @@ WITH
       tbestoque
       JOIN produto ON produto.cod_produto = tbestoque.cod_produto
       JOIN item    ON item.cod_item       = produto.cod_produto
-      LEFT JOIN tbmarca ON tbmarca.cod_item = item.cod_item
   )
 SELECT
   tbBase.cod_produtotipo,
   tbBase.rn                       AS rank,
   tbBase.cod_produto              AS cod_sku,
   tbBase.descricao,
-  tbBase.marca,
   tbBase.total_pecas
 FROM
   tbBase
