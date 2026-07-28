@@ -42,6 +42,9 @@ router.get('/recebimentos/agregado', recebimentosController.recebimentosAgregado
 // (executado no Railway, unico ambiente com acesso ao Firebird)
 router.get('/recebimentos/validacao', recebimentosController.validacao);
 
+// TEMPORARIO: sondas de parser p/ diagnostico do -104 (remover apos Fase 1)
+router.get('/recebimentos/probe-parser', recebimentosController.probeParser);
+
 // GET /api/v1/vendas/emitidos — modo alternativo "emitido em OS"
 router.get('/emitidos', recebimentosController.emitidos);
 
