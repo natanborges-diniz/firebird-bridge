@@ -105,6 +105,19 @@ pagamentos_totais AS (
   GROUP BY
     COD_TRANSACAO,
     COD_EMPRESA
+),
+/* Pré-agregação das parcelas de convênio por transação (D6): evita o
+   produto cartesiano parcela × itens_por_transacao no bloco CONVENIO,
+   que multiplicava TOTAL_BRUTO/TOTAL_VENDIDO pelo nº de parcelas. */
+convenio_parcelas_por_transacao AS (
+  SELECT
+    cp.COD_TRANSACAO,
+    cp.COD_EMPRESA,
+    SUM(COALESCE(cp.VALOR, 0)) AS TOTAL_CONVENIO
+  FROM transacaoconvenioparcela cp
+  GROUP BY
+    cp.COD_TRANSACAO,
+    cp.COD_EMPRESA
 )
 
 -- VENDAS NORMAIS
@@ -201,13 +214,14 @@ GROUP BY
 UNION ALL
 
 -- CONVENIO
+-- TODO: validar natureza (bloco sem filtro nat.tipo = 1; semantica incerta)
 SELECT
   tbempresa.EMPRESA,
   tbempresa.empresa_cod_logico,
   tbempresa.empresa_nome_logico,
   vendedor.NOME AS VENDEDOR,
   'CONVENIO' AS FORMAPAGAMENTO,
-  SUM(transacaoconvenioparcela.valor) AS TOTALGERAL,
+  SUM(COALESCE(convenio.TOTAL_CONVENIO, 0)) AS TOTALGERAL,
   COUNT(DISTINCT transacao.cod_transacao) AS QTD_VENDAS,
   SUM(COALESCE(itens.TOTAL_BRUTO, 0)) AS TOTAL_BRUTO,
   SUM(COALESCE(itens.TOTAL_BRUTO, 0) - COALESCE(itens.TOTAL_VENDIDO, 0)) AS TOTAL_DESCONTO,
@@ -222,9 +236,9 @@ SELECT
 FROM
   P
   JOIN transacao ON 1=1
-  JOIN transacaoconvenioparcela
-    ON transacaoconvenioparcela.cod_transacao = transacao.cod_transacao
-   AND transacaoconvenioparcela.cod_empresa = transacao.cod_empresa
+  JOIN convenio_parcelas_por_transacao convenio
+    ON convenio.COD_TRANSACAO = transacao.COD_TRANSACAO
+   AND convenio.COD_EMPRESA = transacao.COD_EMPRESA
   JOIN saida
     ON saida.cod_saida = transacao.cod_transacao
    AND saida.cod_empresa = transacao.cod_empresa
@@ -248,6 +262,11 @@ GROUP BY
 UNION ALL
 
 -- DEVOLUCAO
+-- Itens já pré-agregados em itens_por_transacao (1 linha por transação);
+-- entradanotafiscaldevolucao é 1:1 com a transação de devolução.
+-- Obs (D7/D4): excluirCreditos não se aplica — a semantica unica remove
+-- apenas linhas de forma de pagamento tipo 6, inexistentes neste bloco.
+-- TODO: validar natureza (bloco sem filtro nat.tipo; semantica incerta)
 SELECT
   tbempresa.EMPRESA,
   tbempresa.empresa_cod_logico,
