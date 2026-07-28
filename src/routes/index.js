@@ -16,6 +16,9 @@ const syncRoutes        = require('./syncRoutes');
 // Health check
 router.get('/health', healthController.health);
 
+// Frescor da copia do banco (job diario) — independente de movimento
+router.get('/health/freshness', healthController.freshness);
+
 // Módulo Financeiro
 router.use('/financeiro', financeiroRoutes);
 

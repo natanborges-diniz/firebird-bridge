@@ -1,4 +1,5 @@
 const { pingDatabase } = require('../db');
+const healthFreshnessService = require('../services/healthFreshnessService');
 
 const serviceStartMs = Date.now();
 const packageJson = require('../../package.json');
@@ -59,4 +60,22 @@ async function health(_req, res) {
   }
 }
 
-module.exports = { health };
+// GET /api/v1/health/freshness
+// Verifica se a copia do Firebird no servidor esta sendo atualizada
+// (job diario), independente de haver movimento de negocio no dia.
+async function freshness(_req, res) {
+  const result = await healthFreshnessService.getDbFreshness();
+
+  // 'indisponivel' = nao deu para verificar (ex.: Firebird < 3). Sinaliza
+  // com 503 para monitores externos; frontend le data.status de qualquer forma.
+  const httpStatus = result.status === 'indisponivel' ? 503 : 200;
+  const ok = result.status !== 'indisponivel';
+
+  return res.status(httpStatus).json({
+    ok,
+    data: result,
+    error: ok ? null : (result.motivo || 'nao foi possivel verificar o frescor'),
+  });
+}
+
+module.exports = { health, freshness };

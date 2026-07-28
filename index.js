@@ -19,7 +19,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { health } = require('./src/controllers/healthController');
+const { health, freshness } = require('./src/controllers/healthController');
 
 const app = express();
 
@@ -50,6 +50,7 @@ app.get('/health', async (_req, res) => {
 });
 
 app.get('/api/v1/health', health);
+app.get('/api/v1/health/freshness', freshness);
 
 /**
  * ============================================================
