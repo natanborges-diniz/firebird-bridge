@@ -69,6 +69,9 @@ async function descobrirTabelaTipos() {
 
 async function secaoA(dias) {
   const { tabela, mapa } = await descobrirTabelaTipos();
+  // Somente contas RECEBIDAS (fl.pagar = 'F') — sem esse filtro a distribuicao
+  // mistura contas PAGAS (fornecedores/despesas, muito via banco) e distorce a
+  // leitura, como o Natan apontou na primeira rodada da validacao.
   const rows = await db.runQuery(
     `SELECT ffp.cod_formapagamentotipo AS tipo,
             COUNT(*) AS qtd_parcelas,
@@ -76,8 +79,11 @@ async function secaoA(dias) {
        FROM finlancamentoparcela flp
        JOIN finformapagamento ffp
          ON ffp.cod_formapagamento = flp.cod_formapagamento
+       JOIN finlancamento fl
+         ON fl.cod_lancamento = flp.cod_lancamento
       WHERE flp.datapagamento BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
         AND flp.valorpago > 0
+        AND fl.pagar = 'F'
       GROUP BY ffp.cod_formapagamentotipo
       ORDER BY 3 DESC`,
     [diasAtras(dias), diasAtras(0)]
@@ -85,6 +91,7 @@ async function secaoA(dias) {
   return {
     tabelaTipos: tabela,
     janelaDias: dias,
+    filtro: "somente contas recebidas (fl.pagar = 'F')",
     distribuicao: rows.map((r) => ({
       tipo: Number(r.tipo),
       descricao: mapa.get(Number(r.tipo)) || null,

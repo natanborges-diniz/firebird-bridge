@@ -76,6 +76,8 @@ JOIN finformapagamento ffp
   ON ffp.cod_formapagamento = flp.cod_formapagamento
 JOIN finlancamento fl
   ON fl.cod_lancamento = flp.cod_lancamento
+ -- somente contas a RECEBER: comissao/meta nunca olham contas pagas
+ AND fl.pagar = 'F'
 JOIN finfaturatransacao fft
   ON fft.cod_faturatransacao = fl.cod_faturatransacao
 JOIN transacao t
