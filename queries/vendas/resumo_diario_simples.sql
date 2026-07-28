@@ -46,6 +46,7 @@ itens_agregados AS (
     ) AS total_bruto,
     SUM(
       CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+      - CAST(COALESCE(ti.valordesconto, 0) AS DOUBLE PRECISION)
       - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
     ) AS total_vendido
   FROM transacao_item ti
@@ -150,6 +151,7 @@ SELECT
   ) AS TOTAL_BRUTO,
   SUM(
     CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+    - CAST(COALESCE(ti.valordesconto, 0) AS DOUBLE PRECISION)
     - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
   ) AS TOTAL_VENDIDO,
   SUM(
@@ -159,6 +161,7 @@ SELECT
     )
     - (
       CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+      - CAST(COALESCE(ti.valordesconto, 0) AS DOUBLE PRECISION)
       - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
     )
   ) AS TOTAL_DESCONTO,
@@ -202,6 +205,7 @@ SELECT
   ) * -1 AS TOTAL_BRUTO,
   SUM(
     CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+    - CAST(COALESCE(ti.valordesconto, 0) AS DOUBLE PRECISION)
     - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
   ) * -1 AS TOTAL_VENDIDO,
   SUM(
@@ -211,6 +215,7 @@ SELECT
     )
     - (
       CAST(COALESCE(ti.total, 0) AS DOUBLE PRECISION)
+      - CAST(COALESCE(ti.valordesconto, 0) AS DOUBLE PRECISION)
       - CAST(COALESCE(ti.totalipi, 0) AS DOUBLE PRECISION)
     )
   ) * -1 AS TOTAL_DESCONTO,
