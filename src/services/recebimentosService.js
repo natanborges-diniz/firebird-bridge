@@ -136,7 +136,7 @@ function agregarRecebimentos(rows) {
       atual = {
         cod_empresa: row.cod_empresa ?? null,
         cod_vendedor: row.cod_vendedor ?? null,
-        vendedor_nome: row.vendedor_nome ?? null,
+        vendedor_nome: String(row.vendedor_nome ?? "").trim() || null,
         data_pagamento: dataPagamento,
         forma_categoria: formaCategoria,
         origem: origem,
