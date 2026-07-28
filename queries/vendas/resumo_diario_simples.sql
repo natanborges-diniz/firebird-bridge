@@ -5,7 +5,8 @@
 --   2) empresa (int) - empresa ou empresa estoque (mesmo valor)
 --   3) dataInicio (date) - vendas (DATAEMISSAO)
 --   4) dataFim (date)    - vendas (DATAEMISSAO)
---   5) excluirCreditos (int: 0/1)
+--   5) excluirCreditos (int: 0/1) - remove só as linhas de crédito (tipo 6)
+--      após o rateio, sem redistribuir o valor entre as outras formas
 --   6) dataInicio (date) - convenio (DATAEMISSAO)
 --   7) dataFim (date)    - convenio (DATAEMISSAO)
 --   8) empresa (int)     - convenio empresa estoque
@@ -82,7 +83,6 @@ parcelas_agregadas AS (
   LEFT JOIN finformapagamento fp ON fp.cod_formapagamento = flp.cod_formapagamento
   LEFT JOIN finformapagamentocartao fpc ON fpc.cod_formapagamentocartao = fp.cod_formapagamento
   LEFT JOIN fincartaocreditotipo cct ON cct.cod_cartaocreditotipo = fpc.cod_cartaocreditotipo
-  WHERE (? = 0 OR fp.cod_formapagamentotipo <> 6 OR fp.cod_formapagamentotipo IS NULL)
   GROUP BY
     tb.cod_transacao,
     tb.cod_empresaestoque,
@@ -97,6 +97,14 @@ parcelas_com_proporcao AS (
       0
     ) AS proporcao
   FROM parcelas_agregadas pa
+),
+/* excluirCreditos — semantica unica (D4): remove apenas as linhas de credito
+   (cod_formapagamentotipo = 6) DEPOIS do calculo do rateio. O valor dos
+   creditos NAO e redistribuido entre as outras formas de pagamento. */
+parcelas_filtradas AS (
+  SELECT pp.*
+  FROM parcelas_com_proporcao pp
+  WHERE (? = 0 OR pp.cod_formapagamentotipo <> 6 OR pp.cod_formapagamentotipo IS NULL)
 )
 
 SELECT
@@ -129,7 +137,7 @@ LEFT JOIN pessoa v ON v.cod_pessoa = tb.cod_vendedor
 JOIN itens_agregados ia
   ON ia.cod_transacao = tb.cod_transacao
  AND tb.cod_empresaestoque = ia.cod_empresa
-JOIN parcelas_com_proporcao pp
+JOIN parcelas_filtradas pp
   ON pp.cod_transacao = tb.cod_transacao
  AND pp.cod_empresa = tb.cod_empresaestoque
 GROUP BY

@@ -7,7 +7,9 @@
 --   2) empresa (int) repetido (regra 13/18)
 --   3) dataInicio (date)
 --   4) dataFim (date)
---   5) excluirCreditos (int: 0/1)
+--   5) excluirCreditos (int: 0/1) - mantido por compatibilidade de contrato;
+--      NAO altera mais o resultado (a venda nao e descartada). Use as colunas
+--      TOTAL_CREDITOS / TOTAL_VENDIDO_SEM_CREDITOS para expurgar creditos.
 
 WITH
 P AS (
@@ -107,21 +109,11 @@ itens AS (
        mesma referencia da CTE creditos e das demais queries de vendas. */
     AND t.DATAEMISSAO BETWEEN P.P_DATA_INI AND P.P_DATA_FIM
     /*__FILTRO_VENDA_REGULAR__*/
-    AND (
-      P.P_EXCLUI_CREDITOS = 0
-      OR NOT EXISTS (
-        SELECT 1
-        FROM FINFATURATRANSACAO fft
-        JOIN FINLANCAMENTO fl
-          ON fl.COD_FATURATRANSACAO = fft.COD_FATURATRANSACAO
-        JOIN FINLANCAMENTOPARCELA flp
-          ON flp.COD_LANCAMENTO = fl.COD_LANCAMENTO
-        JOIN FINFORMAPAGAMENTO ffp
-          ON ffp.COD_FORMAPAGAMENTO = flp.COD_FORMAPAGAMENTO
-        WHERE fft.COD_FATURATRANSACAO = t.COD_FATURATRANSACAO
-          AND ffp.COD_FORMAPAGAMENTOTIPO = 6
-      )
-    )
+    /* Semantica unica de excluirCreditos (D4): esta query NAO descarta mais
+       a venda inteira quando ha parcela de credito. O consumidor deve usar
+       TOTAL_CREDITOS / TOTAL_VENDIDO_SEM_CREDITOS (sempre calculados, com a
+       mesma data DATAEMISSAO) para expurgar creditos sem perder as demais
+       formas de pagamento da venda. */
 
   GROUP BY
     t.COD_EMPRESAESTOQUE,
@@ -176,7 +168,8 @@ creditos AS (
     AND t.DATAEMISSAO BETWEEN P.P_DATA_INI AND P.P_DATA_FIM
     /*__FILTRO_VENDA_REGULAR__*/
     AND ffp.COD_FORMAPAGAMENTOTIPO = 6  -- CREDITOS
-    AND P.P_EXCLUI_CREDITOS = 0
+    /* TOTAL_CREDITOS e calculado SEMPRE (independente de P_EXCLUI_CREDITOS)
+       para que TOTAL_VENDIDO_SEM_CREDITOS seja correto em qualquer chamada. */
 
   GROUP BY
     t.COD_EMPRESAESTOQUE,
