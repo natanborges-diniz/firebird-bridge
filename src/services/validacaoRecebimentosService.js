@@ -226,6 +226,20 @@ async function validarRecebimentos({ empresa, secoes, dias }) {
 
   if (pedidas.has("d")) out.d_investigacaoDevolucoes = await secaoD();
 
+  // (f) bandeiras de cartao — PIX aparece como bandeira de cartao de credito
+  // (Natan, 2026-07-28); precisamos achar a coluna/valor para separar PIX (a
+  // vista, 3%) de cartao de credito real (2%).
+  if (pedidas.has("f")) {
+    try {
+      out.f_bandeirasCartao = await db.runQuery(
+        "SELECT FIRST 40 * FROM fincartaocreditotipo",
+        []
+      );
+    } catch (err) {
+      out.f_bandeirasCartao = { erro: String(err && err.message ? err.message : err) };
+    }
+  }
+
   if (pedidas.has("e")) {
     const totalRecebido = round2(
       rows
