@@ -1,7 +1,7 @@
 # Revisão do Módulo de Vendas + Arquitetura de Metas e Comissões
 
 Data: 2026-07-28 · Escopo: `firebird-bridge` (API) + `tica-diniz-insights` (frontend)
-Status: plano em execução — **Fase 0 implementada em 2026-07-28** (bridge + frontend); Fases 1–5 pendentes.
+Status: plano em execução — **Fase 0 implementada em 2026-07-28** (bridge + frontend); **Fase 1 (parte bridge) implementada em 2026-07-28**: `recebimentos_detalhe.sql`, `emitidos_por_vendedor.sql`, `devolucoes_restituicao.sql` (hipótese pendente de validação), `recebimentosService`, endpoints `/vendas/recebimentos[/agregado]`, `/vendas/emitidos`, `/vendas/devolucoes-restituicao` e `npm run validar:recebimentos`. Pendências da Fase 1: rodar a validação contra o banco real (PIX/boleto em BANCO/OUTROS; hipótese de restituição) e a parte Supabase (`recebimentos_agregado_diario` + edge `sync-recebimentos-diario` + `sync_log`). Fases 2–5 pendentes.
 
 ---
 
