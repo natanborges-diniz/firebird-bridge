@@ -11,7 +11,6 @@ const {
   getRangeTtlMs,
   setCachedValue,
 } = require("../utils/queryCache");
-const sqlCreateIndexes = loadSql("debug_create_indexes.sql");
 const LOG_QUERY_TIME = process.env.LOG_QUERY_TIME === "true";
 const FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS = Number(process.env.FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS || 45000);
 const FORMAS_PAGAMENTO_STALE_MAX_AGE_MS = Number(process.env.FORMAS_PAGAMENTO_STALE_MAX_AGE_MS || 30 * 60 * 1000);
@@ -326,10 +325,6 @@ async function getAnaliseSkuPorEmpresa(codEmpresa, dataInicio, dataFim, options 
 
 async function debugResumoEmpresaVendedor(params) {
   return db.runQuery(SQL_DEBUG, params);
-}
-
-async function debugCreateIndexes() {
-  return db.query(sqlCreateIndexes);
 }
 
 // --------- APIS PRINCIPAIS ---------
@@ -679,5 +674,4 @@ module.exports = {
   getAnaliseFamiliaVendedor,
   getAnaliseSku,
   debugResumoEmpresaVendedor,
-  debugCreateIndexes,
 };

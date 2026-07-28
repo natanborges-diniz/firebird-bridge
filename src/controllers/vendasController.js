@@ -120,11 +120,9 @@ async function auditoriaFormasPagamentoLight(req, res) {
 
 async function debugResumoEmpresaVendedor(req, res) {
   try {
-    if (req.query.action === "create-indexes") {
-      await vendasService.debugCreateIndexes();
-      return success(res, { message: "Índices criados" });
-    }
-
+    // A action "create-indexes" foi removida (D14): executava DDL em produção
+    // sem autenticação. O SQL segue documentado em
+    // queries/vendas/debug_create_indexes.sql para aplicação manual.
     const params = validatePeriodoEmpresaQuery(req, res);
     if (!params) return;
 

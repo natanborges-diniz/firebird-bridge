@@ -10,7 +10,6 @@ jest.mock('../src/services/vendasService', () => ({
   getResumoDiarioSimples: jest.fn(),
   getFormasPagamentoAuditoria: jest.fn(),
   getFormasPagamentoAuditoriaLight: jest.fn(),
-  debugCreateIndexes: jest.fn(),
   debugResumoEmpresaVendedor: jest.fn(),
   getAnaliseFamiliaVendedor: jest.fn(),
   getAnaliseSku: jest.fn(),
