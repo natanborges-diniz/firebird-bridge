@@ -25,6 +25,25 @@ function validatePeriodoQuery(req, res) {
     return null;
   }
 
+  const CAMPOS_DATA_VALIDOS = new Set([
+    "data_emissao",
+    "data_previsao",
+    "data_entrada",
+    "data_saida",
+  ]);
+  const rawCampoData = String(req.query.campoData ?? "").trim().toLowerCase();
+  const campoData = rawCampoData || "data_emissao";
+  if (!CAMPOS_DATA_VALIDOS.has(campoData)) {
+    failure(res, {
+      code: "INVALID_PARAMS",
+      message:
+        "campoData invalido (use data_emissao, data_previsao, data_entrada ou data_saida)",
+      details: { campoData: rawCampoData },
+      status: 400,
+    });
+    return null;
+  }
+
   const rawEmpresa = codEmpresa ?? empresa;
 
   if (
@@ -33,7 +52,7 @@ function validatePeriodoQuery(req, res) {
     rawEmpresa === "" ||
     String(rawEmpresa).toUpperCase() === "ALL"
   ) {
-    return { dataInicio, dataFim, codEmpresa: null };
+    return { dataInicio, dataFim, codEmpresa: null, campoData };
   }
 
   const num = Number(rawEmpresa);
@@ -56,6 +75,7 @@ function validatePeriodoQuery(req, res) {
     dataInicio,
     dataFim,
     codEmpresa: COD_EMPRESA_LOGICA_PARA_ORIGEM[num] ?? num,
+    campoData,
   };
 }
 

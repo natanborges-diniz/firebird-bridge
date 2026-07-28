@@ -266,19 +266,53 @@ function applyMedicoFallback(sql, includeMedicoColumns) {
     .replace(medicoJoinPattern, "");
 }
 
+const MONITOR_CAMPO_DATA_COLUNAS = {
+  data_emissao: "ocx.dataemissao",
+  data_previsao: "ocx.dataprevisao",
+  data_entrada: "CAST(l.datahoraentrada AS DATE)",
+  data_saida: "CAST(l.datahorasaida AS DATE)",
+};
+
+// hub_receitas nao faz join com o log de etapas; so emissao/previsao da OS.
+const HUB_CAMPO_DATA_COLUNAS = {
+  data_emissao: "ocx.dataemissao",
+  data_previsao: "ocx.dataprevisao",
+};
+
+const WHERE_DATA_FRAGMENT =
+  "ocx.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)";
+
+// Troca a coluna de data do filtro de periodo conforme campoData (whitelist).
+// Default e valores nao suportados pelo endpoint caem em ocx.dataemissao.
+// Obs.: data_saida usa l.datahorasaida, que pode ser NULL na ultima etapa
+// (nesses casos a OS fica de fora do intervalo, comportamento esperado).
+function aplicarCampoData(sql, campoData, colunas) {
+  const coluna = colunas[campoData];
+  if (!coluna || coluna === "ocx.dataemissao") return sql;
+  return sql.replace(
+    WHERE_DATA_FRAGMENT,
+    coluna + " BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)"
+  );
+}
+
 async function getMonitorOs({ dataInicio, dataFim, codEmpresa }) {
   const empresaParam = codEmpresa ?? null;
   const params = [dataInicio, dataFim, empresaParam, empresaParam];
   return db.query(sqlMonitorOs, params);
 }
 
-async function getMonitorOsUltimaEtapa({ dataInicio, dataFim, codEmpresa }) {
+async function getMonitorOsUltimaEtapa({ dataInicio, dataFim, codEmpresa, campoData }) {
   const empresaParam = codEmpresa ?? null;
   const params = [dataInicio, dataFim, empresaParam, empresaParam];
-  return db.query(sqlMonitorOsUltimaEtapa, params);
+  const sql = aplicarCampoData(
+    sqlMonitorOsUltimaEtapa,
+    campoData,
+    MONITOR_CAMPO_DATA_COLUNAS
+  );
+  return db.query(sql, params);
 }
 
-async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
+async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os, campoData }) {
   const empresaParam = codEmpresa ?? null;
   const osParam = os ?? null;
   const params = [osParam, osParam, dataInicio, dataFim, empresaParam, empresaParam];
@@ -295,7 +329,8 @@ async function getHubReceitas({ dataInicio, dataFim, codEmpresa, os }) {
   if (!includeMedicoColumns && !hasFallbackMedico) {
     throw new Error(fallbackMedicoErrorMessage);
   }
-  const baseSql = useCodOs || !hasFallbackJoin ? sqlHubReceitas : sqlHubReceitasFallback;
+  const baseSqlRaw = useCodOs || !hasFallbackJoin ? sqlHubReceitas : sqlHubReceitasFallback;
+  const baseSql = aplicarCampoData(baseSqlRaw, campoData, HUB_CAMPO_DATA_COLUNAS);
 
   let sql = applyOrdemServicoObsReceitaFallback(baseSql, ordemServicoObsReceitaColumn);
   sql = applyReceitaCadastroFallback(sql, receitaCadastroObsColumn);
