@@ -3,18 +3,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { getFinanceiroParcelas } from '../services/financeiroService';
 
 // Interface dos campos que realmente usamos no front.
-// Mesmo vindo de um .js, o TS aceita esse tipo local.
+// Contrato real de queries/financeiro/financeiro_parcelas.sql (D12):
+// chaves minúsculas (snake_case) e situação 'EM ABERTO' | 'EM ATRASO' | 'PAGA'.
 export interface ParcelaFinanceira {
-  LANCAMENTOPAGAR: 'PAGAR' | 'RECEBER' | string;
-  PARCELASITUACAO: 'ABERTA' | 'RECEBIDA' | 'LIQUIDADA' | string;
-  PARCELADATAVENCIMENTO: string | null;
-  PARCELAVALOR: number;
-  PARCELAVALORPAGO: number | null;
+  lancamento_pagar: 'T' | 'F' | string; // 'T' = PAGAR, 'F' = RECEBER
+  parcela_situacao: 'EM ABERTO' | 'EM ATRASO' | 'PAGA' | string;
+  parcela_data_vencimento: string | null;
+  parcela_valor: number;
+  parcela_valor_pago: number | null;
 
-  DATAEMISSAO?: string | null;
-  LANCAMENTONUMERODOCUMENTO?: string | null;
-  LANCAMENTOEMPRESANOME?: string | null;
-  PESSOANOME?: string | null;
+  parcela_data_emissao?: string | null;
+  lancamento_documento?: string | null;
+  empresa_nome?: string | null;
+  empresa_nome_logico?: string | null;
+  pessoa_nome?: string | null;
   [key: string]: any;
 }
 
@@ -70,14 +72,18 @@ function computeMetrics(parcelas: ParcelaFinanceira[]): {
   const byDate = new Map<string, { receber: number; pagar: number }>();
 
   for (const p of parcelas) {
-    const tipo = (p.LANCAMENTOPAGAR || '').toUpperCase(); // 'PAGAR' / 'RECEBER'
-    const situacao = (p.PARCELASITUACAO || '').toUpperCase(); // 'ABERTA' etc.
-    const valor = Number(p.PARCELAVALOR || 0);
+    // lancamento_pagar: 'T' = PAGAR, 'F' = RECEBER (contrato da SQL)
+    const tipo =
+      String(p.lancamento_pagar || '').trim().toUpperCase() === 'T' ? 'PAGAR' : 'RECEBER';
+    // parcela_situacao: 'EM ABERTO' | 'EM ATRASO' | 'PAGA'
+    const situacao = String(p.parcela_situacao || '').trim().toUpperCase();
+    const valor = Number(p.parcela_valor || 0);
 
-    const dtVenc = parseDate(p.PARCELADATAVENCIMENTO);
+    const dtVenc = parseDate(p.parcela_data_vencimento);
     const dtStr = dtVenc ? yyyymmdd(dtVenc) : null;
 
-    const isAberta = situacao === 'ABERTA';
+    // aberta = ainda não paga (inclui as em atraso)
+    const isAberta = situacao === 'EM ABERTO' || situacao === 'EM ATRASO';
 
     if (tipo === 'RECEBER' && isAberta) {
       totalReceberAberto += valor;
