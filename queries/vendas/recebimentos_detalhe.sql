@@ -10,22 +10,22 @@
 --     consultado: VENDA_PERIODO (t.DATAEMISSAO >= dataIni) ou SALDO_ANTERIOR
 --     (parcela de venda emitida antes do periodo). Detalhamento obrigatorio
 --     no relatorio do vendedor.
---   * forma_categoria normalizada num unico lugar (resolve D10):
+--   * forma_categoria normalizada num unico lugar (resolve D10) — mapeamento
+--     VALIDADO contra o banco real (2026-07-28, com Natan):
 --       tipo 1 (DINHEIRO)            -> AVISTA          (comissao 3%)
 --       tipo 2 (CHEQUE)              -> CHEQUE          (1%)
+--       tipo 3 + bandeira c/ 'PIX'   -> PIX             (a vista, 3%)
+--       tipo 3 + 'SALDO A RECEBER'   -> OUTROS          (metodo desconhecido)
 --       tipo 3 + cartao credito='T'  -> CARTAO_CREDITO  (2%)
 --       tipo 3 + debito              -> CARTAO_DEBITO   (comissiona como a
 --                                       vista/3%, mas categoria separada
 --                                       para relatorio)
---       tipo 4 (BANCO)               -> BANCO
+--       tipo 4 (boletos emitidos)    -> CREDIARIO       (1%)
 --       tipo 5 (CARNE)               -> CREDIARIO       (carne/boleto, 1%)
 --       tipo 6 (CREDITOS)            -> CREDITOS        (0% — nao conta em
 --                                       meta nem comissao, mas vem
 --                                       identificado)
 --       demais                       -> OUTROS
---     ATENCAO — BANCO e OUTROS pendentes de validacao: PIX e boleto podem
---     cair nesses tipos. Validar com `npm run validar:recebimentos` antes de
---     fechar o mapeamento de comissao.
 --   * Garantia nao e venda: placeholder FILTRO_VENDA_REGULAR trocado em
 --     runtime pelo NOT EXISTS contra vendagarantia_item (vendaRegular.js).
 --     O literal do placeholder NAO pode aparecer em comentario (split/join
@@ -52,15 +52,22 @@ SELECT
   ffp.cod_formapagamentotipo  AS cod_formapagamentotipo,
   -- TRIM: sem ele o CASE devolve CHAR com padding de espacos (comprimento do
   -- maior literal), o que quebraria agregacoes/upserts por chave no Supabase.
+  -- Mapeamento validado contra o banco real em 2026-07-28 (Natan):
+  --   tipo 4 = boletos emitidos            -> CREDIARIO (1%)
+  --   PIX = bandeira de cartao com 'PIX'   -> PIX (a vista, 3%)
+  --     (fincartaocreditotipo: 12 PIX/TED, 19 PIX ADDI)
+  --   bandeira 'SALDO A RECEBER' (cod 11)  -> OUTROS (metodo real desconhecido)
   TRIM(CASE ffp.cod_formapagamentotipo
     WHEN 1 THEN 'AVISTA'
     WHEN 2 THEN 'CHEQUE'
     WHEN 3 THEN
       CASE
+        WHEN UPPER(COALESCE(fcct.nome, '')) LIKE '%PIX%' THEN 'PIX'
+        WHEN UPPER(TRIM(COALESCE(fcct.nome, ''))) = 'SALDO A RECEBER' THEN 'OUTROS'
         WHEN fcct.credito = 'T' THEN 'CARTAO_CREDITO'
         ELSE 'CARTAO_DEBITO'
       END
-    WHEN 4 THEN 'BANCO'
+    WHEN 4 THEN 'CREDIARIO'
     WHEN 5 THEN 'CREDIARIO'
     WHEN 6 THEN 'CREDITOS'
     ELSE 'OUTROS'

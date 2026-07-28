@@ -270,9 +270,11 @@ parcela com `datapagamento` preenchido, valor = `valorpago` (nunca o previsto
 
 - `forma_categoria`: `AVISTA` (dinheiro, 3%) · `CHEQUE` (1%) ·
   `CARTAO_CREDITO` (2%) · `CARTAO_DEBITO` (comissiona como à vista, categoria
-  separada p/ relatório) · `CREDIARIO` (carnê/boleto, 1%) · `CREDITOS`
-  (tipo 6 — 0%, não soma em meta/comissão) · `BANCO`/`OUTROS`
-  (**pendentes de validação** — PIX/boleto podem cair aí; `npm run validar:recebimentos`).
+  separada p/ relatório) · `PIX` (bandeira de cartão com "PIX" — à vista, 3%) ·
+  `CREDIARIO` (tipo 4 boletos emitidos + tipo 5 carnê, 1%) · `CREDITOS`
+  (tipo 6 — 0%, não soma em meta/comissão) · `OUTROS` (inclui bandeira
+  interna "SALDO A RECEBER", método real desconhecido). Mapeamento validado
+  contra o banco real em 2026-07-28.
 - `origem`: `VENDA_PERIODO` se `dataemissao >= dataInicio`, senão `SALDO_ANTERIOR`.
 - Falhas parciais do fan-out aparecem em `meta.empresasComErro` (ok:true).
 

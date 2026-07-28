@@ -64,7 +64,7 @@ describe('queries/vendas/recebimentos_detalhe.sql', () => {
 
   it('normaliza forma_categoria num unico CASE (D10)', () => {
     expect(sql).toMatch(/CASE\s+ffp\.cod_formapagamentotipo/i);
-    ['AVISTA', 'CHEQUE', 'CARTAO_CREDITO', 'CARTAO_DEBITO', 'BANCO', 'CREDIARIO', 'CREDITOS', 'OUTROS'].forEach(
+    ['AVISTA', 'CHEQUE', 'CARTAO_CREDITO', 'CARTAO_DEBITO', 'PIX', 'CREDIARIO', 'CREDITOS', 'OUTROS'].forEach(
       (categoria) => expect(sql).toContain(`'${categoria}'`)
     );
     // cartao credito x debito via fincartaocreditotipo.credito

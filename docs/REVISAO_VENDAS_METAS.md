@@ -31,12 +31,14 @@ A boa notícia: a fundação para metas já existe (tabelas `metas_vendas`, `met
 **Comissões (sobre o valor recebido no período)**
 | Categoria | Comissão (vigente hoje) | Observação |
 |---|---|---|
-| Cartão de crédito | 2% | |
-| À vista | 3% | dinheiro, PIX e **cartão de débito** |
-| Crediário / boleto / carnê | 1% | só a parcela **paga** comissiona |
+| Cartão de crédito | 2% | tipo 3, bandeira com `credito='T'` |
+| À vista | 3% | dinheiro (tipo 1), **PIX** (bandeira de cartão com "PIX": PIX/TED, PIX ADDI) e **cartão de débito** |
+| Crediário / boleto / carnê | 1% | tipo 4 = **boletos emitidos** + tipo 5 carnê; só a parcela **paga** comissiona |
 | Cheque e convênio | 1% | **somam na meta** |
 | Créditos (tipo 6) | 0% | **não paga comissão e não soma na meta** |
-| Saldo a receber | 0% | nunca comissiona antes do pagamento |
+| Saldo a receber | 0% | nunca comissiona antes do pagamento; a bandeira interna "SALDO A RECEBER" (cod 11) vai para OUTROS |
+
+*Mapeamento de formas validado contra o banco real (Firebird 3.0.11) em 2026-07-28. Distribuição de recebimentos 30 dias (rede): cartões R$ 1,07M · boleto R$ 52,9k · créditos R$ 43,4k · dinheiro R$ 18k. Recebimentos filtram `fl.pagar = 'F'` (só contas a receber — contas pagas de fornecedor via banco distorciam a primeira leitura).*
 
 **Devoluções — regra dupla:**
 - Devolução **com geração de crédito** para o cliente: não abate meta nem comissão (o crédito voltará como pagamento de compra futura — e crédito nunca conta, fechando o ciclo sem dupla contagem).
