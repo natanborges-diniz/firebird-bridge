@@ -88,7 +88,14 @@ async function devolucoesRestituicao(req, res) {
 async function validacao(req, res) {
   try {
     const empresa = String(req.query.empresa || "1").trim();
-    const data = await validacaoRecebimentosService.validarRecebimentos({ empresa });
+    const secoes = req.query.secoes
+      ? String(req.query.secoes).split(",").map((s) => s.trim()).filter(Boolean)
+      : undefined;
+    const data = await validacaoRecebimentosService.validarRecebimentos({
+      empresa,
+      secoes,
+      dias: req.query.dias,
+    });
     return success(res, data);
   } catch (err) {
     return handleControllerError(res, err);

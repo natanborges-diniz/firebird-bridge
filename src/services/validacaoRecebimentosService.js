@@ -67,7 +67,7 @@ async function descobrirTabelaTipos() {
   return { tabela, mapa };
 }
 
-async function secaoA() {
+async function secaoA(dias) {
   const { tabela, mapa } = await descobrirTabelaTipos();
   const rows = await db.runQuery(
     `SELECT ffp.cod_formapagamentotipo AS tipo,
@@ -80,11 +80,12 @@ async function secaoA() {
         AND flp.valorpago > 0
       GROUP BY ffp.cod_formapagamentotipo
       ORDER BY 3 DESC`,
-    [diasAtras(30), diasAtras(0)]
+    [diasAtras(dias), diasAtras(0)]
   );
   return {
     tabelaTipos: tabela,
-    distribuicao30dias: rows.map((r) => ({
+    janelaDias: dias,
+    distribuicao: rows.map((r) => ({
       tipo: Number(r.tipo),
       descricao: mapa.get(Number(r.tipo)) || null,
       qtd_parcelas: Number(r.qtd_parcelas),
@@ -176,9 +177,19 @@ async function secaoD() {
   return { devolucoes: resumo };
 }
 
-async function validarRecebimentos({ empresa }) {
+/**
+ * Executa apenas as secoes pedidas (secoes: array de 'a'|'b'|'c'|'d'|'e') para
+ * caber nos timeouts de HTTP — a secao (a) varre o banco inteiro e as demais
+ * fazem fan-out; juntas estouram o tempo de resposta do Railway/cliente.
+ * `dias` controla a janela da secao (a) (default 7).
+ */
+async function validarRecebimentos({ empresa, secoes, dias }) {
   const dataIni = diasAtras(7);
   const dataFim = diasAtras(0);
+  const pedidas = new Set(
+    (secoes && secoes.length ? secoes : ["a", "b", "c", "d", "e"]).map((s) => s.toLowerCase())
+  );
+  const janelaDias = Number.isFinite(Number(dias)) && Number(dias) > 0 ? Number(dias) : 7;
 
   const ping = await db.pingDatabase();
   if (!ping.ok) {
@@ -187,51 +198,54 @@ async function validarRecebimentos({ empresa }) {
     throw err;
   }
 
-  const a = await secaoA();
+  const out = { parametros: { empresa: String(empresa), dataIni, dataFim, secoes: [...pedidas] } };
 
-  const { rows, empresasComErro } = await recebimentosService.getRecebimentosDetalhe({
-    empresa: String(empresa),
-    dataInicio: dataIni,
-    dataFim,
-    useCache: false,
-  });
+  if (pedidas.has("a")) out.a_distribuicaoTipos = await secaoA(janelaDias);
 
-  const c = secaoC(rows);
-  const d = await secaoD();
-
-  const totalRecebido = round2(
-    rows
-      .filter((r) => r.forma_categoria !== "CREDITOS")
-      .reduce((s, r) => s + (Number(r.valor_recebido) || 0), 0)
-  );
-  const totalRecebidoComCreditos = round2(
-    rows.reduce((s, r) => s + (Number(r.valor_recebido) || 0), 0)
-  );
-  const { rows: emitidos, empresasComErro: errosEmitidos } =
-    await recebimentosService.getEmitidos({
+  let rows = null;
+  if (pedidas.has("b") || pedidas.has("c") || pedidas.has("e")) {
+    const detalhe = await recebimentosService.getRecebimentosDetalhe({
       empresa: String(empresa),
       dataInicio: dataIni,
       dataFim,
       useCache: false,
     });
+    rows = detalhe.rows;
+    out.b_qtdParcelasSemana = rows.length;
+    out.b_empresasComErro = detalhe.empresasComErro;
+    if (pedidas.has("b")) out.b_amostraParcelas = rows.slice(0, 20);
+    if (pedidas.has("c")) out.c_totaisPorCategoriaOrigem = secaoC(rows);
+  }
 
-  return {
-    parametros: { empresa: String(empresa), dataIni, dataFim },
-    a_distribuicaoTipos: a,
-    b_amostraParcelas: rows.slice(0, 20),
-    b_qtdParcelasSemana: rows.length,
-    b_empresasComErro: empresasComErro,
-    c_totaisPorCategoriaOrigem: c,
-    d_investigacaoDevolucoes: d,
-    e_comparacao: {
+  if (pedidas.has("d")) out.d_investigacaoDevolucoes = await secaoD();
+
+  if (pedidas.has("e")) {
+    const totalRecebido = round2(
+      rows
+        .filter((r) => r.forma_categoria !== "CREDITOS")
+        .reduce((s, r) => s + (Number(r.valor_recebido) || 0), 0)
+    );
+    const totalRecebidoComCreditos = round2(
+      rows.reduce((s, r) => s + (Number(r.valor_recebido) || 0), 0)
+    );
+    const { rows: emitidos, empresasComErro: errosEmitidos } =
+      await recebimentosService.getEmitidos({
+        empresa: String(empresa),
+        dataInicio: dataIni,
+        dataFim,
+        useCache: false,
+      });
+    out.e_comparacao = {
       recebido_sem_creditos: totalRecebido,
       recebido_com_creditos: totalRecebidoComCreditos,
       emitido_em_os: round2(emitidos.reduce((s, r) => s + (Number(r.valor_emitido) || 0), 0)),
       qtd_parcelas_pagas: rows.length,
       qtd_transacoes_emitidas: emitidos.length,
       empresasComErro: errosEmitidos,
-    },
-  };
+    };
+  }
+
+  return out;
 }
 
 module.exports = { validarRecebimentos };
