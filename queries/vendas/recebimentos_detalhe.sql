@@ -26,8 +26,10 @@
 --     ATENCAO — BANCO e OUTROS pendentes de validacao: PIX e boleto podem
 --     cair nesses tipos. Validar com `npm run validar:recebimentos` antes de
 --     fechar o mapeamento de comissao.
---   * Garantia nao e venda: /*__FILTRO_VENDA_REGULAR__*/ e trocado em runtime
---     pelo NOT EXISTS contra vendagarantia_item (src/utils/vendaRegular.js).
+--   * Garantia nao e venda: placeholder FILTRO_VENDA_REGULAR trocado em
+--     runtime pelo NOT EXISTS contra vendagarantia_item (vendaRegular.js).
+--     O literal do placeholder NAO pode aparecer em comentario (split/join
+--     substituiria aqui tambem e o bloco viraria SQL solto).
 --
 -- Anti-timeout (Fase 0/§4 do plano): sem CTE full-table e sem JOIN P ON 1=1 —
 -- o filtro principal (datapagamento + empresa) usa parametros DIRETO no

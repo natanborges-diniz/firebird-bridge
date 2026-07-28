@@ -70,4 +70,12 @@ describe.each(ARQUIVOS)('queries/vendas/%s', (nome) => {
   it('contém o placeholder de venda regular para exclusão de garantia (D5)', () => {
     expect(sql).toContain('/*__FILTRO_VENDA_REGULAR__*/');
   });
+
+  it('não tem o placeholder dentro de comentário -- (bug -104: split/join injetaria bloco multi-linha em SQL solto)', () => {
+    const emComentario = sql
+      .split('\n')
+      .filter((l) => l.trim().startsWith('--'))
+      .some((l) => l.includes('__FILTRO_VENDA_REGULAR__'));
+    expect(emComentario).toBe(false);
+  });
 });

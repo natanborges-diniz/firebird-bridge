@@ -29,6 +29,14 @@ function semComentarios(sql) {
     .join('\n');
 }
 
+
+function placeholderEmComentario(sql) {
+  return sql
+    .split('\n')
+    .filter((l) => l.trim().startsWith('--'))
+    .some((l) => l.includes('__FILTRO_VENDA_REGULAR__'));
+}
+
 describe('queries/vendas/recebimentos_detalhe.sql', () => {
   const sqlBruto = loadSql('recebimentos_detalhe.sql');
   const sql = semComentarios(sqlBruto);
@@ -65,6 +73,7 @@ describe('queries/vendas/recebimentos_detalhe.sql', () => {
 
   it('contem o placeholder de venda regular (garantia nao e venda)', () => {
     expect(sqlBruto).toContain('/*__FILTRO_VENDA_REGULAR__*/');
+    expect(placeholderEmComentario(sqlBruto)).toBe(false);
   });
 
   it('restringe a vendas (naturezaoperacao.tipo = 1)', () => {
@@ -88,6 +97,7 @@ describe('queries/vendas/emitidos_por_vendedor.sql', () => {
 
   it('contem o placeholder de venda regular (garantia nao e venda)', () => {
     expect(sqlBruto).toContain('/*__FILTRO_VENDA_REGULAR__*/');
+    expect(placeholderEmComentario(sqlBruto)).toBe(false);
   });
 });
 

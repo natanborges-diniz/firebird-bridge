@@ -6,7 +6,10 @@
 --
 --   * valor_emitido = SUM(TOTAL - VALORDESCONTO - TOTALIPI) dos itens —
 --     definicao padronizada de faturamento (D1).
---   * Garantia nao e venda: /*__FILTRO_VENDA_REGULAR__*/ injetado em runtime.
+--   * Garantia nao e venda: placeholder FILTRO_VENDA_REGULAR injetado em
+--     runtime (o literal do placeholder NAO pode aparecer em comentario:
+--     o split/join do vendaRegular.js substituiria aqui tambem e o bloco
+--     multi-linha viraria SQL solto — foi exatamente o bug do -104).
 --   * Anti-timeout: parametros direto no WHERE (sem CTE full-table).
 --
 -- Parametros (4):
