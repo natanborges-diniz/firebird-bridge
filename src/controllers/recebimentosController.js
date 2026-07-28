@@ -11,6 +11,7 @@
 // Parametros: empresa (ALL/vazio = todas) + dataInicio/dataFim obrigatorios —
 // nomes padrao do repo (docs/API_CONTRATO.md §2), validados por _validators.
 const recebimentosService = require("../services/recebimentosService");
+const validacaoRecebimentosService = require("../services/validacaoRecebimentosService");
 const { success, handleControllerError } = require("../utils/apiResponse");
 const { validatePeriodoEmpresaQuery } = require("./_validators");
 
@@ -81,9 +82,23 @@ async function devolucoesRestituicao(req, res) {
   }
 }
 
+// Diagnostico read-only da Fase 1 (roda no Railway, unico ambiente com acesso
+// ao Firebird): distribuicao de tipos de pagamento, amostra, totais, hipotese
+// de devolucoes e recebido vs emitido. Amostras limitadas; sem paginacao.
+async function validacao(req, res) {
+  try {
+    const empresa = String(req.query.empresa || "1").trim();
+    const data = await validacaoRecebimentosService.validarRecebimentos({ empresa });
+    return success(res, data);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 module.exports = {
   recebimentosDetalhe,
   recebimentosAgregado,
   emitidos,
   devolucoesRestituicao,
+  validacao,
 };

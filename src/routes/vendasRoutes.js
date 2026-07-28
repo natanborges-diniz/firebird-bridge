@@ -38,6 +38,10 @@ router.get('/recebimentos', recebimentosController.recebimentosDetalhe);
 // GET /api/v1/vendas/recebimentos/agregado — shape do sync diario
 router.get('/recebimentos/agregado', recebimentosController.recebimentosAgregado);
 
+// GET /api/v1/vendas/recebimentos/validacao — diagnostico read-only da Fase 1
+// (executado no Railway, unico ambiente com acesso ao Firebird)
+router.get('/recebimentos/validacao', recebimentosController.validacao);
+
 // GET /api/v1/vendas/emitidos — modo alternativo "emitido em OS"
 router.get('/emitidos', recebimentosController.emitidos);
 
