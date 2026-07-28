@@ -228,3 +228,123 @@ GET /api/v1/vendas/analise-sku
 - Para armações, utilize **marca/grife** como referência principal.
 - Para lentes, utilize **família/tipo**.
 - Itens sem família serão classificados como **OUTROS** quando não forem armações.
+
+---
+
+## 1.8. Recebimentos — detalhe de parcelas pagas (Fase 1 — metas/comissões)
+
+Base de metas e comissões sobre **valores recebidos** (regime de caixa):
+parcela com `datapagamento` preenchido, valor = `valorpago` (nunca o previsto
+`valor`). Saldo em aberto não entra. Garantia excluída (venda regular).
+
+### Rota
+`GET /api/v1/vendas/recebimentos`
+
+### Parâmetros
+- `empresa` (opcional; `ALL`/vazio = todas) — aceita lista `1,9,13`
+- `dataInicio` (obrigatório, `YYYY-MM-DD`) — período do **pagamento**
+- `dataFim` (obrigatório, `YYYY-MM-DD`)
+- `cache=0` desliga o cache (TTL padrão curto: 60s, `RECEBIMENTOS_CACHE_TTL_MS`)
+
+### Resposta (`data[]` — uma linha por parcela paga)
+```json
+{
+  "ok": true,
+  "data": [
+    {
+      "cod_empresa": 1,
+      "cod_vendedor": 77,
+      "vendedor_nome": "MARIA",
+      "cod_transacao": 123456,
+      "dataemissao": "2026-07-15",
+      "data_pagamento": "2026-07-21",
+      "cod_formapagamentotipo": 3,
+      "forma_categoria": "CARTAO_CREDITO",
+      "origem": "SALDO_ANTERIOR",
+      "valor_recebido": 150.00
+    }
+  ],
+  "error": null
+}
+```
+
+- `forma_categoria`: `AVISTA` (dinheiro, 3%) · `CHEQUE` (1%) ·
+  `CARTAO_CREDITO` (2%) · `CARTAO_DEBITO` (comissiona como à vista, categoria
+  separada p/ relatório) · `CREDIARIO` (carnê/boleto, 1%) · `CREDITOS`
+  (tipo 6 — 0%, não soma em meta/comissão) · `BANCO`/`OUTROS`
+  (**pendentes de validação** — PIX/boleto podem cair aí; `npm run validar:recebimentos`).
+- `origem`: `VENDA_PERIODO` se `dataemissao >= dataInicio`, senão `SALDO_ANTERIOR`.
+- Falhas parciais do fan-out aparecem em `meta.empresasComErro` (ok:true).
+
+## 1.9. Recebimentos — agregado diário
+
+Mesmos parâmetros de 1.8. Agrupa o detalhe por
+`(cod_empresa, cod_vendedor, data_pagamento, forma_categoria, origem)` —
+shape consumido pelo sync `recebimentos_agregado_diario` (Supabase).
+
+### Rota
+`GET /api/v1/vendas/recebimentos/agregado`
+
+### Resposta (`data[]`)
+```json
+{
+  "cod_empresa": 1,
+  "cod_vendedor": 77,
+  "vendedor_nome": "MARIA",
+  "data_pagamento": "2026-07-21",
+  "forma_categoria": "AVISTA",
+  "origem": "VENDA_PERIODO",
+  "valor_recebido": 150.00,
+  "qtd_parcelas": 2
+}
+```
+
+## 1.10. Emitidos por vendedor (modo alternativo "emitido em OS")
+
+Vendas por transação com filtro em `transacao.dataemissao`; valor =
+`SUM(TOTAL - VALORDESCONTO - TOTALIPI)` dos itens. Garantia excluída.
+
+### Rota
+`GET /api/v1/vendas/emitidos`
+
+### Parâmetros
+Iguais a 1.8 (`empresa`, `dataInicio`, `dataFim` — aqui período de **emissão**).
+
+### Resposta (`data[]` — uma linha por transação)
+```json
+{
+  "cod_empresa": 1,
+  "cod_vendedor": 77,
+  "vendedor_nome": "MARIA",
+  "cod_transacao": 123456,
+  "dataemissao": "2026-07-21",
+  "valor_emitido": 480.00
+}
+```
+
+## 1.11. Devoluções com restituição (PENDENTE VALIDAÇÃO)
+
+Devoluções com **restituição de valores** (sem geração de crédito) por
+vendedor — abatem meta/comissão na semana da restituição. A distinção
+crédito × restituição ainda **não foi validada** no schema real
+(`npm run validar:recebimentos`, seção d). Fallback gracioso: retorna `[]`
+se o schema não tiver `entradanotafiscaldevolucao.cod_vendedor`.
+
+### Rota
+`GET /api/v1/vendas/devolucoes-restituicao`
+
+### Parâmetros
+Iguais a 1.8 (período = `datapagamento` da restituição).
+
+### Resposta (`data[]`)
+```json
+{
+  "cod_empresa": 1,
+  "cod_vendedor": 77,
+  "vendedor_nome": "MARIA",
+  "cod_transacao": 99887,
+  "dataemissao": "2026-07-18",
+  "data_restituicao": "2026-07-21",
+  "valor_restituido": 250.00
+}
+```
