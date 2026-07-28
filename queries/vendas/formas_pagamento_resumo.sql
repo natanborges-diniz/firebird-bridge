@@ -185,6 +185,7 @@ FROM
 WHERE
   naturezaoperacao.tipo = 1
   AND transacao.dataemissao BETWEEN P.P_DATA_VENDAS_INI AND P.P_DATA_VENDAS_FIM
+  /*__FILTRO_VENDA_REGULAR__*/
   AND (
     P.P_EXCLUI_CREDITOS = 0
     OR pagamentos.cod_formapagamentotipo <> 6

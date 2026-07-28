@@ -106,6 +106,7 @@ itens AS (
     /* Regra de negocio: data de venda = DATAEMISSAO (OS cadastrada),
        mesma referencia da CTE creditos e das demais queries de vendas. */
     AND t.DATAEMISSAO BETWEEN P.P_DATA_INI AND P.P_DATA_FIM
+    /*__FILTRO_VENDA_REGULAR__*/
     AND (
       P.P_EXCLUI_CREDITOS = 0
       OR NOT EXISTS (
@@ -173,6 +174,7 @@ creditos AS (
   WHERE
     nat.TIPO = 1
     AND t.DATAEMISSAO BETWEEN P.P_DATA_INI AND P.P_DATA_FIM
+    /*__FILTRO_VENDA_REGULAR__*/
     AND ffp.COD_FORMAPAGAMENTOTIPO = 6  -- CREDITOS
     AND P.P_EXCLUI_CREDITOS = 0
 

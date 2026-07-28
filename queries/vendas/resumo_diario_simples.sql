@@ -35,6 +35,7 @@ transacoes_base AS (
   WHERE nat.tipo = 1
     AND (t.cod_empresaestoque = ? OR t.cod_empresa = ?)
     AND t.dataemissao BETWEEN ? AND ?
+    /*__FILTRO_VENDA_REGULAR__*/
 ),
 itens_agregados AS (
   SELECT

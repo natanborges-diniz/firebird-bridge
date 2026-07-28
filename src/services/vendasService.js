@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const db = require("../db");
 const { parseEmpresasParam } = require("../utils/empresaHelper");
+const { hasColumn } = require("../utils/schemaIntrospection");
 const {
   DEFAULT_TTL_MS,
   getCachedOrFetch,
@@ -61,6 +62,43 @@ const SQL_ANALISE_FAMILIA_VENDEDOR = loadSql("analise_familia_vendedor.sql");
 const SQL_ANALISE_SKU = loadSql("analise_sku.sql");
 const SQL_DEBUG = loadSql("debug_resumo_empresa_vendedor.sql");
 
+// ---------------------------------------------------------------------------
+// Garantia NAO e venda (mesma regra do CRM/crmService): OS de garantia/reparo
+// possuem linha em vendagarantia_item, ligada a venda via
+// ordemservicocaixa.cod_transacao -> vendagarantia_item.cod_ordemservicocaixa.
+// As queries de vendas trazem o placeholder /*__FILTRO_VENDA_REGULAR__*/ que
+// e trocado em runtime por um NOT EXISTS (ou removido, com fallback gracioso,
+// caso a tabela nao exista no schema — checagem via rdb$relation_fields).
+// ---------------------------------------------------------------------------
+const FILTRO_VENDA_REGULAR_PLACEHOLDER = "/*__FILTRO_VENDA_REGULAR__*/";
+const VENDA_GARANTIA_TABLE = "VENDAGARANTIA_ITEM";
+const VENDA_GARANTIA_OS_COLUMN = "COD_ORDEMSERVICOCAIXA";
+
+function filtroVendaRegularSql(aliasTransacao) {
+  return (
+    "AND NOT EXISTS (\n" +
+    "      SELECT 1\n" +
+    "        FROM vendagarantia_item vgi\n" +
+    "        JOIN ordemservicocaixa ocx_g\n" +
+    "          ON ocx_g.cod_ordemservicocaixa = vgi.cod_ordemservicocaixa\n" +
+    `       WHERE ocx_g.cod_transacao = ${aliasTransacao}.cod_transacao\n` +
+    "    )"
+  );
+}
+
+/**
+ * Substitui todas as ocorrencias do placeholder de venda regular pelo
+ * NOT EXISTS contra vendagarantia_item (ou por string vazia se a tabela
+ * nao existir no schema).
+ * @param {string} sql
+ * @param {string} aliasTransacao alias da tabela TRANSACAO na query
+ */
+async function aplicarFiltroVendaRegular(sql, aliasTransacao) {
+  const temVendaGarantia = await hasColumn(VENDA_GARANTIA_TABLE, VENDA_GARANTIA_OS_COLUMN);
+  const filtro = temVendaGarantia ? filtroVendaRegularSql(aliasTransacao) : "";
+  return sql.split(FILTRO_VENDA_REGULAR_PLACEHOLDER).join(filtro);
+}
+
 function mapResumoDiarioSimplesRow(row) {
   return {
     DATA_VENDA: row.data_venda ?? null,
@@ -107,7 +145,8 @@ async function getResumoEmpresaVendedorPorEmpresa(
     params,
     ttlMs,
     enabled: options.useCache !== false,
-    fetcher: () => db.runQuery(SQL_RESUMO_EMPRESA_VENDEDOR, params),
+    fetcher: async () =>
+      db.runQuery(await aplicarFiltroVendaRegular(SQL_RESUMO_EMPRESA_VENDEDOR, "t"), params),
   });
 }
 
@@ -140,7 +179,8 @@ async function getResumoDiarioSimplesPorEmpresa(
     params,
     ttlMs,
     enabled: options.useCache !== false,
-    fetcher: () => db.runQuery(SQL_RESUMO_DIARIO_SIMPLES, params),
+    fetcher: async () =>
+      db.runQuery(await aplicarFiltroVendaRegular(SQL_RESUMO_DIARIO_SIMPLES, "t"), params),
   });
 }
 
@@ -169,7 +209,9 @@ async function getFormasPagamentoResumoPorEmpresa(
 
   const fetchLive = () =>
     runWithTimeout(
-      db.runQuery(SQL_FORMAS_PAGAMENTO_RESUMO, params),
+      aplicarFiltroVendaRegular(SQL_FORMAS_PAGAMENTO_RESUMO, "transacao").then((sql) =>
+        db.runQuery(sql, params)
+      ),
       options.queryTimeoutMs ?? FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS,
       `vendas.formas_pagamento_resumo.empresa_${codEmpresa}`
     );
@@ -224,7 +266,8 @@ async function getFormasPagamentoAuditoriaPorEmpresa(
     params,
     ttlMs,
     enabled: options.useCache !== false,
-    fetcher: () => db.runQuery(SQL_FORMAS_PAGAMENTO_AUDITORIA, params),
+    fetcher: async () =>
+      db.runQuery(await aplicarFiltroVendaRegular(SQL_FORMAS_PAGAMENTO_AUDITORIA, "transacao"), params),
   });
 }
 
@@ -245,7 +288,11 @@ async function getFormasPagamentoAuditoriaLightPorEmpresa(
     params,
     ttlMs,
     enabled: options.useCache !== false,
-    fetcher: () => db.runQuery(SQL_FORMAS_PAGAMENTO_AUDITORIA_LIGHT, params),
+    fetcher: async () =>
+      db.runQuery(
+        await aplicarFiltroVendaRegular(SQL_FORMAS_PAGAMENTO_AUDITORIA_LIGHT, "transacao"),
+        params
+      ),
   });
 }
 
@@ -258,7 +305,8 @@ async function getAnaliseFamiliaVendedorPorEmpresa(codEmpresa, dataInicio, dataF
     params,
     ttlMs,
     enabled: options.useCache !== false,
-    fetcher: () => db.runQuery(SQL_ANALISE_FAMILIA_VENDEDOR, params),
+    fetcher: async () =>
+      db.runQuery(await aplicarFiltroVendaRegular(SQL_ANALISE_FAMILIA_VENDEDOR, "t"), params),
   });
 }
 
@@ -271,7 +319,8 @@ async function getAnaliseSkuPorEmpresa(codEmpresa, dataInicio, dataFim, options 
     params,
     ttlMs,
     enabled: options.useCache !== false,
-    fetcher: () => db.runQuery(SQL_ANALISE_SKU, params),
+    fetcher: async () =>
+      db.runQuery(await aplicarFiltroVendaRegular(SQL_ANALISE_SKU, "t"), params),
   });
 }
 

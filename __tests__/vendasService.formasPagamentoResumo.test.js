@@ -1,5 +1,7 @@
 jest.mock('../src/db', () => ({
   runQuery: jest.fn(),
+  // usado pela introspecção de schema (hasColumn) do filtro de venda regular
+  query: jest.fn().mockResolvedValue([{ constant: 1 }]),
 }));
 
 jest.mock('../src/utils/queryCache', () => ({
