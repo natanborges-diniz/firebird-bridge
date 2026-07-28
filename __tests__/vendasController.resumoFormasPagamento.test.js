@@ -24,7 +24,7 @@ describe('GET /api/v1/vendas/resumo-formas-pagamento', () => {
   });
 
   it('propaga incluirDevolucoes=true para o service', async () => {
-    vendasService.getFormasPagamentoResumo.mockResolvedValue([]);
+    vendasService.getFormasPagamentoResumo.mockResolvedValue({ rows: [], empresasComErro: [] });
 
     const res = await request(app).get('/api/v1/vendas/resumo-formas-pagamento').query({
       empresa: 'ALL',
@@ -44,5 +44,42 @@ describe('GET /api/v1/vendas/resumo-formas-pagamento', () => {
         useCache: false,
       })
     );
+    expect(res.body).toEqual({ ok: true, data: [], error: null });
+  });
+
+  it('expõe empresasComErro no meta mantendo ok:true e dados parciais (D13)', async () => {
+    vendasService.getFormasPagamentoResumo.mockResolvedValue({
+      rows: [{ FORMAPAGAMENTO: 'DINHEIRO', TOTALGERAL: 100 }],
+      empresasComErro: [{ empresa: 9, erro: 'Timeout after 45000ms' }],
+    });
+
+    const res = await request(app).get('/api/v1/vendas/resumo-formas-pagamento').query({
+      empresa: 'ALL',
+      dataInicio: '2026-01-30',
+      dataFim: '2026-02-27',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.data).toEqual([{ FORMAPAGAMENTO: 'DINHEIRO', TOTALGERAL: 100 }]);
+    expect(res.body.meta).toEqual({
+      empresasComErro: [{ empresa: 9, erro: 'Timeout after 45000ms' }],
+    });
+  });
+
+  it('não inclui meta quando não há falhas parciais', async () => {
+    vendasService.getFormasPagamentoResumo.mockResolvedValue({
+      rows: [],
+      empresasComErro: [],
+    });
+
+    const res = await request(app).get('/api/v1/vendas/resumo-formas-pagamento').query({
+      empresa: '1',
+      dataInicio: '2026-01-30',
+      dataFim: '2026-02-27',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.meta).toBeUndefined();
   });
 });

@@ -12,13 +12,13 @@ async function resumoEmpresaVendedor(req, res) {
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
-    const rows = await vendasService.getResumoEmpresaVendedor({
+    const { rows, empresasComErro } = await vendasService.getResumoEmpresaVendedor({
       ...params,
       excluirCreditos,
       useCache,
       cacheTtlMs,
     });
-    return success(res, rows);
+    return success(res, rows, empresasComErro?.length ? { empresasComErro } : undefined);
   } catch (err) {
     return handleControllerError(res, err);
   }
@@ -34,14 +34,14 @@ async function resumoFormasPagamento(req, res) {
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
-    const rows = await vendasService.getFormasPagamentoResumo({
+    const { rows, empresasComErro } = await vendasService.getFormasPagamentoResumo({
       ...params,
       excluirCreditos,
       incluirDevolucoes,
       useCache,
       cacheTtlMs,
     });
-    return success(res, rows);
+    return success(res, rows, empresasComErro?.length ? { empresasComErro } : undefined);
   } catch (err) {
     return handleControllerError(res, err);
   }
@@ -56,13 +56,13 @@ async function resumoDiarioSimples(req, res) {
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
-    const rows = await vendasService.getResumoDiarioSimples({
+    const { rows, empresasComErro } = await vendasService.getResumoDiarioSimples({
       ...params,
       excluirCreditos,
       useCache,
       cacheTtlMs,
     });
-    return success(res, rows);
+    return success(res, rows, empresasComErro?.length ? { empresasComErro } : undefined);
   } catch (err) {
     return handleControllerError(res, err);
   }
@@ -79,7 +79,7 @@ async function auditoriaFormasPagamento(req, res) {
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
-    const rows = await vendasService.getFormasPagamentoAuditoria({
+    const { rows, empresasComErro } = await vendasService.getFormasPagamentoAuditoria({
       ...params,
       excluirCreditos,
       page,
@@ -87,7 +87,7 @@ async function auditoriaFormasPagamento(req, res) {
       useCache,
       cacheTtlMs,
     });
-    return success(res, rows);
+    return success(res, rows, empresasComErro?.length ? { empresasComErro } : undefined);
   } catch (err) {
     return handleControllerError(res, err);
   }
@@ -104,7 +104,7 @@ async function auditoriaFormasPagamentoLight(req, res) {
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
-    const rows = await vendasService.getFormasPagamentoAuditoriaLight({
+    const { rows, empresasComErro } = await vendasService.getFormasPagamentoAuditoriaLight({
       ...params,
       excluirCreditos,
       page,
@@ -112,7 +112,7 @@ async function auditoriaFormasPagamentoLight(req, res) {
       useCache,
       cacheTtlMs,
     });
-    return success(res, rows);
+    return success(res, rows, empresasComErro?.length ? { empresasComErro } : undefined);
   } catch (err) {
     return handleControllerError(res, err);
   }
@@ -145,13 +145,13 @@ async function analiseFamiliaVendedor(req, res) {
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
-    const rows = await vendasService.getAnaliseFamiliaVendedor({
+    const { rows, empresasComErro } = await vendasService.getAnaliseFamiliaVendedor({
       ...params,
       useCache,
       cacheTtlMs,
     });
 
-    return success(res, rows);
+    return success(res, rows, empresasComErro?.length ? { empresasComErro } : undefined);
   } catch (err) {
     return handleControllerError(res, err);
   }
@@ -165,13 +165,13 @@ async function analiseSku(req, res) {
     const useCache = req.query.cache !== "0" && req.query.cache !== "false";
     const cacheTtlMs = req.query.cacheTtlMs ? Number(req.query.cacheTtlMs) : undefined;
 
-    const rows = await vendasService.getAnaliseSku({
+    const { rows, empresasComErro } = await vendasService.getAnaliseSku({
       ...params,
       useCache,
       cacheTtlMs,
     });
 
-    return success(res, rows);
+    return success(res, rows, empresasComErro?.length ? { empresasComErro } : undefined);
   } catch (err) {
     return handleControllerError(res, err);
   }

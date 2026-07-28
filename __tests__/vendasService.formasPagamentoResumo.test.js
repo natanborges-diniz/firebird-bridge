@@ -37,7 +37,7 @@ describe('vendasService.getFormasPagamentoResumo', () => {
       return null;
     });
 
-    const rows = await vendasService.getFormasPagamentoResumo({
+    const result = await vendasService.getFormasPagamentoResumo({
       empresa: 'ALL',
       dataInicio: '2026-01-30',
       dataFim: '2026-02-27',
@@ -46,7 +46,10 @@ describe('vendasService.getFormasPagamentoResumo', () => {
       useCache: false,
     });
 
-    expect(rows).toEqual(staleRows);
+    expect(result.rows).toEqual(staleRows);
+    // caminho de cache stale antecipado: nenhuma empresa foi consultada,
+    // logo nao ha falhas por empresa a reportar
+    expect(result.empresasComErro).toEqual([]);
     expect(queryCache.getCachedEntry).toHaveBeenCalledWith(
       expect.objectContaining({
         label: 'vendas.formas_pagamento_resumo.all_empresas',
@@ -74,7 +77,7 @@ describe('vendasService.getFormasPagamentoResumo', () => {
       return null;
     });
 
-    const rows = await vendasService.getFormasPagamentoResumo({
+    const result = await vendasService.getFormasPagamentoResumo({
       empresa: 'ALL',
       dataInicio: '2026-01-30',
       dataFim: '2026-02-27',
@@ -83,7 +86,7 @@ describe('vendasService.getFormasPagamentoResumo', () => {
       useCache: false,
     });
 
-    expect(rows).toEqual(staleRows);
+    expect(result.rows).toEqual(staleRows);
     expect(queryCache.getCachedEntry).toHaveBeenCalledWith(
       expect.objectContaining({
         label: 'vendas.formas_pagamento_resumo.all_empresas',
@@ -97,7 +100,7 @@ describe('vendasService.getFormasPagamentoResumo', () => {
       .mockResolvedValueOnce([{ FORMAPAGAMENTO: 'PIX' }])
       .mockRejectedValue(new Error('timeout'));
 
-    const rows = await vendasService.getFormasPagamentoResumo({
+    const result = await vendasService.getFormasPagamentoResumo({
       empresa: '1,2',
       dataInicio: '2026-01-30',
       dataFim: '2026-02-27',
@@ -106,7 +109,11 @@ describe('vendasService.getFormasPagamentoResumo', () => {
       useCache: false,
     });
 
-    expect(rows).toEqual([{ FORMAPAGAMENTO: 'PIX' }]);
+    expect(result.rows).toEqual([{ FORMAPAGAMENTO: 'PIX' }]);
+    // falha parcial visivel (D13): a empresa que falhou e reportada
+    expect(result.empresasComErro).toEqual([
+      { empresa: 2, erro: expect.stringContaining('timeout') },
+    ]);
     expect(queryCache.setCachedValue).toHaveBeenCalledWith(
       expect.objectContaining({
         label: 'vendas.formas_pagamento_resumo.all_empresas',

@@ -327,6 +327,34 @@ async function debugResumoEmpresaVendedor(params) {
   return db.runQuery(SQL_DEBUG, params);
 }
 
+/**
+ * Consolida os resultados do fan-out por empresa (D13): junta as linhas das
+ * empresas bem-sucedidas e coleta as falhas em `empresasComErro`, para o
+ * controller expor no envelope de resposta (meta.empresasComErro) mantendo
+ * ok:true com dados parciais.
+ *
+ * @param {string} label rotulo para log
+ * @param {Array<number|string>} empresas empresas consultadas (mesma ordem)
+ * @param {Array<PromiseSettledResult>} results resultados do Promise.allSettled
+ * @param {(rows: Array) => Array} [mapFn] mapeamento opcional das linhas
+ * @returns {{ rows: Array, empresasComErro: Array<{empresa: number|string, erro: string}> }}
+ */
+function coletarResultadosFanout(label, empresas, results, mapFn) {
+  const rows = [];
+  const empresasComErro = [];
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      const value = result.value ?? [];
+      rows.push(...(mapFn ? mapFn(value) : value));
+      return;
+    }
+    const erro = result.reason?.message || String(result.reason);
+    console.error(`[VENDAS] ${label} empresa ${empresas[index]}:`, erro);
+    empresasComErro.push({ empresa: empresas[index], erro });
+  });
+  return { rows, empresasComErro };
+}
+
 // --------- APIS PRINCIPAIS ---------
 async function getResumoEmpresaVendedor({
   empresa,
@@ -351,16 +379,7 @@ async function getResumoEmpresaVendedor({
       `[VENDAS] resumo-empresa-vendedor empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
     );
   }
-  return results.flatMap((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value ?? [];
-    }
-    console.error(
-      `[VENDAS] resumo-empresa-vendedor empresa ${empresas[index]}:`,
-      result.reason?.message || result.reason
-    );
-    return [];
-  });
+  return coletarResultadosFanout("resumo-empresa-vendedor", empresas, results);
 }
 
 async function getResumoDiarioSimples({
@@ -386,16 +405,12 @@ async function getResumoDiarioSimples({
       `[VENDAS] resumo-diario-simples empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
     );
   }
-  return results.flatMap((result, index) => {
-    if (result.status === "fulfilled") {
-      return mapResumoDiarioSimplesRows(result.value ?? []);
-    }
-    console.error(
-      `[VENDAS] resumo-diario-simples empresa ${empresas[index]}:`,
-      result.reason?.message || result.reason
-    );
-    return [];
-  });
+  return coletarResultadosFanout(
+    "resumo-diario-simples",
+    empresas,
+    results,
+    mapResumoDiarioSimplesRows
+  );
 }
 
 async function getFormasPagamentoResumo({
@@ -438,7 +453,7 @@ async function getFormasPagamentoResumo({
           console.warn(
             `[VENDAS] resumo-formas-pagamento retornando cache stale all_empresas sem consultar Firebird age_ms=${staleAgeMs}`
           );
-          return staleAllEmpresasEntry.value;
+          return { rows: staleAllEmpresasEntry.value, empresasComErro: [] };
         }
       }
     }
@@ -466,21 +481,13 @@ async function getFormasPagamentoResumo({
       );
     }
 
-    let failureCount = 0;
-    const flattened = results.flatMap((result, index) => {
-      if (result.status === "fulfilled") {
-        return result.value ?? [];
-      }
+    const { rows: flattened, empresasComErro } = coletarResultadosFanout(
+      "resumo-formas-pagamento",
+      empresas,
+      results
+    );
 
-      failureCount += 1;
-      console.error(
-        `[VENDAS] resumo-formas-pagamento empresa ${empresas[index]}:`,
-        result.reason?.message || result.reason
-      );
-      return [];
-    });
-
-    if (failureCount === empresas.length) {
+    if (empresasComErro.length === empresas.length) {
       const staleAllEmpresasEntry = getCachedEntry({
         label: allEmpresasCacheLabel,
         params: allEmpresasCacheParams,
@@ -497,7 +504,7 @@ async function getFormasPagamentoResumo({
           console.warn(
             `[VENDAS] resumo-formas-pagamento usando cache stale all_empresas age_ms=${staleAgeMs} timeout_ms=${FORMAS_PAGAMENTO_QUERY_TIMEOUT_MS}`
           );
-          return staleAllEmpresasEntry.value;
+          return { rows: staleAllEmpresasEntry.value, empresasComErro };
         }
       }
 
@@ -515,7 +522,7 @@ async function getFormasPagamentoResumo({
       ttlMs,
     });
 
-    return flattened;
+    return { rows: flattened, empresasComErro };
   } catch (err) {
     if (err?.code) {
       throw err;
@@ -556,16 +563,7 @@ async function getFormasPagamentoAuditoria({
       `[VENDAS] auditoria-formas-pagamento empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
     );
   }
-  return results.flatMap((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value ?? [];
-    }
-    console.error(
-      `[VENDAS] auditoria-formas-pagamento empresa ${empresas[index]}:`,
-      result.reason?.message || result.reason
-    );
-    return [];
-  });
+  return coletarResultadosFanout("auditoria-formas-pagamento", empresas, results);
 }
 
 async function getFormasPagamentoAuditoriaLight({
@@ -594,16 +592,7 @@ async function getFormasPagamentoAuditoriaLight({
       `[VENDAS] auditoria-formas-pagamento-light empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
     );
   }
-  return results.flatMap((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value ?? [];
-    }
-    console.error(
-      `[VENDAS] auditoria-formas-pagamento-light empresa ${empresas[index]}:`,
-      result.reason?.message || result.reason
-    );
-    return [];
-  });
+  return coletarResultadosFanout("auditoria-formas-pagamento-light", empresas, results);
 }
 
 async function getAnaliseFamiliaVendedor({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
@@ -622,16 +611,7 @@ async function getAnaliseFamiliaVendedor({ empresa, dataInicio, dataFim, useCach
       `[VENDAS] analise-familia-vendedor empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`
     );
   }
-  return results.flatMap((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value ?? [];
-    }
-    console.error(
-      `[VENDAS] analise-familia-vendedor empresa ${empresas[index]}:`,
-      result.reason?.message || result.reason
-    );
-    return [];
-  });
+  return coletarResultadosFanout("analise-familia-vendedor", empresas, results);
 }
 
 async function getAnaliseSku({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
@@ -648,22 +628,13 @@ async function getAnaliseSku({ empresa, dataInicio, dataFim, useCache, cacheTtlM
   if (LOG_QUERY_TIME) {
     console.log(`[VENDAS] analise-sku empresas=${empresas.join(",")} duration_ms=${Date.now() - startedAt}`);
   }
-  const rows = results.flatMap((result, index) => {
-    if (result.status === "fulfilled") {
-      return result.value ?? [];
-    }
-    console.error(
-      `[VENDAS] analise-sku empresa ${empresas[index]}:`,
-      result.reason?.message || result.reason
-    );
-    return [];
-  });
+  const { rows, empresasComErro } = coletarResultadosFanout("analise-sku", empresas, results);
 
   if (results.length > 0 && results.every((result) => result.status === "rejected")) {
     throw results[0].reason;
   }
 
-  return rows;
+  return { rows, empresasComErro };
 }
 module.exports = {
   getResumoEmpresaVendedor,
