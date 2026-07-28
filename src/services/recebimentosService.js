@@ -118,12 +118,17 @@ function agregarRecebimentos(rows) {
   const mapa = new Map();
   for (const row of rows) {
     const dataPagamento = normalizarDataISO(row.data_pagamento);
+    // trim defensivo: CASE no Firebird pode devolver CHAR com padding de
+    // espacos (visto na validacao em producao) — sem isso a chave de agregacao
+    // e o upsert no Supabase quebrariam.
+    const formaCategoria = String(row.forma_categoria ?? "").trim() || null;
+    const origem = String(row.origem ?? "").trim() || null;
     const chave = [
       row.cod_empresa,
       row.cod_vendedor,
       dataPagamento,
-      row.forma_categoria,
-      row.origem,
+      formaCategoria,
+      origem,
     ].join("|");
 
     let atual = mapa.get(chave);
@@ -133,8 +138,8 @@ function agregarRecebimentos(rows) {
         cod_vendedor: row.cod_vendedor ?? null,
         vendedor_nome: row.vendedor_nome ?? null,
         data_pagamento: dataPagamento,
-        forma_categoria: row.forma_categoria ?? null,
-        origem: row.origem ?? null,
+        forma_categoria: formaCategoria,
+        origem: origem,
         valor_recebido: 0,
         qtd_parcelas: 0,
       };

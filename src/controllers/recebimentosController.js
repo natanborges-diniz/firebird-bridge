@@ -102,22 +102,10 @@ async function validacao(req, res) {
   }
 }
 
-// TEMPORARIO: sondas de parser (diagnostico do -104). Remover apos Fase 1.
-async function probeParser(req, res) {
-  try {
-    const parserProbeService = require("../services/parserProbeService");
-    const data = await parserProbeService.rodarSondas();
-    return success(res, data);
-  } catch (err) {
-    return handleControllerError(res, err);
-  }
-}
-
 module.exports = {
   recebimentosDetalhe,
   recebimentosAgregado,
   emitidos,
   devolucoesRestituicao,
   validacao,
-  probeParser,
 };

@@ -50,7 +50,9 @@ SELECT
   t.dataemissao               AS dataemissao,
   flp.datapagamento           AS data_pagamento,
   ffp.cod_formapagamentotipo  AS cod_formapagamentotipo,
-  CASE ffp.cod_formapagamentotipo
+  -- TRIM: sem ele o CASE devolve CHAR com padding de espacos (comprimento do
+  -- maior literal), o que quebraria agregacoes/upserts por chave no Supabase.
+  TRIM(CASE ffp.cod_formapagamentotipo
     WHEN 1 THEN 'AVISTA'
     WHEN 2 THEN 'CHEQUE'
     WHEN 3 THEN
@@ -62,11 +64,11 @@ SELECT
     WHEN 5 THEN 'CREDIARIO'
     WHEN 6 THEN 'CREDITOS'
     ELSE 'OUTROS'
-  END AS forma_categoria,
-  CASE
+  END) AS forma_categoria,
+  TRIM(CASE
     WHEN t.dataemissao >= CAST(? AS DATE) THEN 'VENDA_PERIODO'
     ELSE 'SALDO_ANTERIOR'
-  END AS origem,
+  END) AS origem,
   COALESCE(flp.valorpago, 0)  AS valor_recebido
 
 FROM finlancamentoparcela flp
