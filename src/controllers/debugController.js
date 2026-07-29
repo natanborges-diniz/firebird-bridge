@@ -84,4 +84,48 @@ module.exports = {
   distEstoqueLocal,
   distClassificacao22,
   samplesPorProdutotipo,
+  schema, // hoisted — declarada abaixo
 };
+
+// ─── Descoberta de schema (F0 do modo fiscal — SPEC_P3 no repo insights) ───
+// GET /debug/schema?like=PEDIDO  → tabelas de usuário cujo nome casa o padrão
+// GET /debug/schema?table=X      → colunas da tabela X
+async function schema(req, res) {
+  try {
+    const db = require('../db');
+    const table = (req.query.table || '').trim().toUpperCase();
+    const like = (req.query.like || '').trim().toUpperCase();
+
+    if (table) {
+      if (!/^[A-Z0-9_$]{1,60}$/.test(table)) return success(res, { erro: 'nome de tabela inválido' });
+      const cols = await db.query(
+        `SELECT TRIM(rf.rdb$field_name) AS coluna,
+                TRIM(t.rdb$type_name)   AS tipo,
+                f.rdb$field_length      AS tamanho
+         FROM rdb$relation_fields rf
+         JOIN rdb$fields f ON f.rdb$field_name = rf.rdb$field_source
+         LEFT JOIN rdb$types t ON t.rdb$type = f.rdb$field_type AND t.rdb$field_name = 'RDB$FIELD_TYPE'
+         WHERE rf.rdb$relation_name = ?
+         ORDER BY rf.rdb$field_position`,
+        [table]
+      );
+      return success(res, { tabela: table, colunas: cols });
+    }
+
+    if (!like || !/^[A-Z0-9_$%]{2,60}$/.test(like)) {
+      return success(res, { erro: 'informe ?like=PADRAO (ex.: PEDIDO) ou ?table=NOME' });
+    }
+    const tabelas = await db.query(
+      `SELECT TRIM(r.rdb$relation_name) AS tabela
+       FROM rdb$relations r
+       WHERE r.rdb$system_flag = 0
+         AND r.rdb$view_blr IS NULL
+         AND r.rdb$relation_name LIKE ?
+       ORDER BY 1`,
+      [`%${like}%`]
+    );
+    return success(res, { padrao: like, tabelas });
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
