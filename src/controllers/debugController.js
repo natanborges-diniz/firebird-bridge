@@ -85,6 +85,7 @@ module.exports = {
   distClassificacao22,
   samplesPorProdutotipo,
   schema, // hoisted — declarada abaixo
+  schemaDist, // idem
 };
 
 // ─── Descoberta de schema (F0 do modo fiscal — SPEC_P3 no repo insights) ───
@@ -125,6 +126,28 @@ async function schema(req, res) {
       [`%${like}%`]
     );
     return success(res, { padrao: like, tabelas });
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
+
+// GET /debug/schema/dist?table=TRANSACAO&col=TIPOTRANSACAO
+// Distribuição agregada (só contagens) de colunas de tipo/situação — sem PII.
+async function schemaDist(req, res) {
+  try {
+    const db = require('../db');
+    const table = (req.query.table || '').trim().toUpperCase();
+    const col = (req.query.col || '').trim().toUpperCase();
+    if (!/^[A-Z0-9_$]{1,60}$/.test(table)) return success(res, { erro: 'tabela inválida' });
+    // Só colunas categóricas (tipo/situação/código) — nunca nomes/documentos
+    if (!/^(COD_[A-Z0-9_]+|[A-Z0-9_]*TIPO[A-Z0-9_]*|SITUACAO|ENCERRADO)$/.test(col)) {
+      return success(res, { erro: 'coluna não permitida (use colunas de tipo/situação/código)' });
+    }
+    const rows = await db.query(
+      `SELECT ${col} AS valor, COUNT(*) AS qtd FROM ${table} GROUP BY ${col} ORDER BY 2 DESC`
+    );
+    return success(res, { tabela: table, coluna: col, dist: rows.slice(0, 50) });
   } catch (err) {
     return handleControllerError(res, err);
   }

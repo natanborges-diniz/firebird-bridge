@@ -10,5 +10,6 @@ router.get('/produto-tipo-map/locais', debugController.distEstoqueLocal);
 router.get('/produto-tipo-map/classif22', debugController.distClassificacao22);
 router.get('/produto-tipo-map/samples', debugController.samplesPorProdutotipo);
 router.get('/schema', debugController.schema);
+router.get('/schema/dist', debugController.schemaDist);
 
 module.exports = router;
