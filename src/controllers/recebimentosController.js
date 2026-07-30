@@ -67,6 +67,21 @@ async function emitidos(req, res) {
   }
 }
 
+async function saldosAbertos(req, res) {
+  try {
+    const params = validatePeriodoEmpresaQuery(req, res);
+    if (!params) return;
+
+    const { rows, empresasComErro } = await recebimentosService.getSaldosAbertos({
+      ...params,
+      ...parseCommonQuery(req),
+    });
+    return success(res, rows, empresasComErro?.length ? { empresasComErro } : undefined);
+  } catch (err) {
+    return handleControllerError(res, err);
+  }
+}
+
 async function devolucoesRestituicao(req, res) {
   try {
     const params = validatePeriodoEmpresaQuery(req, res);
@@ -104,6 +119,7 @@ async function validacao(req, res) {
 
 module.exports = {
   recebimentosDetalhe,
+  saldosAbertos,
   recebimentosAgregado,
   emitidos,
   devolucoesRestituicao,

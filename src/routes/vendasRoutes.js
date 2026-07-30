@@ -47,4 +47,8 @@ router.get('/emitidos', recebimentosController.emitidos);
 // GET /api/v1/vendas/devolucoes-restituicao — PENDENTE VALIDACAO (hipotese)
 router.get('/devolucoes-restituicao', recebimentosController.devolucoesRestituicao);
 
+// GET /api/v1/vendas/saldos-aberto — parcelas em aberto (saldo a receber) por
+// vendedor, de vendas emitidas no periodo (formas com inadimplencia)
+router.get('/saldos-aberto', recebimentosController.saldosAbertos);
+
 module.exports = router;

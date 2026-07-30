@@ -41,20 +41,28 @@ describe('queries/vendas/recebimentos_detalhe.sql', () => {
   const sqlBruto = loadSql('recebimentos_detalhe.sql');
   const sql = semComentarios(sqlBruto);
 
-  it('usa VALORPAGO e nunca soma o previsto flp.VALOR (D9)', () => {
-    expect(sql).toMatch(/flp\.valorpago/i);
-    // "flp.valor" (previsto) nao pode aparecer — \b impede casar "valorpago"
-    expect(sql).not.toMatch(/flp\.valor\b/i);
+  it('regra de regime: cartoes no PROCESSAMENTO (emissao, valor integral) e demais no PAGAMENTO', () => {
+    // bloco A: cartoes (tipo 3) por dataemissao, valor integral (pago ou futuro)
+    expect(sql).toMatch(/ffp\.cod_formapagamentotipo\s*=\s*3/i);
+    expect(sql).toMatch(/t\.dataemissao\s+BETWEEN\s+CAST\(\?\s+AS\s+DATE\)\s+AND\s+CAST\(\?\s+AS\s+DATE\)/i);
+    expect(sql).toMatch(/COALESCE\(NULLIF\(flp\.valorpago,\s*0\),\s*flp\.valor\)/i);
+    // bandeira interna SALDO A RECEBER fora do bloco de cartoes
+    expect(sql).toMatch(/<>\s*'SALDO A RECEBER'/i);
+    // bloco B: demais formas por datapagamento com valorpago
+    expect(sql).toMatch(/flp\.datapagamento\s+BETWEEN\s+CAST\(\?\s+AS\s+DATE\)\s+AND\s+CAST\(\?\s+AS\s+DATE\)/i);
+    expect(sql).toMatch(/flp\.valorpago\s*>\s*0/i);
+    // cartoes de verdade nao entram no bloco B
+    expect(sql).toMatch(/cod_formapagamentotipo\s*<>\s*3/i);
     // regressao conhecida: IIF misturando previsto e realizado
     expect(sql).not.toMatch(/IIF\s*\(\s*flp\.datapagamento\s+IS\s+NULL/i);
-  });
-
-  it('filtra o periodo por DATAPAGAMENTO com parametros direto no WHERE (regime de caixa)', () => {
-    expect(sql).toMatch(/flp\.datapagamento\s+BETWEEN\s+CAST\(\?\s+AS\s+DATE\)\s+AND\s+CAST\(\?\s+AS\s+DATE\)/i);
-    // saldo em aberto nao entra
-    expect(sql).toMatch(/flp\.valorpago\s*>\s*0/i);
     // anti-timeout: sem o padrao JOIN P ON 1=1
     expect(sql).not.toMatch(/JOIN\s+P\s+ON\s+1\s*=\s*1/i);
+  });
+
+  it('traz as OS que compoem a venda (os_list via ordemservicocaixa)', () => {
+    expect(sql).toMatch(/LIST\(/i);
+    expect(sql).toMatch(/ocx\.cod_transacao\s*=\s*t\.cod_transacao/i);
+    expect(sql).toMatch(/AS os_list/i);
   });
 
   it('deriva origem VENDA_PERIODO x SALDO_ANTERIOR comparando dataemissao com dataIni', () => {
@@ -62,13 +70,15 @@ describe('queries/vendas/recebimentos_detalhe.sql', () => {
     expect(sql).toMatch(/'SALDO_ANTERIOR'/);
   });
 
-  it('normaliza forma_categoria num unico CASE (D10)', () => {
-    expect(sql).toMatch(/CASE\s+ffp\.cod_formapagamentotipo/i);
+  it('normaliza forma_categoria (cartoes no bloco A; demais no bloco B) (D10)', () => {
     ['AVISTA', 'CHEQUE', 'CARTAO_CREDITO', 'CARTAO_DEBITO', 'PIX', 'CREDIARIO', 'CREDITOS', 'OUTROS'].forEach(
       (categoria) => expect(sql).toContain(`'${categoria}'`)
     );
     // cartao credito x debito via fincartaocreditotipo.credito
     expect(sql).toMatch(/fcct\.credito\s*=\s*'T'\s+THEN\s+'CARTAO_CREDITO'/i);
+    // tipo 4 (boleto) e tipo 5 (carne) = CREDIARIO
+    expect(sql).toMatch(/cod_formapagamentotipo\s*=\s*4\s+THEN\s+'CREDIARIO'/i);
+    expect(sql).toMatch(/cod_formapagamentotipo\s*=\s*5\s+THEN\s+'CREDIARIO'/i);
   });
 
   it('contem o placeholder de venda regular (garantia nao e venda)', () => {

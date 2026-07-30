@@ -39,8 +39,14 @@ describe('recebimentosService', () => {
       });
 
       expect(db.runQuery).toHaveBeenCalledTimes(2);
-      // ordem dos parametros: origem(dataIni), dataIni, dataFim, empresa, empresa
+      // ordem dos parametros (9): bloco A cartoes por emissao
+      // (dataIni, dataFim, emp, emp) + bloco B demais por pagamento
+      // (origem/dataIni, dataIni, dataFim, emp, emp)
       expect(db.runQuery).toHaveBeenCalledWith(expect.any(String), [
+        '2026-07-20',
+        '2026-07-26',
+        1,
+        1,
         '2026-07-20',
         '2026-07-20',
         '2026-07-26',

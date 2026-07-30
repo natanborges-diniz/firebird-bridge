@@ -41,6 +41,7 @@ function loadSql(filename) {
 const SQL_RECEBIMENTOS_DETALHE = loadSql("recebimentos_detalhe.sql");
 const SQL_EMITIDOS_POR_VENDEDOR = loadSql("emitidos_por_vendedor.sql");
 const SQL_DEVOLUCOES_RESTITUICAO = loadSql("devolucoes_restituicao.sql");
+const SQL_SALDOS_EM_ABERTO = loadSql("saldos_em_aberto.sql");
 
 // Dependencias de schema da hipotese de devolucao com restituicao
 // (PENDENTE VALIDACAO — npm run validar:recebimentos). Se ausentes,
@@ -58,7 +59,12 @@ function normalizarDataISO(value) {
 async function getRecebimentosDetalhePorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
   // ordem dos parametros = ordem dos "?" no SQL:
   // origem (dataIni), datapagamento ini/fim, empresa, empresa (regra 13/18)
-  const params = [dataInicio, dataInicio, dataFim, codEmpresa, codEmpresa];
+  // Bloco A (cartoes por emissao): dataIni, dataFim, emp, emp
+  // Bloco B (demais por pagamento): dataIni(origem), dataIni, dataFim, emp, emp
+  const params = [
+    dataInicio, dataFim, codEmpresa, codEmpresa,
+    dataInicio, dataInicio, dataFim, codEmpresa, codEmpresa,
+  ];
   return getCachedOrFetch({
     label: "recebimentos.detalhe",
     params,
@@ -93,6 +99,28 @@ async function getDevolucoesRestituicaoPorEmpresa(codEmpresa, dataInicio, dataFi
 }
 
 // --------- APIS PRINCIPAIS ---------
+async function getSaldosAbertosPorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
+  const params = [dataInicio, dataFim, codEmpresa, codEmpresa];
+  return getCachedOrFetch({
+    label: "recebimentos.saldos_aberto",
+    params,
+    ttlMs: options.cacheTtlMs ?? RECEBIMENTOS_TTL_MS,
+    enabled: options.useCache !== false,
+    fetcher: async () =>
+      db.runQuery(await aplicarFiltroVendaRegular(SQL_SALDOS_EM_ABERTO, "t"), params),
+  });
+}
+
+async function getSaldosAbertos({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
+  const empresas = parseEmpresasParam(empresa);
+  const results = await Promise.allSettled(
+    empresas.map((cod) =>
+      getSaldosAbertosPorEmpresa(cod, dataInicio, dataFim, { useCache, cacheTtlMs })
+    )
+  );
+  return coletarResultadosFanout("recebimentos-saldos-aberto", empresas, results, null, "RECEBIMENTOS");
+}
+
 async function getRecebimentosDetalhe({ empresa, dataInicio, dataFim, useCache, cacheTtlMs }) {
   const empresas = parseEmpresasParam(empresa);
   const startedAt = Date.now();
@@ -211,6 +239,7 @@ async function getDevolucoesRestituicao({ empresa, dataInicio, dataFim, useCache
 }
 
 module.exports = {
+  getSaldosAbertos,
   getRecebimentosDetalhe,
   getRecebimentosAgregado,
   getEmitidos,
