@@ -16,6 +16,8 @@ SELECT
   s.cod_vendedor              AS cod_vendedor,
   v.nome                      AS vendedor_nome,
   t.cod_transacao             AS cod_transacao,
+  t.numerotransacao           AS numero_venda,
+  nfe.numeronotafiscal        AS numero_nf,
   COALESCE((SELECT CAST(LIST(TRIM(ocx.cod_ordemservicocaixa || ''), ',') AS VARCHAR(500))
      FROM ordemservicocaixa ocx
     WHERE ocx.cod_transacao = t.cod_transacao), 'SEM_OS') AS os_list,
@@ -53,9 +55,12 @@ LEFT JOIN finformapagamentocartao ffpc
   ON ffpc.cod_formapagamentocartao = ffp.cod_formapagamento
 LEFT JOIN fincartaocreditotipo fcct
   ON fcct.cod_cartaocreditotipo = ffpc.cod_cartaocreditotipo
+LEFT JOIN notafiscalemitida nfe
+  ON nfe.cod_notafiscalemitida = t.cod_notafiscalemitida
 
 WHERE t.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
-  AND flp.datapagamento IS NULL
+  -- em aberto = sem baixa em NENHUMA das datas (regra da query do Natan)
+  AND COALESCE(flp.datapagamento, flp.datarecebimento) IS NULL
   AND COALESCE(flp.valor, 0) > 0
   -- creditos (tipo 6) nao sao saldo do cliente; cartoes de verdade nao geram
   -- saldo (comissionados no processamento) — do tipo 3 so a bandeira interna

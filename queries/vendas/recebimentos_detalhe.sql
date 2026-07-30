@@ -31,6 +31,8 @@ SELECT
   s.cod_vendedor              AS cod_vendedor,
   v.nome                      AS vendedor_nome,
   t.cod_transacao             AS cod_transacao,
+  t.numerotransacao           AS numero_venda,
+  nfe.numeronotafiscal        AS numero_nf,
   COALESCE((SELECT CAST(LIST(TRIM(ocx.cod_ordemservicocaixa || ''), ',') AS VARCHAR(500))
      FROM ordemservicocaixa ocx
     WHERE ocx.cod_transacao = t.cod_transacao), 'SEM_OS') AS os_list,
@@ -69,6 +71,8 @@ LEFT JOIN finformapagamentocartao ffpc
   ON ffpc.cod_formapagamentocartao = ffp.cod_formapagamento
 LEFT JOIN fincartaocreditotipo fcct
   ON fcct.cod_cartaocreditotipo = ffpc.cod_cartaocreditotipo
+LEFT JOIN notafiscalemitida nfe
+  ON nfe.cod_notafiscalemitida = t.cod_notafiscalemitida
 
 WHERE t.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
   -- bandeira interna 'SALDO A RECEBER' NAO e cartao (e saldo em aberto)
@@ -87,11 +91,13 @@ SELECT
   s.cod_vendedor              AS cod_vendedor,
   v.nome                      AS vendedor_nome,
   t.cod_transacao             AS cod_transacao,
+  t.numerotransacao           AS numero_venda,
+  nfe.numeronotafiscal        AS numero_nf,
   COALESCE((SELECT CAST(LIST(TRIM(ocx.cod_ordemservicocaixa || ''), ',') AS VARCHAR(500))
      FROM ordemservicocaixa ocx
     WHERE ocx.cod_transacao = t.cod_transacao), 'SEM_OS') AS os_list,
   t.dataemissao               AS dataemissao,
-  flp.datapagamento           AS data_pagamento,
+  COALESCE(flp.datapagamento, flp.datarecebimento) AS data_pagamento,
   ffp.cod_formapagamentotipo  AS cod_formapagamentotipo,
   TRIM(CASE
     WHEN ffp.cod_formapagamentotipo = 3 THEN 'OUTROS'
@@ -106,7 +112,8 @@ SELECT
     WHEN t.dataemissao >= CAST(? AS DATE) THEN 'VENDA_PERIODO'
     ELSE 'SALDO_ANTERIOR'
   END) AS origem,
-  COALESCE(flp.valorpago, 0)  AS valor_recebido
+  -- pago pode estar em valorpago ou, quando baixado por recebimento, so em valor
+  COALESCE(NULLIF(flp.valorpago, 0), flp.valor) AS valor_recebido
 
 FROM finlancamentoparcela flp
 JOIN finformapagamento ffp
@@ -130,9 +137,11 @@ LEFT JOIN finformapagamentocartao ffpc
   ON ffpc.cod_formapagamentocartao = ffp.cod_formapagamento
 LEFT JOIN fincartaocreditotipo fcct
   ON fcct.cod_cartaocreditotipo = ffpc.cod_cartaocreditotipo
+LEFT JOIN notafiscalemitida nfe
+  ON nfe.cod_notafiscalemitida = t.cod_notafiscalemitida
 
-WHERE flp.datapagamento BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
-  AND flp.valorpago > 0
+WHERE COALESCE(flp.datapagamento, flp.datarecebimento) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+  AND COALESCE(NULLIF(flp.valorpago, 0), flp.valor) > 0
   -- cartoes de verdade ja comissionaram no processamento (bloco A);
   -- do tipo 3 so entra aqui a bandeira interna 'SALDO A RECEBER' paga
   AND (
@@ -145,4 +154,4 @@ WHERE flp.datapagamento BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
   )
   /*__FILTRO_VENDA_REGULAR__*/
 
-ORDER BY 7, 4
+ORDER BY 9, 4

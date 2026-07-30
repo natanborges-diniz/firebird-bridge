@@ -23,6 +23,7 @@ SELECT
   s.cod_vendedor       AS cod_vendedor,
   v.nome               AS vendedor_nome,
   t.cod_transacao      AS cod_transacao,
+  t.numerotransacao    AS numero_venda,
   t.dataemissao        AS dataemissao,
   SUM(
     COALESCE(ti.total, 0)
@@ -55,6 +56,7 @@ GROUP BY
   s.cod_vendedor,
   v.nome,
   t.cod_transacao,
+  t.numerotransacao,
   t.dataemissao
 
 ORDER BY
