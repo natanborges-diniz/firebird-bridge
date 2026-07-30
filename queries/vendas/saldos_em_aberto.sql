@@ -16,9 +16,9 @@ SELECT
   s.cod_vendedor              AS cod_vendedor,
   v.nome                      AS vendedor_nome,
   t.cod_transacao             AS cod_transacao,
-  (SELECT CAST(LIST(TRIM(ocx.cod_ordemservicocaixa || ''), ',') AS VARCHAR(500))
+  COALESCE((SELECT CAST(LIST(TRIM(ocx.cod_ordemservicocaixa || ''), ',') AS VARCHAR(500))
      FROM ordemservicocaixa ocx
-    WHERE ocx.cod_transacao = t.cod_transacao) AS os_list,
+    WHERE ocx.cod_transacao = t.cod_transacao), 'SEM_OS') AS os_list,
   t.dataemissao               AS dataemissao,
   flp.datavencimento          AS data_vencimento,
   ffp.cod_formapagamentotipo  AS cod_formapagamentotipo,
