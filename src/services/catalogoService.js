@@ -179,7 +179,13 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde } 
     .join(ativoColuna ? `,\n  ${ativoColuna} AS ativo` : "");
 
   const condicoes = [];
-  if (tiposFiltro) {
+  // No modo delta (?desde=) o filtro de tipo fica FORA do SQL de propósito:
+  // os LIKEs sobre descrição avaliariam texto de TODAS as ~1M linhas do scan,
+  // e linhas legadas com bytes corrompidos derrubam a query ("Cannot
+  // transliterate"). Com WHERE só de datas (colunas date/int, imunes a
+  // charset), as expressões de texto rodam apenas nas linhas retornadas —
+  // e o refinamento de tipo acontece no JS, sobre o delta pequeno.
+  if (tiposFiltro && !desdeTs) {
     const partes = [...tiposFiltro].map((t) => CONDICAO_SQL_POR_TIPO[t]);
     // Se algum tipo pedido não tem condição barata (OUTROS), não dá para
     // podar no SQL sem perder linhas — o refinamento fica só no JS.
