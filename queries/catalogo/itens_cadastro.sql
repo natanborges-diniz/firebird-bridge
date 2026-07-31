@@ -7,9 +7,11 @@
 -- Classificação de tipo: mesma heurística de estoque_completo.sql
 -- (LG/GC/LC como palavra isolada; sem o ramo 'PRODUTOS' por não haver
 -- junção com transações aqui).
--- O marcador /*__ATIVO_SELECT__*/ é substituído em runtime pelo
--- catalogoService quando a coluna de ativação existir no schema
--- (padrão hasColumn — ver CLAUDE.md).
+-- O marcador ATIVO_SELECT (comentário de bloco no SELECT) é substituído em
+-- runtime pelo catalogoService quando a coluna de ativação existir no schema
+-- (padrão hasColumn — ver CLAUDE.md). Idem ROWS para o ?limit=.
+-- ATENÇÃO: não escrever os marcadores literais em comentários — o replace
+-- em runtime atingiria o comentário, não o SELECT.
 -- Parâmetros: nenhum (cadastro é global, não varia por empresa).
 
 WITH

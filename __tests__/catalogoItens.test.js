@@ -34,8 +34,11 @@ describe('queries/catalogo/itens_cadastro.sql', () => {
     expect(sql).toMatch(/gtin\)\s+SIMILAR TO\s+'\[0-9\]\{8,14\}'/i);
   });
 
-  it('contém o marcador de coluna de ativação para poda em runtime', () => {
-    expect(sql).toContain('/*__ATIVO_SELECT__*/');
+  it('contém os marcadores de runtime exatamente 1 vez cada (nunca em comentários)', () => {
+    // Regressão: o marcador escrito num comentário -- fazia o replace de
+    // runtime injetar SQL no meio do comentário (Token unknown: item).
+    expect(sql.split('/*__ATIVO_SELECT__*/').length - 1).toBe(1);
+    expect(sql.split('/*__ROWS__*/').length - 1).toBe(1);
   });
 
   it('classifica LG/GC/LC como palavra isolada (mesma heurística do estoque)', () => {

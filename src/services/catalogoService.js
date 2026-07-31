@@ -106,7 +106,8 @@ async function getItensCadastro(tipo, limit) {
   const tiposFiltro = parseTipoParam(tipo);
 
   const ativoSelect = await resolveAtivoSelect();
-  let sql = sqlItensCadastro.replace("/*__ATIVO_SELECT__*/", ativoSelect || "");
+  // split/join = substitui TODAS as ocorrências (replace() só pega a 1ª)
+  let sql = sqlItensCadastro.split("/*__ATIVO_SELECT__*/").join(ativoSelect || "");
 
   if (limit !== undefined && limit !== null && String(limit).trim() !== "") {
     const n = Number(limit);
@@ -115,7 +116,7 @@ async function getItensCadastro(tipo, limit) {
       err.code = "INVALID_LIMIT";
       throw err;
     }
-    sql = sql.replace("/*__ROWS__*/", `ROWS ${n}`);
+    sql = sql.split("/*__ROWS__*/").join(`ROWS ${n}`);
   }
 
   const rows = await db.query(sql, []);
