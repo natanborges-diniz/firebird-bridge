@@ -32,7 +32,13 @@ function validatePeriodoQuery(req, res) {
     "data_saida",
   ]);
   const rawCampoData = String(req.query.campoData ?? "").trim().toLowerCase();
-  const campoData = rawCampoData || "data_emissao";
+  // Aceita a forma curta que o frontend Infoco sempre enviou (EMISSAO,
+  // PREVISAO, ENTRADA, SAIDA) além da forma longa data_* — o fix f3d3aa4
+  // apertou a validação e quebrou o contrato com o Monitor em produção.
+  const normalizado = rawCampoData && !rawCampoData.startsWith("data_")
+    ? `data_${rawCampoData}`
+    : rawCampoData;
+  const campoData = normalizado || "data_emissao";
   if (!CAMPOS_DATA_VALIDOS.has(campoData)) {
     failure(res, {
       code: "INVALID_PARAMS",
