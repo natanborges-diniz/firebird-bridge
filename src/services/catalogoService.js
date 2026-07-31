@@ -146,6 +146,37 @@ function parseInteiro(valor, nome, { min, max, padrao }) {
   return n;
 }
 
+const ERRO_CHARSET = /transliterate|malformed string|arithmetic exception/i;
+
+/**
+ * Executa a consulta para o intervalo ROWS [ini, fim] (1-based, inclusivo).
+ * Em erro de charset, bisseciona o intervalo e pula as linhas corrompidas
+ * (intervalo de 1 linha que falha), logando o offset para diagnóstico.
+ */
+async function consultarComSalvamento(sqlSemRows, ini, fim, profundidade = 0) {
+  const sql = sqlSemRows.split("/*__ROWS__*/").join(`ROWS ${ini} TO ${fim}`);
+  try {
+    return await db.query(sql, []);
+  } catch (err) {
+    const msg = String(err && err.message ? err.message : err);
+    if (!ERRO_CHARSET.test(msg)) throw err;
+    if (ini >= fim) {
+      console.warn(`[CATALOGO] linha corrompida PULADA (posição ROWS ${ini}): ${msg.slice(0, 80)}`);
+      return [];
+    }
+    if (profundidade > 16) {
+      console.error(`[CATALOGO] bisseccao excedeu profundidade em ROWS ${ini}-${fim}`);
+      return [];
+    }
+    const meio = Math.floor((ini + fim) / 2);
+    const [a, b] = await Promise.all([
+      consultarComSalvamento(sqlSemRows, ini, meio, profundidade + 1),
+      consultarComSalvamento(sqlSemRows, meio + 1, fim, profundidade + 1),
+    ]);
+    return [...a, ...b];
+  }
+}
+
 /**
  * Cadastro de produtos, uma linha por cod_sku. SEMPRE paginado.
  * @param {object} opts
@@ -210,40 +241,12 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde } 
     .split("/*__WHERE__*/")
     .join(condicoes.length ? `WHERE ${condicoes.join("\n  AND ")}` : "");
 
-  // Paginação Firebird: ROWS a TO b (1-based, inclusivo)
-  sql = sql.split("/*__ROWS__*/").join(`ROWS ${desloc + 1} TO ${desloc + tamPagina}`);
-
-  let rows;
-  try {
-    rows = await db.query(sql, []);
-  } catch (err) {
-    // Linhas legadas com bytes inválidos p/ WIN1252 derrubam a query inteira
-    // ("Cannot transliterate character between character sets"). Retry com
-    // charset NONE: lê bytes crus e decodifica em JS como latin1 (≈ WIN1252).
-    if (!/transliterate/i.test(String(err && err.message ? err.message : err))) throw err;
-    console.warn("[CATALOGO] retry com charset NONE (linha intransliterável no intervalo)");
-    // Bytes crus de ponta a ponta: além da conexão NONE, força as PRÓPRIAS
-    // expressões (UPPER/LIKE/TRIM) a operarem em CHARACTER SET NONE — a
-    // transliteração também estoura na avaliação, não só na saída. UPPER em
-    // NONE só maiusculiza ASCII, suficiente p/ as heurísticas LG/GC/LC.
-    const sqlBytes = sql
-      .split("itemclassificacao.descricao")
-      .join("CAST(itemclassificacao.descricao AS VARCHAR(500) CHARACTER SET NONE)")
-      .split("item.descricao")
-      .join("CAST(item.descricao AS VARCHAR(500) CHARACTER SET NONE)")
-      .split("pessoafornecedor.nome")
-      .join("CAST(pessoafornecedor.nome AS VARCHAR(500) CHARACTER SET NONE)");
-    // Conexão normal (WIN1252): com os CASTs acima, todo texto circula como
-    // NONE (bytes crus) do storage até a saída — nada a transliterar. A
-    // conexão com charset NONE no driver gera "Malformed string"; evitar.
-    rows = await db.query(sqlBytes, []);
-    for (const row of rows) {
-      for (const chave of Object.keys(row)) {
-        const v = row[chave];
-        if (Buffer.isBuffer(v)) row[chave] = v.toString("latin1");
-      }
-    }
-  }
+  // Paginação com SALVAMENTO POR BISSECÇÃO: linhas legadas com bytes
+  // corrompidos derrubam a query inteira ("Cannot transliterate…",
+  // "Malformed string", "Arithmetic exception…"). Quando um intervalo
+  // falha, dividimos ao meio recursivamente até isolar a(s) linha(s)
+  // podre(s), que são PULADAS e logadas — o resto da página é entregue.
+  const rows = await consultarComSalvamento(sql, desloc + 1, desloc + tamPagina);
 
   // Normalização defensiva: CHARs do Firebird chegam com padding de espaços
   for (const row of rows) {
