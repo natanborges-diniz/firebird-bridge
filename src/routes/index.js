@@ -12,6 +12,7 @@ const osRoutes          = require('./osRoutes');
 const empresaRoutes     = require('./empresaRoutes');
 const crmRoutes         = require('./crmRoutes');
 const syncRoutes        = require('./syncRoutes');
+const catalogoRoutes    = require('./catalogoRoutes');
 
 // Health check
 router.get('/health', healthController.health);
@@ -42,5 +43,8 @@ router.use('/crm', crmRoutes);
 
 // Módulo Sync
 router.use('/sync', syncRoutes);
+
+// Módulo Catálogo (cadastro de produtos, sem estoque)
+router.use('/catalogo', catalogoRoutes);
 
 module.exports = router;

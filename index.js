@@ -65,6 +65,7 @@ const osRoutes = require('./src/routes/osRoutes');
 const crmRoutes = require('./src/routes/crmRoutes');
 const syncRoutes = require('./src/routes/syncRoutes');
 const debugRoutes = require('./src/routes/debugRoutes');
+const catalogoRoutes = require('./src/routes/catalogoRoutes');
 
 /**
  * ============================================================
@@ -79,6 +80,7 @@ app.use('/api/v1/os', osRoutes);
 app.use('/api/v1/crm', crmRoutes);
 app.use('/api/v1/sync', syncRoutes);
 app.use('/api/v1/debug', debugRoutes);
+app.use('/api/v1/catalogo', catalogoRoutes);
 
 /**
  * ============================================================
