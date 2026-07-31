@@ -46,9 +46,26 @@ SELECT
     WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AC'          THEN 'ACESSORIOS'
     ELSE 'OUTROS'
   END)                                             AS subcategoria,
-  COALESCE(fornprincipal.fornecedor_nome, 'SEM FORNECEDOR')
-                                                   AS fornecedor_nome,
-  COALESCE(marca.descricao, 'SEM MARCA')           AS grife,
+  -- Subqueries CORRELACIONADAS de propósito: executam só para as linhas que
+  -- passam no WHERE/paginação (lookup indexado por cod_item). A versão com
+  -- LEFT JOIN + GROUP BY materializava as tabelas inteiras (~1M) mesmo em
+  -- delta de poucas linhas.
+  COALESCE((
+    SELECT MIN(pessoafornecedor.nome)
+    FROM fornecedor_item
+    JOIN pessoa pessoafornecedor
+      ON pessoafornecedor.cod_pessoa = fornecedor_item.cod_fornecedor
+    WHERE fornecedor_item.cod_item = item.cod_item
+      AND fornecedor_item.principal = 'T'
+  ), 'SEM FORNECEDOR')                             AS fornecedor_nome,
+  COALESCE((
+    SELECT MIN(itemclassificacao.descricao)
+    FROM itemclassificacao
+    JOIN item_itemclassificacao
+      ON item_itemclassificacao.cod_itemclassificacao = itemclassificacao.cod_itemclassificacao
+    WHERE item_itemclassificacao.cod_item = item.cod_item
+      AND itemclassificacao.cod_dwitemclassificacao = 42
+  ), 'SEM MARCA')                                  AS grife,
   COALESCE(produto.precocusto, 0)                  AS preco_custo,
   COALESCE(item.precovenda, 0)                     AS preco_venda,
   produto.dataultimacompra                         AS data_ultima_compra
@@ -57,34 +74,6 @@ FROM
   produto
   JOIN item
     ON item.cod_item = produto.cod_produto
-  LEFT JOIN (
-    SELECT
-      fornecedor_item.cod_item,
-      MIN(pessoafornecedor.nome) AS fornecedor_nome
-    FROM
-      fornecedor_item
-      JOIN pessoa pessoafornecedor
-        ON pessoafornecedor.cod_pessoa = fornecedor_item.cod_fornecedor
-    WHERE
-      fornecedor_item.principal = 'T'
-    GROUP BY
-      fornecedor_item.cod_item
-  ) fornprincipal
-    ON fornprincipal.cod_item = item.cod_item
-  LEFT JOIN (
-    SELECT
-      item_itemclassificacao.cod_item,
-      MIN(itemclassificacao.descricao) AS descricao
-    FROM
-      itemclassificacao
-      JOIN item_itemclassificacao
-        ON item_itemclassificacao.cod_itemclassificacao = itemclassificacao.cod_itemclassificacao
-    WHERE
-      itemclassificacao.cod_dwitemclassificacao = 42
-    GROUP BY
-      item_itemclassificacao.cod_item
-  ) marca
-    ON marca.cod_item = item.cod_item
 /*__WHERE__*/
 ORDER BY
   produto.cod_produto ASC
