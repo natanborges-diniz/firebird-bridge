@@ -42,6 +42,7 @@ WITH
         ON pessoafornecedor.cod_pessoa = fornecedor_item.cod_fornecedor
   )
 
+SELECT q.* FROM (
 SELECT
   produto.cod_produto                              AS cod_sku,
   produto.codigobarra                              AS codigo_barras,
@@ -84,7 +85,9 @@ FROM
    AND tbFornecedorVinculo.rn = 1
   LEFT JOIN tbmarcamodeloar
     ON tbmarcamodeloar.cod_item = item.cod_item
+) q
+/*__WHERE_TIPO__*/
 ORDER BY
-  produto.cod_produto ASC
+  q.cod_sku ASC
 /*__ROWS__*/
 ;

@@ -39,6 +39,7 @@ describe('queries/catalogo/itens_cadastro.sql', () => {
     // runtime injetar SQL no meio do comentário (Token unknown: item).
     expect(sql.split('/*__ATIVO_SELECT__*/').length - 1).toBe(1);
     expect(sql.split('/*__ROWS__*/').length - 1).toBe(1);
+    expect(sql.split('/*__WHERE_TIPO__*/').length - 1).toBe(1);
   });
 
   it('classifica LG/GC/LC como palavra isolada (mesma heurística do estoque)', () => {

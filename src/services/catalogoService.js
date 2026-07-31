@@ -109,6 +109,14 @@ async function getItensCadastro(tipo, limit) {
   // split/join = substitui TODAS as ocorrências (replace() só pega a 1ª)
   let sql = sqlItensCadastro.split("/*__ATIVO_SELECT__*/").join(ativoSelect || "");
 
+  // Filtro de tipo empurrado para o SQL (valores vêm da whitelist TIPOS_VALIDOS
+  // via parseTipoParam — sem risco de injeção). Reduz drasticamente o volume
+  // trafegado do Firebird (o cadastro completo passa de 100k linhas).
+  if (tiposFiltro) {
+    const lista = [...tiposFiltro].map((t) => `'${t}'`).join(", ");
+    sql = sql.split("/*__WHERE_TIPO__*/").join(`WHERE q.tipo IN (${lista})`);
+  }
+
   if (limit !== undefined && limit !== null && String(limit).trim() !== "") {
     const n = Number(limit);
     if (!Number.isInteger(n) || n <= 0 || n > 500000) {
@@ -129,6 +137,7 @@ async function getItensCadastro(tipo, limit) {
     if (typeof row.inativo === "string") row.inativo = row.inativo.trim();
   }
 
+  // Rede de segurança: o filtro principal já foi aplicado no SQL
   if (!tiposFiltro) return rows;
   return rows.filter((row) => tiposFiltro.has(String(row.tipo || "").trim().toUpperCase()));
 }
