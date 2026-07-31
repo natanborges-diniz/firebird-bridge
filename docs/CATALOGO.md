@@ -107,6 +107,16 @@ Erros de consulta retornam `code: "QUERY_ERROR"` com a mensagem do driver em
 - `__tests__/catalogoItens.test.js`
 
 # 3. Histórico de decisões
+- **Modo delta filtra só por datas no SQL** (tipo refinado em JS): os LIKEs de
+  tipo avaliavam a descrição de todas as ~1M linhas do scan e linhas legadas
+  com bytes corrompidos derrubavam a query ("Cannot transliterate character
+  between character sets"). Com WHERE apenas de datas (imunes a charset), as
+  expressões de texto rodam só nas linhas retornadas. Existe ainda um retry
+  que converte expressões de texto para CHARACTER SET NONE caso uma linha do
+  próprio delta seja corrompida. Medido em produção (31/07/2026): delta de 7
+  dias (lentes) = 157 linhas em ~7,5 s.
+- Item novo entra no delta por `ITEM.DATAINCLUSAO` (não depende de o ERP
+  preencher `DATAALTERACAO` no cadastro).
 - Marcadores de runtime (`ATIVO_SELECT`, `WHERE`, `ROWS`) nunca devem aparecer
   literalmente em comentários do SQL — o replace de runtime atinge a primeira
   ocorrência (regressão corrigida em 31/07/2026, "Token unknown: item").
