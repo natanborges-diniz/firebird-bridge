@@ -148,19 +148,19 @@ function parseInteiro(valor, nome, { min, max, padrao }) {
 
 const ERRO_CHARSET = /transliterate|malformed string|arithmetic exception/i;
 
-// Keyset por JANELAS de código: limita cada varredura a uma faixa de
-// cod_produto (índice da PK), evitando scans abertos que estouram tempo.
-const JANELA_CODS = 100000;
-
-let maxCodCache = { valor: null, em: 0 };
-async function obterMaxCod() {
-  if (maxCodCache.valor !== null && Date.now() - maxCodCache.em < 10 * 60 * 1000) {
-    return maxCodCache.valor;
+// COD_PRODUTO é VARCHAR(20): o keyset é LEXICOGRÁFICO (comparação de
+// string usa o índice da PK; comparação numérica coage por linha e ignora
+// o índice — full scan). A ordenação do endpoint sempre foi a de string,
+// então cursor = último cod retornado, comparado como texto.
+function parseAposCod(valor) {
+  if (valor === undefined || valor === null || String(valor).trim() === "") return null;
+  const s = String(valor).trim();
+  if (!/^[A-Za-z0-9._-]{1,20}$/.test(s)) {
+    const err = new Error(`aposCod inválido: ${s}`);
+    err.code = "INVALID_LIMIT";
+    throw err;
   }
-  const r = await db.query("SELECT MAX(produto.cod_produto) AS max_cod FROM produto", []);
-  const v = Number(r?.[0]?.max_cod ?? 0);
-  maxCodCache = { valor: v, em: Date.now() };
-  return v;
+  return s;
 }
 
 /**
@@ -215,9 +215,7 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde, a
   const desdeTs = parseDesdeParam(desde);
   const tamPagina = parseInteiro(limit, "limit", { min: 1, max: LIMIT_MAXIMO, padrao: LIMIT_PADRAO });
   const desloc = parseInteiro(offset, "offset", { min: 0, max: 100000000, padrao: 0 });
-  const cursorCod = aposCod === undefined || aposCod === null || String(aposCod).trim() === ""
-    ? null
-    : parseInteiro(aposCod, "aposCod", { min: 0, max: 9007199254740991, padrao: 0 });
+  const cursorCod = parseAposCod(aposCod);
   const flagInativos = String(incluirInativos ?? "").trim().toLowerCase();
   // Delta (?desde=) precisa enxergar desativações; carga completa não.
   const comInativos = flagInativos === ""
@@ -264,42 +262,18 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde, a
   // "Malformed string", "Arithmetic exception…"). Quando um intervalo
   // falha, dividimos ao meio recursivamente até isolar a(s) linha(s)
   // podre(s), que são PULADAS e logadas — o resto da página é entregue.
-  let rows;
   if (cursorCod !== null) {
-    // KEYSET POR JANELAS: varre faixas de JANELA_CODS códigos por vez
-    // (range scan curto no índice da PK) e acumula até encher a página ou
-    // alcançar o maior código do cadastro. O custo de cada consulta é
-    // limitado pela janela — nunca pela profundidade da paginação.
-    const maxCod = await obterMaxCod();
-    rows = [];
-    let cur = cursorCod;
-    while (rows.length < tamPagina && cur < maxCod) {
-      const fimJanela = Math.min(cur + JANELA_CODS, maxCod);
-      const condJanela = [
-        ...condicoes,
-        `produto.cod_produto > ${cur} AND produto.cod_produto <= ${fimJanela}`,
-      ];
-      const sqlJanela = sql
-        .split("/*__WHERE__*/")
-        .join(`WHERE ${condJanela.join("\n  AND ")}`);
-      const restante = tamPagina - rows.length;
-      // eslint-disable-next-line no-await-in-loop
-      const pagina = await consultarComSalvamento(sqlJanela, 1, restante);
-      rows.push(...pagina);
-      if (pagina.length >= restante) {
-        // a janela pode ter mais linhas: próxima iteração continua do maior
-        // código já retornado (ainda dentro desta janela)
-        cur = pagina.reduce((m, r) => Math.max(m, Number(r.cod_sku) || 0), cur);
-      } else {
-        cur = fimJanela;
-      }
-    }
-  } else {
-    sql = sql
-      .split("/*__WHERE__*/")
-      .join(condicoes.length ? `WHERE ${condicoes.join("\n  AND ")}` : "");
-    rows = await consultarComSalvamento(sql, desloc + 1, desloc + tamPagina);
+    // string entre aspas: comparação lexicográfica indexada
+    condicoes.push(`produto.cod_produto > '${cursorCod}'`);
   }
+  sql = sql
+    .split("/*__WHERE__*/")
+    .join(condicoes.length ? `WHERE ${condicoes.join("\n  AND ")}` : "");
+
+  // Keyset: a janela sempre começa em ROWS 1 (o corte é o cursor no WHERE)
+  const rows = cursorCod !== null
+    ? await consultarComSalvamento(sql, 1, tamPagina)
+    : await consultarComSalvamento(sql, desloc + 1, desloc + tamPagina);
 
   // Normalização defensiva: CHARs do Firebird chegam com padding de espaços
   for (const row of rows) {
