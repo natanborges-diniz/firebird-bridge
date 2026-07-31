@@ -227,7 +227,10 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde } 
       .join("CAST(item.descricao AS VARCHAR(500) CHARACTER SET NONE)")
       .split("pessoafornecedor.nome")
       .join("CAST(pessoafornecedor.nome AS VARCHAR(500) CHARACTER SET NONE)");
-    rows = await db.query(sqlBytes, [], { charset: "NONE" });
+    // Conexão normal (WIN1252): com os CASTs acima, todo texto circula como
+    // NONE (bytes crus) do storage até a saída — nada a transliterar. A
+    // conexão com charset NONE no driver gera "Malformed string"; evitar.
+    rows = await db.query(sqlBytes, []);
     for (const row of rows) {
       for (const chave of Object.keys(row)) {
         const v = row[chave];
