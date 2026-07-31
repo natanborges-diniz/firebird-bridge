@@ -11,15 +11,15 @@ const { success, failure, handleControllerError } = require('../utils/apiRespons
  */
 async function itensCadastro(req, res) {
   try {
-    const { tipo, limit } = req.query;
-    const rows = await catalogoService.getItensCadastro(tipo, limit);
+    const { tipo, limit, offset, incluirInativos } = req.query;
+    const rows = await catalogoService.getItensCadastro({ tipo, limit, offset, incluirInativos });
     return success(res, rows);
   } catch (err) {
     if (err.code === 'INVALID_TIPO' || err.code === 'INVALID_LIMIT') {
       return failure(res, {
         code: 'INVALID_PARAMS',
         message: err.message,
-        details: { tipo: req.query.tipo, limit: req.query.limit },
+        details: { tipo: req.query.tipo, limit: req.query.limit, offset: req.query.offset },
         status: 400,
       });
     }

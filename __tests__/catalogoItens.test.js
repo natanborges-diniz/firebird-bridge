@@ -39,7 +39,12 @@ describe('queries/catalogo/itens_cadastro.sql', () => {
     // runtime injetar SQL no meio do comentário (Token unknown: item).
     expect(sql.split('/*__ATIVO_SELECT__*/').length - 1).toBe(1);
     expect(sql.split('/*__ROWS__*/').length - 1).toBe(1);
-    expect(sql.split('/*__WHERE_TIPO__*/').length - 1).toBe(1);
+    expect(sql.split('/*__WHERE__*/').length - 1).toBe(1);
+  });
+
+  it('classifica por COD_PRODUTOTIPO (7 = lentes de grau, 13 = armações)', () => {
+    expect(sql).toMatch(/cod_produtotipo\s*=\s*7/i);
+    expect(sql).toMatch(/cod_produtotipo\s*=\s*13/i);
   });
 
   it('classifica LG/GC/LC como palavra isolada (mesma heurística do estoque)', () => {
@@ -48,8 +53,9 @@ describe('queries/catalogo/itens_cadastro.sql', () => {
     expect(sql).toMatch(/LIKE\s+'% LC %'/);
   });
 
-  it('deduplica vínculo de fornecedor por ROW_NUMBER', () => {
-    expect(sql).toMatch(/ROW_NUMBER\(\)\s+OVER\s*\(\s*PARTITION BY\s+fornecedor_item\.cod_item/i);
+  it('deduplica vínculo de fornecedor (flag PRINCIPAL + agregação)', () => {
+    expect(sql).toMatch(/fornecedor_item\.principal\s*=\s*'T'/i);
+    expect(sql).toMatch(/MIN\(pessoafornecedor\.nome\)/i);
   });
 });
 

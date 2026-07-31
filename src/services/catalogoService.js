@@ -3,6 +3,11 @@
 // Cadastro de produtos (catálogo) — SEM junção com estoque.
 // Finalidade: alimentar a sincronização de catálogo externo (Atlas) com
 // codigo_barras (PRODUTO.CODIGOBARRA) como chave estável por SKU.
+//
+// O cadastro tem ~1M de linhas — o endpoint é paginado (limit/offset) e o
+// filtro de tipo é aplicado no SQL como SUPERSET barato (COD_PRODUTOTIPO
+// indexável: 7 = lentes de grau, 13 = armações), com refinamento exato do
+// rótulo `tipo` em JS. Por padrão retorna só itens ativos (ITEM.ATIVO = 'T').
 
 const path = require("path");
 const fs = require("fs");
@@ -14,6 +19,9 @@ function loadSql(fileName) {
 }
 
 const sqlItensCadastro = loadSql("itens_cadastro.sql");
+
+const LIMIT_PADRAO = 5000;
+const LIMIT_MAXIMO = 50000;
 
 // Tipos aceitos no filtro (?tipo=...). "LENTES" é alias das duas categorias.
 const TIPOS_VALIDOS = new Set([
@@ -27,16 +35,28 @@ const ALIAS_TIPO = {
   LENTES: ["LENTES_GRAU", "LENTES_CONTATO"],
 };
 
-// Candidatas de coluna de ativação do item (varia entre versões do ERP).
-// A primeira que existir é usada; se nenhuma existir, o campo é omitido
-// (padrão hasColumn — ver CLAUDE.md).
+// Condições SQL por tipo — SUPERSET barato do rótulo exato (o refinamento
+// final é feito em JS sobre o campo `tipo` calculado). COD_PRODUTOTIPO cobre
+// o grosso sem LIKE; as heurísticas de descrição complementam o legado.
+const LIKE_GC = `' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% GC %'`;
+const LIKE_LC = `' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LC %'`;
+const LIKE_LG = `' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LG %'`;
+const CONDICAO_SQL_POR_TIPO = {
+  LENTES_GRAU: `(produto.cod_produtotipo = 7 OR ${LIKE_LG})`,
+  LENTES_CONTATO: `(${LIKE_GC} OR ${LIKE_LC})`,
+  ARMACOES: `(produto.cod_produtotipo = 13 OR UPPER(TRIM(item.descricao)) STARTING WITH 'OC' OR UPPER(TRIM(item.descricao)) STARTING WITH 'AR')`,
+  ACESSORIOS: `(UPPER(TRIM(item.descricao)) STARTING WITH 'AC')`,
+  OUTROS: null, // sem condição barata — cai no scan (JS refina)
+};
+
+// Candidatas de coluna de ativação do item (ITEM.ATIVO confirmada no schema
+// atual via /debug/schema; mantém a checagem para resistir a variações).
 const ATIVO_CANDIDATAS = [
   ["ITEM", "ATIVO", "item.ativo"],
   ["PRODUTO", "ATIVO", "produto.ativo"],
-  ["ITEM", "INATIVO", "item.inativo"],
 ];
 
-let ativoSelectCache; // undefined = ainda não checado; string = fragmento; null = não existe
+let ativoColunaCache; // undefined = não checado; string = expressão; null = não existe
 
 async function hasColumn(tableName, columnName) {
   const rows = await db.query(
@@ -54,20 +74,19 @@ async function hasColumn(tableName, columnName) {
   return rows.length > 0;
 }
 
-async function resolveAtivoSelect() {
-  if (ativoSelectCache !== undefined) return ativoSelectCache;
+async function resolveAtivoColuna() {
+  if (ativoColunaCache !== undefined) return ativoColunaCache;
 
   for (const [tabela, coluna, expressao] of ATIVO_CANDIDATAS) {
     // eslint-disable-next-line no-await-in-loop
     if (await hasColumn(tabela, coluna)) {
-      const alias = coluna === "INATIVO" ? "inativo" : "ativo";
-      ativoSelectCache = `,\n  ${expressao} AS ${alias}`;
-      return ativoSelectCache;
+      ativoColunaCache = expressao;
+      return ativoColunaCache;
     }
   }
 
-  ativoSelectCache = null;
-  return ativoSelectCache;
+  ativoColunaCache = null;
+  return ativoColunaCache;
 }
 
 /**
@@ -95,37 +114,61 @@ function parseTipoParam(tipo) {
   return tipos.size ? tipos : null;
 }
 
+function parseInteiro(valor, nome, { min, max, padrao }) {
+  if (valor === undefined || valor === null || String(valor).trim() === "") {
+    return padrao;
+  }
+  const n = Number(valor);
+  if (!Number.isInteger(n) || n < min || n > max) {
+    const err = new Error(`${nome} inválido: ${valor} (aceito: ${min}–${max})`);
+    err.code = "INVALID_LIMIT";
+    throw err;
+  }
+  return n;
+}
+
 /**
- * Cadastro completo de produtos, uma linha por cod_sku.
- * @param {string} [tipo] filtro opcional (CSV): ARMACOES, LENTES_GRAU,
- *   LENTES_CONTATO, ACESSORIOS, OUTROS, ou alias LENTES (= grau + contato).
- * @param {string|number} [limit] opcional — limita via ROWS n (diagnóstico
- *   e paginação simples; o sync normal não envia).
+ * Cadastro de produtos, uma linha por cod_sku. SEMPRE paginado.
+ * @param {object} opts
+ * @param {string} [opts.tipo] filtro CSV: ARMACOES, LENTES_GRAU,
+ *   LENTES_CONTATO, ACESSORIOS, OUTROS, alias LENTES; ALL/vazio = todos.
+ * @param {string|number} [opts.limit] tamanho da página (padrão 5000, máx 50000)
+ * @param {string|number} [opts.offset] deslocamento (padrão 0)
+ * @param {string} [opts.incluirInativos] "1"/"true" para incluir inativos
+ *   (padrão: só ITEM.ATIVO = 'T')
  */
-async function getItensCadastro(tipo, limit) {
+async function getItensCadastro({ tipo, limit, offset, incluirInativos } = {}) {
   const tiposFiltro = parseTipoParam(tipo);
+  const tamPagina = parseInteiro(limit, "limit", { min: 1, max: LIMIT_MAXIMO, padrao: LIMIT_PADRAO });
+  const desloc = parseInteiro(offset, "offset", { min: 0, max: 100000000, padrao: 0 });
+  const flagInativos = String(incluirInativos ?? "").trim().toLowerCase();
+  const comInativos = ["1", "true", "t", "sim"].includes(flagInativos);
 
-  const ativoSelect = await resolveAtivoSelect();
+  const ativoColuna = await resolveAtivoColuna();
+
   // split/join = substitui TODAS as ocorrências (replace() só pega a 1ª)
-  let sql = sqlItensCadastro.split("/*__ATIVO_SELECT__*/").join(ativoSelect || "");
+  let sql = sqlItensCadastro
+    .split("/*__ATIVO_SELECT__*/")
+    .join(ativoColuna ? `,\n  ${ativoColuna} AS ativo` : "");
 
-  // Filtro de tipo empurrado para o SQL (valores vêm da whitelist TIPOS_VALIDOS
-  // via parseTipoParam — sem risco de injeção). Reduz drasticamente o volume
-  // trafegado do Firebird (o cadastro completo passa de 100k linhas).
+  const condicoes = [];
   if (tiposFiltro) {
-    const lista = [...tiposFiltro].map((t) => `'${t}'`).join(", ");
-    sql = sql.split("/*__WHERE_TIPO__*/").join(`WHERE q.tipo IN (${lista})`);
-  }
-
-  if (limit !== undefined && limit !== null && String(limit).trim() !== "") {
-    const n = Number(limit);
-    if (!Number.isInteger(n) || n <= 0 || n > 500000) {
-      const err = new Error(`limit inválido: ${limit}`);
-      err.code = "INVALID_LIMIT";
-      throw err;
+    const partes = [...tiposFiltro].map((t) => CONDICAO_SQL_POR_TIPO[t]);
+    // Se algum tipo pedido não tem condição barata (OUTROS), não dá para
+    // podar no SQL sem perder linhas — o refinamento fica só no JS.
+    if (!partes.some((p) => p == null)) {
+      condicoes.push(`(${partes.join(" OR ")})`);
     }
-    sql = sql.split("/*__ROWS__*/").join(`ROWS ${n}`);
   }
+  if (!comInativos && ativoColuna) {
+    condicoes.push(`${ativoColuna} = 'T'`);
+  }
+  sql = sql
+    .split("/*__WHERE__*/")
+    .join(condicoes.length ? `WHERE ${condicoes.join("\n  AND ")}` : "");
+
+  // Paginação Firebird: ROWS a TO b (1-based, inclusivo)
+  sql = sql.split("/*__ROWS__*/").join(`ROWS ${desloc + 1} TO ${desloc + tamPagina}`);
 
   const rows = await db.query(sql, []);
 
@@ -134,10 +177,9 @@ async function getItensCadastro(tipo, limit) {
     if (typeof row.tipo === "string") row.tipo = row.tipo.trim();
     if (typeof row.subcategoria === "string") row.subcategoria = row.subcategoria.trim();
     if (typeof row.ativo === "string") row.ativo = row.ativo.trim();
-    if (typeof row.inativo === "string") row.inativo = row.inativo.trim();
   }
 
-  // Rede de segurança: o filtro principal já foi aplicado no SQL
+  // Refinamento exato: o WHERE do SQL é um superset barato do rótulo `tipo`
   if (!tiposFiltro) return rows;
   return rows.filter((row) => tiposFiltro.has(String(row.tipo || "").trim().toUpperCase()));
 }
