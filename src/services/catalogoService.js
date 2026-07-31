@@ -190,12 +190,19 @@ async function consultarComSalvamento(sqlSemRows, ini, fim, profundidade = 0) {
  * @param {string} [opts.desde] sync incremental: só linhas com
  *   DATAALTERACAO/DATAINCLUSAO >= desde (YYYY-MM-DD ou com hora). Sem o
  *   parâmetro, retorna a carga completa (usar só no setup inicial).
+ * @param {string|number} [opts.aposCod] paginação por KEYSET: retorna itens
+ *   com cod_produto > aposCod (usa o índice da PK — custo constante em
+ *   qualquer profundidade, ao contrário de offset/ROWS que re-varre tudo).
+ *   Preferir SEMPRE em cargas completas; offset fica para compatibilidade.
  */
-async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde } = {}) {
+async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde, aposCod } = {}) {
   const tiposFiltro = parseTipoParam(tipo);
   const desdeTs = parseDesdeParam(desde);
   const tamPagina = parseInteiro(limit, "limit", { min: 1, max: LIMIT_MAXIMO, padrao: LIMIT_PADRAO });
   const desloc = parseInteiro(offset, "offset", { min: 0, max: 100000000, padrao: 0 });
+  const cursorCod = aposCod === undefined || aposCod === null || String(aposCod).trim() === ""
+    ? null
+    : parseInteiro(aposCod, "aposCod", { min: 0, max: 9007199254740991, padrao: 0 });
   const flagInativos = String(incluirInativos ?? "").trim().toLowerCase();
   // Delta (?desde=) precisa enxergar desativações; carga completa não.
   const comInativos = flagInativos === ""
@@ -237,6 +244,9 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde } 
     OR produto.dataalteracao >= CAST('${desdeTs}' AS TIMESTAMP))`
     );
   }
+  if (cursorCod !== null) {
+    condicoes.push(`produto.cod_produto > ${cursorCod}`);
+  }
   sql = sql
     .split("/*__WHERE__*/")
     .join(condicoes.length ? `WHERE ${condicoes.join("\n  AND ")}` : "");
@@ -246,7 +256,10 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde } 
   // "Malformed string", "Arithmetic exception…"). Quando um intervalo
   // falha, dividimos ao meio recursivamente até isolar a(s) linha(s)
   // podre(s), que são PULADAS e logadas — o resto da página é entregue.
-  const rows = await consultarComSalvamento(sql, desloc + 1, desloc + tamPagina);
+  // Keyset: janela sempre começa em ROWS 1 (o corte é o WHERE cod_produto >)
+  const rows = cursorCod !== null
+    ? await consultarComSalvamento(sql, 1, tamPagina)
+    : await consultarComSalvamento(sql, desloc + 1, desloc + tamPagina);
 
   // Normalização defensiva: CHARs do Firebird chegam com padding de espaços
   for (const row of rows) {
