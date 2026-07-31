@@ -99,12 +99,24 @@ function parseTipoParam(tipo) {
  * Cadastro completo de produtos, uma linha por cod_sku.
  * @param {string} [tipo] filtro opcional (CSV): ARMACOES, LENTES_GRAU,
  *   LENTES_CONTATO, ACESSORIOS, OUTROS, ou alias LENTES (= grau + contato).
+ * @param {string|number} [limit] opcional — limita via ROWS n (diagnóstico
+ *   e paginação simples; o sync normal não envia).
  */
-async function getItensCadastro(tipo) {
+async function getItensCadastro(tipo, limit) {
   const tiposFiltro = parseTipoParam(tipo);
 
   const ativoSelect = await resolveAtivoSelect();
-  const sql = sqlItensCadastro.replace("/*__ATIVO_SELECT__*/", ativoSelect || "");
+  let sql = sqlItensCadastro.replace("/*__ATIVO_SELECT__*/", ativoSelect || "");
+
+  if (limit !== undefined && limit !== null && String(limit).trim() !== "") {
+    const n = Number(limit);
+    if (!Number.isInteger(n) || n <= 0 || n > 500000) {
+      const err = new Error(`limit inválido: ${limit}`);
+      err.code = "INVALID_LIMIT";
+      throw err;
+    }
+    sql = sql.replace("/*__ROWS__*/", `ROWS ${n}`);
+  }
 
   const rows = await db.query(sql, []);
 

@@ -84,4 +84,5 @@ FROM
     ON tbmarcamodeloar.cod_item = item.cod_item
 ORDER BY
   produto.cod_produto ASC
+/*__ROWS__*/
 ;

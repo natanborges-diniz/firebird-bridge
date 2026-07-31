@@ -11,19 +11,27 @@ const { success, failure, handleControllerError } = require('../utils/apiRespons
  */
 async function itensCadastro(req, res) {
   try {
-    const { tipo } = req.query;
-    const rows = await catalogoService.getItensCadastro(tipo);
+    const { tipo, limit } = req.query;
+    const rows = await catalogoService.getItensCadastro(tipo, limit);
     return success(res, rows);
   } catch (err) {
-    if (err.code === 'INVALID_TIPO') {
+    if (err.code === 'INVALID_TIPO' || err.code === 'INVALID_LIMIT') {
       return failure(res, {
         code: 'INVALID_PARAMS',
         message: err.message,
-        details: { tipo: req.query.tipo },
+        details: { tipo: req.query.tipo, limit: req.query.limit },
         status: 400,
       });
     }
-    return handleControllerError(res, err);
+    // Endpoint interno de sync: expõe a mensagem do driver para diagnóstico
+    // (sem stack trace). handleControllerError já loga o erro completo.
+    console.error('[CATALOGO] itens:', err);
+    return failure(res, {
+      code: 'QUERY_ERROR',
+      message: 'Falha ao consultar o cadastro de produtos',
+      details: { firebird: String(err && err.message ? err.message : err) },
+      status: 500,
+    });
   }
 }
 
