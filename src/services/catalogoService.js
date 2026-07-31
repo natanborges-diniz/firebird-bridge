@@ -121,8 +121,16 @@ async function getItensCadastro(tipo, limit) {
 
   const rows = await db.query(sql, []);
 
+  // Normalização defensiva: CHARs do Firebird chegam com padding de espaços
+  for (const row of rows) {
+    if (typeof row.tipo === "string") row.tipo = row.tipo.trim();
+    if (typeof row.subcategoria === "string") row.subcategoria = row.subcategoria.trim();
+    if (typeof row.ativo === "string") row.ativo = row.ativo.trim();
+    if (typeof row.inativo === "string") row.inativo = row.inativo.trim();
+  }
+
   if (!tiposFiltro) return rows;
-  return rows.filter((row) => tiposFiltro.has(String(row.tipo || "").toUpperCase()));
+  return rows.filter((row) => tiposFiltro.has(String(row.tipo || "").trim().toUpperCase()));
 }
 
 module.exports = {

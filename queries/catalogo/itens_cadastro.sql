@@ -50,7 +50,7 @@ SELECT
     ELSE NULL
   END                                              AS ean,
   item.descricao                                   AS descricao,
-  CASE
+  TRIM(CASE
     WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'OC'
       OR UPPER(TRIM(item.descricao)) STARTING WITH 'AR'          THEN 'ARMACOES'
     WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LG %' THEN 'LENTES_GRAU'
@@ -58,8 +58,8 @@ SELECT
     WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LC %' THEN 'LENTES_CONTATO'
     WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AC'          THEN 'ACESSORIOS'
     ELSE 'OUTROS'
-  END                                              AS tipo,
-  CASE
+  END)                                             AS tipo,
+  TRIM(CASE
     WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'OC'          THEN 'AR_SOLAR'
     WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AR'          THEN 'AR_RX'
     WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LG %' THEN 'LENTES_GRAU'
@@ -67,7 +67,7 @@ SELECT
     WHEN ' ' || UPPER(TRIM(item.descricao)) || ' ' LIKE '% LC %' THEN 'LENTES_CONTATO'
     WHEN UPPER(TRIM(item.descricao)) STARTING WITH 'AC'          THEN 'ACESSORIOS'
     ELSE 'OUTROS'
-  END                                              AS subcategoria,
+  END)                                             AS subcategoria,
   COALESCE(tbFornecedorVinculo.fornecedor_nome, 'SEM FORNECEDOR')
                                                    AS fornecedor_nome,
   COALESCE(tbmarcamodeloar.descricao, 'SEM MARCA') AS grife,
