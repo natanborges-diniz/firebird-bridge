@@ -30,12 +30,18 @@ GET /api/v1/catalogo/itens
 - `limit` (int, opcional): tamanho da página. Padrão **5000**, máx 50000.
 - `offset` (int, opcional): deslocamento. Padrão 0.
 - `incluirInativos` (opcional): `1`/`true` inclui itens com `ITEM.ATIVO = 'F'`.
-  Padrão: só ativos.
+  Padrão: só ativos (**exceto** com `desde`, que inclui inativos por padrão
+  para o delta capturar desativações; `incluirInativos=0` sobrescreve).
+- `desde` (opcional): **sync incremental** — só linhas com
+  `ITEM.DATAALTERACAO`, `ITEM.DATAINCLUSAO` ou `PRODUTO.DATAALTERACAO`
+  >= valor. Formato `YYYY-MM-DD` ou `YYYY-MM-DDTHH:MM:SS`. Sem o parâmetro
+  retorna a carga completa (usar só no setup inicial).
 
 ### Exemplos
 GET /api/v1/catalogo/itens?tipo=LENTES
 GET /api/v1/catalogo/itens?tipo=LENTES&limit=5000&offset=5000
 GET /api/v1/catalogo/itens?tipo=ARMACOES&incluirInativos=1
+GET /api/v1/catalogo/itens?tipo=LENTES&desde=2026-07-30T05:00:00   (delta diário)
 
 ### Resposta
 {
@@ -86,7 +92,10 @@ Erros de consulta retornam `code: "QUERY_ERROR"` com a mensagem do driver em
   menos linhas que `limit` mesmo sem ser a última. **Fim da paginação = página
   com 0 linhas.**
 - Medido em produção (31/07/2026): 200 linhas ≈ 6 s; 5000 linhas ≈ 14 s.
-- Consumidor previsto: cron diário do Atlas iterando páginas de 5000.
+- Consumidor previsto: **carga completa 1x (setup)**, depois cron do Atlas
+  com `?desde=<última sync>` — o delta diário costuma ter dezenas de linhas,
+  não 1M. O Atlas guarda o timestamp da última sync bem-sucedida e usa como
+  `desde` da próxima (com sobreposição de 1h por segurança).
 
 ---
 

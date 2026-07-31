@@ -5,21 +5,22 @@ const { success, failure, handleControllerError } = require('../utils/apiRespons
 
 /**
  * GET /catalogo/itens?tipo=LENTES
- * Cadastro completo de produtos (sem estoque). Filtro ?tipo= opcional:
+ * Cadastro de produtos (sem estoque). Filtro ?tipo= opcional:
  * ARMACOES, LENTES_GRAU, LENTES_CONTATO, ACESSORIOS, OUTROS, LENTES (alias),
- * ALL/vazio = todos.
+ * ALL/vazio = todos. Sync incremental via ?desde=YYYY-MM-DD[THH:MM:SS]
+ * (só linhas alteradas/incluídas desde então; inclui inativos por padrão).
  */
 async function itensCadastro(req, res) {
   try {
-    const { tipo, limit, offset, incluirInativos } = req.query;
-    const rows = await catalogoService.getItensCadastro({ tipo, limit, offset, incluirInativos });
+    const { tipo, limit, offset, incluirInativos, desde } = req.query;
+    const rows = await catalogoService.getItensCadastro({ tipo, limit, offset, incluirInativos, desde });
     return success(res, rows);
   } catch (err) {
-    if (err.code === 'INVALID_TIPO' || err.code === 'INVALID_LIMIT') {
+    if (err.code === 'INVALID_TIPO' || err.code === 'INVALID_LIMIT' || err.code === 'INVALID_DESDE') {
       return failure(res, {
         code: 'INVALID_PARAMS',
         message: err.message,
-        details: { tipo: req.query.tipo, limit: req.query.limit, offset: req.query.offset },
+        details: { tipo: req.query.tipo, limit: req.query.limit, offset: req.query.offset, desde: req.query.desde },
         status: 400,
       });
     }

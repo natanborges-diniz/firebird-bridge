@@ -83,3 +83,29 @@ describe('catalogoService.parseTipoParam', () => {
     );
   });
 });
+
+describe('catalogoService.parseDesdeParam (sync incremental)', () => {
+  const { parseDesdeParam } = require('../src/services/catalogoService');
+
+  it('vazio retorna null (carga completa)', () => {
+    expect(parseDesdeParam(undefined)).toBeNull();
+    expect(parseDesdeParam('')).toBeNull();
+  });
+
+  it('aceita YYYY-MM-DD (completa 00:00:00)', () => {
+    expect(parseDesdeParam('2026-07-30')).toBe('2026-07-30 00:00:00');
+  });
+
+  it('aceita data com hora (T ou espaço)', () => {
+    expect(parseDesdeParam('2026-07-30T05:00:00')).toBe('2026-07-30 05:00:00');
+    expect(parseDesdeParam('2026-07-30 05:00')).toBe('2026-07-30 05:00');
+  });
+
+  it('rejeita formato inválido com code INVALID_DESDE (anti-injeção)', () => {
+    for (const ruim of ['ontem', '2026/07/30', "2026-07-30'; DROP TABLE x--", '30-07-2026']) {
+      expect(() => parseDesdeParam(ruim)).toThrow(
+        expect.objectContaining({ code: 'INVALID_DESDE' })
+      );
+    }
+  });
+});

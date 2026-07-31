@@ -114,6 +114,25 @@ function parseTipoParam(tipo) {
   return tipos.size ? tipos : null;
 }
 
+/**
+ * Normaliza o parâmetro ?desde= (sync incremental).
+ * Aceita YYYY-MM-DD ou YYYY-MM-DDTHH:MM(:SS). Retorna string validada para
+ * uso literal no SQL (regex estrita — sem risco de injeção) ou null.
+ * Lança erro com .code = "INVALID_DESDE" para formato desconhecido.
+ */
+function parseDesdeParam(desde) {
+  if (desde === undefined || desde === null || String(desde).trim() === "") return null;
+
+  const valor = String(desde).trim();
+  const m = valor.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}(?::\d{2})?))?$/);
+  if (!m) {
+    const err = new Error(`desde inválido: ${valor} (formato: YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS)`);
+    err.code = "INVALID_DESDE";
+    throw err;
+  }
+  return m[2] ? `${m[1]} ${m[2]}` : `${m[1]} 00:00:00`;
+}
+
 function parseInteiro(valor, nome, { min, max, padrao }) {
   if (valor === undefined || valor === null || String(valor).trim() === "") {
     return padrao;
@@ -135,14 +154,22 @@ function parseInteiro(valor, nome, { min, max, padrao }) {
  * @param {string|number} [opts.limit] tamanho da página (padrão 5000, máx 50000)
  * @param {string|number} [opts.offset] deslocamento (padrão 0)
  * @param {string} [opts.incluirInativos] "1"/"true" para incluir inativos
- *   (padrão: só ITEM.ATIVO = 'T')
+ *   (padrão: só ITEM.ATIVO = 'T'; com ?desde= o padrão vira INCLUIR, para o
+ *   delta capturar desativações — passe incluirInativos=0 para sobrescrever)
+ * @param {string} [opts.desde] sync incremental: só linhas com
+ *   DATAALTERACAO/DATAINCLUSAO >= desde (YYYY-MM-DD ou com hora). Sem o
+ *   parâmetro, retorna a carga completa (usar só no setup inicial).
  */
-async function getItensCadastro({ tipo, limit, offset, incluirInativos } = {}) {
+async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde } = {}) {
   const tiposFiltro = parseTipoParam(tipo);
+  const desdeTs = parseDesdeParam(desde);
   const tamPagina = parseInteiro(limit, "limit", { min: 1, max: LIMIT_MAXIMO, padrao: LIMIT_PADRAO });
   const desloc = parseInteiro(offset, "offset", { min: 0, max: 100000000, padrao: 0 });
   const flagInativos = String(incluirInativos ?? "").trim().toLowerCase();
-  const comInativos = ["1", "true", "t", "sim"].includes(flagInativos);
+  // Delta (?desde=) precisa enxergar desativações; carga completa não.
+  const comInativos = flagInativos === ""
+    ? Boolean(desdeTs)
+    : ["1", "true", "t", "sim"].includes(flagInativos);
 
   const ativoColuna = await resolveAtivoColuna();
 
@@ -162,6 +189,16 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos } = {}) {
   }
   if (!comInativos && ativoColuna) {
     condicoes.push(`${ativoColuna} = 'T'`);
+  }
+  if (desdeTs) {
+    // ITEM.DATAALTERACAO cobre edições (inclusive ATIVO e preço);
+    // ITEM.DATAINCLUSAO cobre itens novos; PRODUTO.DATAALTERACAO cobre
+    // mudanças do lado produto (código de barras, custo, tipo).
+    condicoes.push(
+      `(item.dataalteracao >= CAST('${desdeTs}' AS TIMESTAMP)
+    OR item.datainclusao >= CAST('${desdeTs}' AS TIMESTAMP)
+    OR produto.dataalteracao >= CAST('${desdeTs}' AS TIMESTAMP))`
+    );
   }
   sql = sql
     .split("/*__WHERE__*/")
@@ -187,4 +224,5 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos } = {}) {
 module.exports = {
   getItensCadastro,
   parseTipoParam, // exportado para testes
+  parseDesdeParam, // exportado para testes
 };
