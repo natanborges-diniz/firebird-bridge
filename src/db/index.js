@@ -33,8 +33,11 @@ const options = {
  * Executa uma query no Firebird.
  * sql: string
  * params: array de parâmetros (opcional)
+ * overrideOptions: objeto opcional mesclado nas opções de conexão
+ *   (ex.: { charset: 'NONE' } para ler bytes crus quando alguma linha tem
+ *   caracteres intransliteráveis — ver catalogoService).
  */
-function runQuery(sql, params = []) {
+function runQuery(sql, params = [], overrideOptions = null) {
   return new Promise((resolve, reject) => {
     const Firebird = getFirebird();
 
@@ -42,7 +45,9 @@ function runQuery(sql, params = []) {
       return reject(new Error('node-firebird não está disponível no ambiente atual'));
     }
 
-    Firebird.attach(options, (err, db) => {
+    const attachOptions = overrideOptions ? { ...options, ...overrideOptions } : options;
+
+    Firebird.attach(attachOptions, (err, db) => {
       if (err) {
         console.error('Erro ao conectar ao Firebird:', err);
         return reject(err);

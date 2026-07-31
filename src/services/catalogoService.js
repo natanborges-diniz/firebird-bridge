@@ -207,7 +207,23 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde } 
   // Paginação Firebird: ROWS a TO b (1-based, inclusivo)
   sql = sql.split("/*__ROWS__*/").join(`ROWS ${desloc + 1} TO ${desloc + tamPagina}`);
 
-  const rows = await db.query(sql, []);
+  let rows;
+  try {
+    rows = await db.query(sql, []);
+  } catch (err) {
+    // Linhas legadas com bytes inválidos p/ WIN1252 derrubam a query inteira
+    // ("Cannot transliterate character between character sets"). Retry com
+    // charset NONE: lê bytes crus e decodifica em JS como latin1 (≈ WIN1252).
+    if (!/transliterate/i.test(String(err && err.message ? err.message : err))) throw err;
+    console.warn("[CATALOGO] retry com charset NONE (linha intransliterável no intervalo)");
+    rows = await db.query(sql, [], { charset: "NONE" });
+    for (const row of rows) {
+      for (const chave of Object.keys(row)) {
+        const v = row[chave];
+        if (Buffer.isBuffer(v)) row[chave] = v.toString("latin1");
+      }
+    }
+  }
 
   // Normalização defensiva: CHARs do Firebird chegam com padding de espaços
   for (const row of rows) {
