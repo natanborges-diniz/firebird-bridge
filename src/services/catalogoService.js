@@ -216,7 +216,18 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde } 
     // charset NONE: lê bytes crus e decodifica em JS como latin1 (≈ WIN1252).
     if (!/transliterate/i.test(String(err && err.message ? err.message : err))) throw err;
     console.warn("[CATALOGO] retry com charset NONE (linha intransliterável no intervalo)");
-    rows = await db.query(sql, [], { charset: "NONE" });
+    // Bytes crus de ponta a ponta: além da conexão NONE, força as PRÓPRIAS
+    // expressões (UPPER/LIKE/TRIM) a operarem em CHARACTER SET NONE — a
+    // transliteração também estoura na avaliação, não só na saída. UPPER em
+    // NONE só maiusculiza ASCII, suficiente p/ as heurísticas LG/GC/LC.
+    const sqlBytes = sql
+      .split("itemclassificacao.descricao")
+      .join("CAST(itemclassificacao.descricao AS VARCHAR(500) CHARACTER SET NONE)")
+      .split("item.descricao")
+      .join("CAST(item.descricao AS VARCHAR(500) CHARACTER SET NONE)")
+      .split("pessoafornecedor.nome")
+      .join("CAST(pessoafornecedor.nome AS VARCHAR(500) CHARACTER SET NONE)");
+    rows = await db.query(sqlBytes, [], { charset: "NONE" });
     for (const row of rows) {
       for (const chave of Object.keys(row)) {
         const v = row[chave];
