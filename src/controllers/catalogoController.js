@@ -12,8 +12,8 @@ const { success, failure, handleControllerError } = require('../utils/apiRespons
  */
 async function itensCadastro(req, res) {
   try {
-    const { tipo, limit, offset, incluirInativos, desde, aposCod } = req.query;
-    const rows = await catalogoService.getItensCadastro({ tipo, limit, offset, incluirInativos, desde, aposCod });
+    const { tipo, limit, offset, incluirInativos, desde, aposCod, codigoBarras } = req.query;
+    const rows = await catalogoService.getItensCadastro({ tipo, limit, offset, incluirInativos, desde, aposCod, codigoBarras });
     return success(res, rows);
   } catch (err) {
     if (err.code === 'INVALID_TIPO' || err.code === 'INVALID_LIMIT' || err.code === 'INVALID_DESDE') {

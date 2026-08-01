@@ -210,9 +210,13 @@ async function consultarComSalvamento(sqlSemRows, ini, fim, profundidade = 0) {
  *   qualquer profundidade, ao contrário de offset/ROWS que re-varre tudo).
  *   Preferir SEMPRE em cargas completas; offset fica para compatibilidade.
  */
-async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde, aposCod } = {}) {
+async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde, aposCod, codigoBarras: codigoBarrasRaw } = {}) {
   const tiposFiltro = parseTipoParam(tipo);
   const desdeTs = parseDesdeParam(desde);
+  // lookup pontual por código de barras (diagnóstico/consulta)
+  const codigoBarras = codigoBarrasRaw && /^[A-Za-z0-9.-]{1,20}$/.test(String(codigoBarrasRaw).trim())
+    ? String(codigoBarrasRaw).trim()
+    : null;
   const tamPagina = parseInteiro(limit, "limit", { min: 1, max: LIMIT_MAXIMO, padrao: LIMIT_PADRAO });
   const desloc = parseInteiro(offset, "offset", { min: 0, max: 100000000, padrao: 0 });
   const cursorCod = parseAposCod(aposCod);
@@ -265,6 +269,9 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde, a
   if (cursorCod !== null) {
     // string entre aspas: comparação lexicográfica indexada
     condicoes.push(`produto.cod_produto > '${cursorCod}'`);
+  }
+  if (codigoBarras) {
+    condicoes.push(`TRIM(produto.codigobarra) = '${codigoBarras}'`);
   }
   sql = sql
     .split("/*__WHERE__*/")
