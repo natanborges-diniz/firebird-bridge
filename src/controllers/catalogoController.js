@@ -13,8 +13,9 @@ const { success, failure, handleControllerError } = require('../utils/apiRespons
 async function itensCadastro(req, res) {
   try {
     const { tipo, limit, offset, incluirInativos, desde, aposCod, codigoBarras } = req.query;
-    const rows = await catalogoService.getItensCadastro({ tipo, limit, offset, incluirInativos, desde, aposCod, codigoBarras });
-    return success(res, rows);
+    const { rows, meta } = await catalogoService.getItensCadastro({ tipo, limit, offset, incluirInativos, desde, aposCod, codigoBarras });
+    // shape padrão {ok,data,error} + meta de paginação keyset (fim/proximo_cod)
+    return res.status(200).json({ ok: true, data: rows, meta, error: null });
   } catch (err) {
     if (err.code === 'INVALID_TIPO' || err.code === 'INVALID_LIMIT' || err.code === 'INVALID_DESDE') {
       return failure(res, {

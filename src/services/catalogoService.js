@@ -266,32 +266,49 @@ async function getItensCadastro({ tipo, limit, offset, incluirInativos, desde, a
   // "Malformed string", "Arithmetic exception…"). Quando um intervalo
   // falha, dividimos ao meio recursivamente até isolar a(s) linha(s)
   // podre(s), que são PULADAS e logadas — o resto da página é entregue.
-  if (cursorCod !== null) {
-    // string entre aspas: comparação lexicográfica indexada
-    condicoes.push(`produto.cod_produto > '${cursorCod}'`);
-  }
   if (codigoBarras) {
     condicoes.push(`TRIM(produto.codigobarra) = '${codigoBarras}'`);
   }
+
+  const refinar = (linhas) => {
+    for (const row of linhas) {
+      if (typeof row.tipo === "string") row.tipo = row.tipo.trim();
+      if (typeof row.subcategoria === "string") row.subcategoria = row.subcategoria.trim();
+      if (typeof row.ativo === "string") row.ativo = row.ativo.trim();
+    }
+    if (!tiposFiltro) return linhas;
+    return linhas.filter((row) => tiposFiltro.has(String(row.tipo || "").trim().toUpperCase()));
+  };
+
+  if (cursorCod !== null) {
+    // KEYSET com FIM EXPLÍCITO: uma página do superset pode refinar para
+    // ZERO lentes (região de armações/acessórios) sem que o cadastro tenha
+    // acabado — página vazia NÃO significa fim. O loop varre páginas cruas
+    // até juntar linhas refinadas ou alcançar o fim VERDADEIRO (página
+    // crua menor que o limite), e devolve meta {fim, proximo_cod} para o
+    // consumidor avançar o cursor com segurança.
+    const refinadas = [];
+    let cur = cursorCod;
+    let fim = false;
+    for (let iter = 0; iter < 8 && refinadas.length < tamPagina; iter++) {
+      const condLoop = [...condicoes, `produto.cod_produto > '${cur}'`];
+      const sqlLoop = sql
+        .split("/*__WHERE__*/")
+        .join(`WHERE ${condLoop.join("\n  AND ")}`);
+      // eslint-disable-next-line no-await-in-loop
+      const cruas = await consultarComSalvamento(sqlLoop, 1, tamPagina);
+      if (cruas.length > 0) cur = String(cruas[cruas.length - 1].cod_sku).trim();
+      refinadas.push(...refinar(cruas));
+      if (cruas.length < tamPagina) { fim = true; break; }
+    }
+    return { rows: refinadas.slice(0, tamPagina), meta: { fim, proximo_cod: cur } };
+  }
+
   sql = sql
     .split("/*__WHERE__*/")
     .join(condicoes.length ? `WHERE ${condicoes.join("\n  AND ")}` : "");
-
-  // Keyset: a janela sempre começa em ROWS 1 (o corte é o cursor no WHERE)
-  const rows = cursorCod !== null
-    ? await consultarComSalvamento(sql, 1, tamPagina)
-    : await consultarComSalvamento(sql, desloc + 1, desloc + tamPagina);
-
-  // Normalização defensiva: CHARs do Firebird chegam com padding de espaços
-  for (const row of rows) {
-    if (typeof row.tipo === "string") row.tipo = row.tipo.trim();
-    if (typeof row.subcategoria === "string") row.subcategoria = row.subcategoria.trim();
-    if (typeof row.ativo === "string") row.ativo = row.ativo.trim();
-  }
-
-  // Refinamento exato: o WHERE do SQL é um superset barato do rótulo `tipo`
-  if (!tiposFiltro) return rows;
-  return rows.filter((row) => tiposFiltro.has(String(row.tipo || "").trim().toUpperCase()));
+  const rows = await consultarComSalvamento(sql, desloc + 1, desloc + tamPagina);
+  return { rows: refinar(rows), meta: null };
 }
 
 module.exports = {
