@@ -231,3 +231,41 @@ O padrão já existe e funciona (`syncEstoqueService` no cron 07:00; `sync-agreg
 6. **Vendedor vê só a própria posição.** Gerente vê a loja toda; supervisor vê um grupo de lojas. Metas configuráveis nos três níveis.
 
 **Pendência técnica (Fase 1):** confirmar no schema Firebird como distinguir devolução com geração de crédito × com restituição em dinheiro (§5.1).
+
+---
+
+## 8. Aferição dashboard × base de comissões (2026-08-02)
+
+Conciliação em produção — loja 1, junho comercial (21/05–20/06):
+
+| Fonte | Valor | Observação |
+|---|---|---|
+| Dashboard (`vendas_agregado_diario` ← `resumo_diario_simples.TOTAL_VENDIDO`, itens) | 104.460,15 | = `/vendas/emitidos` exato; **correto** |
+| — sem créditos | 99.112,15 | créditos rateados por item: 5.348,00 |
+| Base de comissão ligada às mesmas vendas (antes do fix) | 110.646,87 | inflada |
+| Base de comissão (após fix) | **99.294,87** | = 99.112,15 + 182,71 de juros de parcelamento ✔ |
+
+**Bug encontrado e corrigido — fatura compartilhada:** venda com N transações
+(mesmo `numerotransacao`) ligadas à MESMA `finfaturatransacao` recebia as
+parcelas integrais em CADA transação (ex.: 5 vendas na loja 1/junho, R$ 12,7
+mil duplicados; R$ 11.352 na base sem créditos). Fix: dedup no
+`recebimentosService` (`dedupeFaturaCompartilhada` via coluna `cod_fatura`;
+parcela conta 1× na transação canônica, `os_list` = união das OS da fatura).
+A subquery canônica em SQL foi testada e **estoura timeout** (sem índice em
+`transacao.cod_faturatransacao`) — por isso a regra vive no service.
+
+**Diferenças por desenho (não são bugs):**
+- Dashboard é EMISSÃO (valor da venda por itens); comissão é REGIME (cartões na
+  emissão; demais formas no pagamento) — parcelas pagas após o período caem no
+  mês seguinte da comissão, e saldos de meses anteriores pagos entram só na comissão.
+- Juros/acréscimo de parcelamento (pago > emitido) entram na base de comissão e
+  não no dashboard (R$ 182,71 no recorte aferido). Decisão de negócio: manter.
+- PIX: no dashboard aparece como CARTAO DEBITO (bandeira `credito='F'`); na
+  comissão é categoria própria PIX. Mesmos valores.
+- `formas_pagamento_resumo.TOTALGERAL` mantém a duplicação (documentada no SQL);
+  não usar como faturamento oficial.
+
+**Pós-fix:** re-sincronizar o histórico de `recebimentos_agregado_diario`
+(backfill via edge, como nas vezes anteriores) — o cache Supabase anterior ao
+fix carrega os valores duplicados. Fechamentos congelados antes do fix mantêm
+os números da época (reabrir e refechar se necessário).
