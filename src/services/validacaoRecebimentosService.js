@@ -251,7 +251,9 @@ async function validarRecebimentos({ empresa, secoes, dias }) {
         ? await db.runQuery(
             `SELECT FIRST 60
                t.numerotransacao, t.dataemissao, t.cod_transacao, t.cod_faturatransacao,
-               flp.cod_lancamento, flp.dataemissao AS flp_dataemissao, flp.situacao,
+               fl.cod_lancamento, fl.tipo AS fl_tipo, fl.cod_lancamentoorigem,
+               fl.numerodocumento, fl.total AS fl_total,
+               flp.dataemissao AS flp_dataemissao, flp.situacao,
                flp.datavencimento, flp.datapagamento, flp.datarecebimento,
                flp.valor, flp.valorpago,
                ffp.cod_formapagamentotipo, TRIM(COALESCE(fcct.nome, '')) AS bandeira
