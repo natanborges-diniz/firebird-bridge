@@ -240,6 +240,38 @@ async function validarRecebimentos({ empresa, secoes, dias }) {
     }
   }
 
+  // (g) parcelas cruas de uma venda especifica (numerotransacao) — usado p/
+  // entender como o ERP grava a QUITACAO de saldo a receber em cartao
+  // (bandeira real herda a emissao da venda? datapagamento = dia da quitacao?)
+  if (pedidas.has("g")) {
+    try {
+      const numeroVenda = Number(String(secoes.find((s) => /^\d+$/.test(s)) ?? 0)) || null;
+      const nv = numeroVenda || Number(process.env.VALIDACAO_NUMERO_VENDA || 0);
+      out.g_parcelasVenda = nv
+        ? await db.runQuery(
+            `SELECT FIRST 60
+               t.numerotransacao, t.dataemissao, t.cod_transacao, t.cod_faturatransacao,
+               flp.cod_lancamento, flp.datavencimento, flp.datapagamento, flp.datarecebimento,
+               flp.valor, flp.valorpago,
+               ffp.cod_formapagamentotipo, TRIM(COALESCE(fcct.nome, '')) AS bandeira
+             FROM transacao t
+             JOIN finfaturatransacao fft ON fft.cod_faturatransacao = t.cod_faturatransacao
+             JOIN finlancamento fl ON fl.cod_faturatransacao = fft.cod_faturatransacao AND fl.pagar = 'F'
+             JOIN finlancamentoparcela flp ON flp.cod_lancamento = fl.cod_lancamento
+             JOIN finformapagamento ffp ON ffp.cod_formapagamento = flp.cod_formapagamento
+             LEFT JOIN finformapagamentocartao ffpc ON ffpc.cod_formapagamentocartao = ffp.cod_formapagamento
+             LEFT JOIN fincartaocreditotipo fcct ON fcct.cod_cartaocreditotipo = ffpc.cod_cartaocreditotipo
+             WHERE t.numerotransacao = CAST(? AS INTEGER)
+               AND t.cod_empresaestoque = CAST(? AS INTEGER)
+             ORDER BY flp.datavencimento`,
+            [nv, Number(empresa)]
+          )
+        : { erro: "passe o numero da venda em secoes (ex.: secoes=g,85857)" };
+    } catch (err) {
+      out.g_parcelasVenda = { erro: String(err && err.message ? err.message : err) };
+    }
+  }
+
   if (pedidas.has("e")) {
     const totalRecebido = round2(
       rows
