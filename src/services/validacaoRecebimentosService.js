@@ -272,6 +272,22 @@ async function validarRecebimentos({ empresa, secoes, dias }) {
     }
   }
 
+  // (h) colunas de finlancamentoparcela/finlancamento — achar o vinculo com a
+  // "Financeira SALDO A RECEBER" que o ERP usa no relatorio de comissoes
+  if (pedidas.has("h")) {
+    try {
+      out.h_colunas = await db.runQuery(
+        `SELECT TRIM(rf.rdb$relation_name) AS tabela, TRIM(rf.rdb$field_name) AS coluna
+           FROM rdb$relation_fields rf
+          WHERE rf.rdb$relation_name IN ('FINLANCAMENTOPARCELA', 'FINLANCAMENTO', 'FINCARNE')
+          ORDER BY 1, rf.rdb$field_position`,
+        []
+      );
+    } catch (err) {
+      out.h_colunas = { erro: String(err && err.message ? err.message : err) };
+    }
+  }
+
   if (pedidas.has("e")) {
     const totalRecebido = round2(
       rows
