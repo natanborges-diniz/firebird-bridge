@@ -90,6 +90,14 @@ pagamentos_por_transacao AS (
       ON finformapagamentocartao.cod_formapagamentocartao = finformapagamento.cod_formapagamento
     LEFT JOIN fincartaocreditotipo
       ON fincartaocreditotipo.cod_cartaocreditotipo = finformapagamentocartao.cod_cartaocreditotipo
+  /* FATURA COMPARTILHADA (aferido 2026-08): venda com N transacoes na mesma
+     fatura duplicava TOTALGERAL e QTD_VENDAS (parcelas sao da FATURA). So a
+     transacao canonica carrega os pagamentos. TODO: itens da transacao irma
+     ficam fora do TOTAL_BRUTO/DESCONTO rateado (imprecisao pequena e rara). */
+  WHERE transacao.cod_transacao = (
+    SELECT MIN(t2.cod_transacao) FROM transacao t2
+    WHERE t2.cod_faturatransacao = transacao.cod_faturatransacao
+  )
   GROUP BY
     transacao.COD_TRANSACAO,
     transacao.COD_EMPRESA,

@@ -62,6 +62,11 @@ itens_agregados AS (
     tb.cod_transacao,
     tb.cod_empresaestoque
 ),
+/* ATENCAO (aferido 2026-08): em venda com N transacoes na MESMA fatura, cada
+   transacao recebe as parcelas integrais da fatura. TOTAL_VENDIDO continua
+   correto (itens x proporcao normalizada por transacao), mas TOTAL_PAGO_FORMA
+   duplica nesses casos — nao usar TOTAL_PAGO_FORMA como faturamento. O cache
+   vendas_agregado_diario grava apenas TOTAL_VENDIDO. */
 parcelas_agregadas AS (
   SELECT
     tb.cod_transacao,

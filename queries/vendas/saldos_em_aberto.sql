@@ -20,7 +20,8 @@ SELECT
   nfe.numeronotafiscal        AS numero_nf,
   COALESCE((SELECT CAST(LIST(TRIM(ocx.cod_ordemservicocaixa || ''), ',') AS VARCHAR(500))
      FROM ordemservicocaixa ocx
-    WHERE ocx.cod_transacao = t.cod_transacao), 'SEM_OS') AS os_list,
+    WHERE ocx.cod_transacao IN (SELECT t2.cod_transacao FROM transacao t2
+                                 WHERE t2.cod_faturatransacao = t.cod_faturatransacao)), 'SEM_OS') AS os_list,
   t.dataemissao               AS dataemissao,
   flp.datavencimento          AS data_vencimento,
   ffp.cod_formapagamentotipo  AS cod_formapagamentotipo,
@@ -59,6 +60,9 @@ LEFT JOIN notafiscalemitida nfe
   ON nfe.cod_notafiscalemitida = t.cod_notafiscalemitida
 
 WHERE t.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+  -- fatura compartilhada: parcela em aberto conta UMA vez (transacao canonica)
+  AND t.cod_transacao = (SELECT MIN(t3.cod_transacao) FROM transacao t3
+                          WHERE t3.cod_faturatransacao = t.cod_faturatransacao)
   -- em aberto = sem baixa em NENHUMA das datas (regra da query do Natan)
   AND COALESCE(flp.datapagamento, flp.datarecebimento) IS NULL
   AND COALESCE(flp.valor, 0) > 0

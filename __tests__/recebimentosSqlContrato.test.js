@@ -60,10 +60,17 @@ describe('queries/vendas/recebimentos_detalhe.sql', () => {
     expect(sql).not.toMatch(/JOIN\s+P\s+ON\s+1\s*=\s*1/i);
   });
 
-  it('traz as OS que compoem a venda (os_list via ordemservicocaixa)', () => {
+  it('traz as OS que compoem a venda (os_list via ordemservicocaixa, fatura inteira)', () => {
     expect(sql).toMatch(/LIST\(/i);
-    expect(sql).toMatch(/ocx\.cod_transacao\s*=\s*t\.cod_transacao/i);
+    // os_list agrega as OS de TODAS as transacoes da mesma fatura
+    expect(sql).toMatch(/ocx\.cod_transacao\s+IN\s*\(SELECT\s+t2\.cod_transacao/i);
     expect(sql).toMatch(/AS os_list/i);
+  });
+
+  it('fatura compartilhada: parcela atribuida so a transacao canonica (sem duplicar)', () => {
+    // venda com N transacoes na mesma fatura duplicava a base (aferido 2026-08)
+    const matches = sql.match(/t\.cod_transacao\s*=\s*\(SELECT\s+MIN\(t3\.cod_transacao\)/gi) || [];
+    expect(matches.length).toBe(2); // blocos A e B
   });
 
   it('deriva origem VENDA_PERIODO x SALDO_ANTERIOR comparando dataemissao com dataIni', () => {
