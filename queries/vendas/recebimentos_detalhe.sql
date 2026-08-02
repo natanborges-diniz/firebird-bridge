@@ -35,8 +35,7 @@ SELECT
   nfe.numeronotafiscal        AS numero_nf,
   COALESCE((SELECT CAST(LIST(TRIM(ocx.cod_ordemservicocaixa || ''), ',') AS VARCHAR(500))
      FROM ordemservicocaixa ocx
-    WHERE ocx.cod_transacao IN (SELECT t2.cod_transacao FROM transacao t2
-                                 WHERE t2.cod_faturatransacao = t.cod_faturatransacao)), 'SEM_OS') AS os_list,
+    WHERE ocx.cod_transacao = t.cod_transacao), 'SEM_OS') AS os_list,
   t.dataemissao               AS dataemissao,
   t.dataemissao               AS data_pagamento,
   ffp.cod_formapagamentotipo  AS cod_formapagamentotipo,
@@ -46,7 +45,10 @@ SELECT
     ELSE 'CARTAO_DEBITO'
   END) AS forma_categoria,
   'VENDA_PERIODO'             AS origem,
-  COALESCE(NULLIF(flp.valorpago, 0), flp.valor) AS valor_recebido
+  COALESCE(NULLIF(flp.valorpago, 0), flp.valor) AS valor_recebido,
+  -- fatura compartilhada por N transacoes da mesma venda: o service usa
+  -- cod_fatura p/ deduplicar (parcela conta 1x, na transacao canonica)
+  t.cod_faturatransacao       AS cod_fatura
 
 FROM finlancamentoparcela flp
 JOIN finformapagamento ffp
@@ -76,13 +78,6 @@ LEFT JOIN notafiscalemitida nfe
   ON nfe.cod_notafiscalemitida = t.cod_notafiscalemitida
 
 WHERE t.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
-  -- FATURA COMPARTILHADA (aferido 2026-08): uma venda pode ter N transacoes
-  -- ligadas a MESMA fatura; as parcelas sao da fatura — sem este filtro cada
-  -- transacao recebia o pagamento integral (duplicava a base de comissao).
-  -- Fica so a transacao canonica (menor cod); os_list ja agrega as OS de
-  -- todas as transacoes da fatura.
-  AND t.cod_transacao = (SELECT MIN(t3.cod_transacao) FROM transacao t3
-                          WHERE t3.cod_faturatransacao = t.cod_faturatransacao)
   -- bandeira interna 'SALDO A RECEBER' NAO e cartao (e saldo em aberto)
   AND UPPER(TRIM(COALESCE(fcct.nome, ''))) <> 'SALDO A RECEBER'
   AND (
@@ -103,8 +98,7 @@ SELECT
   nfe.numeronotafiscal        AS numero_nf,
   COALESCE((SELECT CAST(LIST(TRIM(ocx.cod_ordemservicocaixa || ''), ',') AS VARCHAR(500))
      FROM ordemservicocaixa ocx
-    WHERE ocx.cod_transacao IN (SELECT t2.cod_transacao FROM transacao t2
-                                 WHERE t2.cod_faturatransacao = t.cod_faturatransacao)), 'SEM_OS') AS os_list,
+    WHERE ocx.cod_transacao = t.cod_transacao), 'SEM_OS') AS os_list,
   t.dataemissao               AS dataemissao,
   COALESCE(flp.datapagamento, flp.datarecebimento) AS data_pagamento,
   ffp.cod_formapagamentotipo  AS cod_formapagamentotipo,
@@ -122,7 +116,8 @@ SELECT
     ELSE 'SALDO_ANTERIOR'
   END) AS origem,
   -- pago pode estar em valorpago ou, quando baixado por recebimento, so em valor
-  COALESCE(NULLIF(flp.valorpago, 0), flp.valor) AS valor_recebido
+  COALESCE(NULLIF(flp.valorpago, 0), flp.valor) AS valor_recebido,
+  t.cod_faturatransacao       AS cod_fatura
 
 FROM finlancamentoparcela flp
 JOIN finformapagamento ffp
@@ -150,9 +145,6 @@ LEFT JOIN notafiscalemitida nfe
   ON nfe.cod_notafiscalemitida = t.cod_notafiscalemitida
 
 WHERE COALESCE(flp.datapagamento, flp.datarecebimento) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
-  -- fatura compartilhada: mesma regra do bloco A (parcela conta UMA vez)
-  AND t.cod_transacao = (SELECT MIN(t3.cod_transacao) FROM transacao t3
-                          WHERE t3.cod_faturatransacao = t.cod_faturatransacao)
   AND COALESCE(NULLIF(flp.valorpago, 0), flp.valor) > 0
   -- cartoes de verdade ja comissionaram no processamento (bloco A);
   -- do tipo 3 so entra aqui a bandeira interna 'SALDO A RECEBER' paga

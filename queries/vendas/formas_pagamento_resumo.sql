@@ -90,14 +90,13 @@ pagamentos_por_transacao AS (
       ON finformapagamentocartao.cod_formapagamentocartao = finformapagamento.cod_formapagamento
     LEFT JOIN fincartaocreditotipo
       ON fincartaocreditotipo.cod_cartaocreditotipo = finformapagamentocartao.cod_cartaocreditotipo
-  /* FATURA COMPARTILHADA (aferido 2026-08): venda com N transacoes na mesma
-     fatura duplicava TOTALGERAL e QTD_VENDAS (parcelas sao da FATURA). So a
-     transacao canonica carrega os pagamentos. TODO: itens da transacao irma
-     ficam fora do TOTAL_BRUTO/DESCONTO rateado (imprecisao pequena e rara). */
-  WHERE transacao.cod_transacao = (
-    SELECT MIN(t2.cod_transacao) FROM transacao t2
-    WHERE t2.cod_faturatransacao = transacao.cod_faturatransacao
-  )
+  /* LIMITACAO CONHECIDA (aferido 2026-08): venda com N transacoes na MESMA
+     fatura duplica TOTALGERAL e QTD_VENDAS aqui (parcelas sao da FATURA e
+     cada transacao recebe o total integral). Corrigir via subquery canonica
+     estoura timeout (sem indice em transacao.cod_faturatransacao). Os numeros
+     OFICIAIS de faturamento vem de resumo_diario_simples.TOTAL_VENDIDO
+     (itens, correto) e a base de comissao e deduplicada no service
+     (recebimentosService, cod_fatura). Nao usar TOTALGERAL como faturamento. */
   GROUP BY
     transacao.COD_TRANSACAO,
     transacao.COD_EMPRESA,

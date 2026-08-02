@@ -55,6 +55,60 @@ function normalizarDataISO(value) {
   return value ?? null;
 }
 
+/**
+ * FATURA COMPARTILHADA (aferido em producao, 2026-08): uma venda pode ter N
+ * transacoes ligadas a MESMA fatura (mesmo numerotransacao); como as parcelas
+ * sao da FATURA, o SQL devolve cada parcela uma vez POR transacao — duplicando
+ * a base de comissao (ex.: loja 1 jun/2026, R$ 12,7 mil duplicados em 5
+ * vendas). Corrigir no SQL via subquery canonica estoura timeout (sem indice
+ * em transacao.cod_faturatransacao), entao a deduplicacao e feita aqui:
+ * mantem so as linhas da transacao canonica (menor cod_transacao da fatura) e
+ * agrega o os_list de todas as transacoes da fatura na linha mantida.
+ */
+function dedupeFaturaCompartilhada(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  // 1) canonico e uniao de OS por fatura
+  const porFatura = new Map();
+  for (const row of rows) {
+    const fatura = row.cod_fatura;
+    if (fatura === null || fatura === undefined) continue;
+    const chave = `${fatura}|${row.cod_empresa}`;
+    let info = porFatura.get(chave);
+    if (!info) {
+      info = { minTransacao: row.cod_transacao, transacoes: new Set(), os: new Set() };
+      porFatura.set(chave, info);
+    }
+    info.transacoes.add(row.cod_transacao);
+    if (row.cod_transacao < info.minTransacao) info.minTransacao = row.cod_transacao;
+    const osList = String(row.os_list ?? "").trim();
+    if (osList && osList !== "SEM_OS") {
+      osList.split(",").forEach((os) => {
+        const limpo = os.trim();
+        if (limpo) info.os.add(limpo);
+      });
+    }
+  }
+
+  // 2) fica so a transacao canonica; os_list vira a uniao das OS da fatura
+  const resultado = [];
+  for (const row of rows) {
+    const fatura = row.cod_fatura;
+    if (fatura === null || fatura === undefined) {
+      resultado.push(row);
+      continue;
+    }
+    const info = porFatura.get(`${fatura}|${row.cod_empresa}`);
+    if (info.transacoes.size > 1 && row.cod_transacao !== info.minTransacao) continue;
+    if (info.transacoes.size > 1 && info.os.size > 0) {
+      resultado.push({ ...row, os_list: Array.from(info.os).join(",") });
+    } else {
+      resultado.push(row);
+    }
+  }
+  return resultado;
+}
+
 // --------- QUERIES POR EMPRESA ---------
 async function getRecebimentosDetalhePorEmpresa(codEmpresa, dataInicio, dataFim, options = {}) {
   // ordem dos parametros = ordem dos "?" no SQL:
@@ -71,7 +125,9 @@ async function getRecebimentosDetalhePorEmpresa(codEmpresa, dataInicio, dataFim,
     ttlMs: options.cacheTtlMs ?? RECEBIMENTOS_TTL_MS,
     enabled: options.useCache !== false,
     fetcher: async () =>
-      db.runQuery(await aplicarFiltroVendaRegular(SQL_RECEBIMENTOS_DETALHE, "t"), params),
+      dedupeFaturaCompartilhada(
+        await db.runQuery(await aplicarFiltroVendaRegular(SQL_RECEBIMENTOS_DETALHE, "t"), params)
+      ),
   });
 }
 
@@ -107,7 +163,9 @@ async function getSaldosAbertosPorEmpresa(codEmpresa, dataInicio, dataFim, optio
     ttlMs: options.cacheTtlMs ?? RECEBIMENTOS_TTL_MS,
     enabled: options.useCache !== false,
     fetcher: async () =>
-      db.runQuery(await aplicarFiltroVendaRegular(SQL_SALDOS_EM_ABERTO, "t"), params),
+      dedupeFaturaCompartilhada(
+        await db.runQuery(await aplicarFiltroVendaRegular(SQL_SALDOS_EM_ABERTO, "t"), params)
+      ),
   });
 }
 
@@ -246,4 +304,5 @@ module.exports = {
   getDevolucoesRestituicao,
   // exposto para testes e para o script de validacao
   agregarRecebimentos,
+  dedupeFaturaCompartilhada,
 };

@@ -60,16 +60,16 @@ describe('queries/vendas/recebimentos_detalhe.sql', () => {
     expect(sql).not.toMatch(/JOIN\s+P\s+ON\s+1\s*=\s*1/i);
   });
 
-  it('traz as OS que compoem a venda (os_list via ordemservicocaixa, fatura inteira)', () => {
+  it('traz as OS que compoem a venda (os_list via ordemservicocaixa)', () => {
     expect(sql).toMatch(/LIST\(/i);
-    // os_list agrega as OS de TODAS as transacoes da mesma fatura
-    expect(sql).toMatch(/ocx\.cod_transacao\s+IN\s*\(SELECT\s+t2\.cod_transacao/i);
+    expect(sql).toMatch(/ocx\.cod_transacao\s*=\s*t\.cod_transacao/i);
     expect(sql).toMatch(/AS os_list/i);
   });
 
-  it('fatura compartilhada: parcela atribuida so a transacao canonica (sem duplicar)', () => {
-    // venda com N transacoes na mesma fatura duplicava a base (aferido 2026-08)
-    const matches = sql.match(/t\.cod_transacao\s*=\s*\(SELECT\s+MIN\(t3\.cod_transacao\)/gi) || [];
+  it('expoe cod_fatura nos dois blocos (dedup de fatura compartilhada no service)', () => {
+    // venda com N transacoes na mesma fatura duplicava a base (aferido 2026-08);
+    // a subquery canonica em SQL estoura timeout, entao o service deduplica
+    const matches = sql.match(/t\.cod_faturatransacao\s+AS\s+cod_fatura/gi) || [];
     expect(matches.length).toBe(2); // blocos A e B
   });
 
@@ -141,5 +141,42 @@ describe('queries/vendas/devolucoes_restituicao.sql', () => {
   it('liga a devolucao via entradanotafiscaldevolucao', () => {
     expect(sql).toMatch(/entradanotafiscaldevolucao/i);
     expect(sql).toMatch(/enfd\.cod_vendedor/i);
+  });
+});
+
+describe('recebimentosService.dedupeFaturaCompartilhada', () => {
+  const { dedupeFaturaCompartilhada } = require('../src/services/recebimentosService');
+
+  it('fatura compartilhada por 2 transacoes: parcela conta 1x, os_list une as OS', () => {
+    const rows = [
+      // venda 86409: transacoes 503468/503469 na MESMA fatura 900 — parcela duplicada
+      { cod_empresa: 1, cod_transacao: 503468, cod_fatura: 900, numero_venda: 86409, os_list: '111', valor_recebido: 4709 },
+      { cod_empresa: 1, cod_transacao: 503469, cod_fatura: 900, numero_venda: 86409, os_list: '222', valor_recebido: 4709 },
+      // venda normal: fatura propria — intocada
+      { cod_empresa: 1, cod_transacao: 600000, cod_fatura: 901, numero_venda: 87000, os_list: '333', valor_recebido: 100 },
+      // linha sem cod_fatura (defensivo) — intocada
+      { cod_empresa: 1, cod_transacao: 600001, cod_fatura: null, numero_venda: 87001, os_list: 'SEM_OS', valor_recebido: 50 },
+    ];
+    const out = dedupeFaturaCompartilhada(rows);
+    expect(out).toHaveLength(3);
+    const canonica = out.find((r) => r.numero_venda === 86409);
+    expect(canonica.cod_transacao).toBe(503468);
+    expect(canonica.os_list.split(',').sort()).toEqual(['111', '222']);
+    expect(out.find((r) => r.numero_venda === 87000).os_list).toBe('333');
+    const soma = out.reduce((s, r) => s + r.valor_recebido, 0);
+    expect(soma).toBe(4709 + 100 + 50); // sem duplicacao
+  });
+
+  it('varias parcelas da mesma fatura compartilhada: todas mantidas 1x na canonica', () => {
+    const rows = [
+      { cod_empresa: 1, cod_transacao: 10, cod_fatura: 77, os_list: 'A', valor_recebido: 30 },
+      { cod_empresa: 1, cod_transacao: 11, cod_fatura: 77, os_list: 'B', valor_recebido: 30 },
+      { cod_empresa: 1, cod_transacao: 10, cod_fatura: 77, os_list: 'A', valor_recebido: 70 },
+      { cod_empresa: 1, cod_transacao: 11, cod_fatura: 77, os_list: 'B', valor_recebido: 70 },
+    ];
+    const out = dedupeFaturaCompartilhada(rows);
+    expect(out).toHaveLength(2);
+    expect(out.every((r) => r.cod_transacao === 10)).toBe(true);
+    expect(out.reduce((s, r) => s + r.valor_recebido, 0)).toBe(100);
   });
 });
