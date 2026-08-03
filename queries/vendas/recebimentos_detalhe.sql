@@ -117,7 +117,24 @@ SELECT
      FROM ordemservicocaixa ocx
     WHERE ocx.cod_transacao = t.cod_transacao), 'SEM_OS') AS os_list,
   t.dataemissao               AS dataemissao,
-  COALESCE(flp.datapagamento, flp.datarecebimento) AS data_pagamento,
+  -- QUITACAO de saldo em cartao: processa INTEGRAL na data da quitacao
+  -- (mesmo se parcelada); data da quitacao = 1a parcela do grupo de
+  -- quitacao da mesma forma. Demais formas: pagamento efetivo da parcela.
+  CASE
+    WHEN ffp.cod_formapagamentotipo = 3
+     AND UPPER(TRIM(COALESCE(fcct.nome, ''))) <> 'SALDO A RECEBER'
+     AND flp.datavencimentooriginal IS NOT NULL
+     AND flp.datavencimento <> flp.datavencimentooriginal
+    THEN (SELECT MIN(COALESCE(flp3.datapagamento, flp3.datavencimento))
+            FROM finlancamento fl3
+            JOIN finlancamentoparcela flp3 ON flp3.cod_lancamento = fl3.cod_lancamento
+           WHERE fl3.cod_faturatransacao = t.cod_faturatransacao
+             AND fl3.pagar = 'F'
+             AND flp3.cod_formapagamento = flp.cod_formapagamento
+             AND flp3.datavencimentooriginal IS NOT NULL
+             AND flp3.datavencimento <> flp3.datavencimentooriginal)
+    ELSE COALESCE(flp.datapagamento, flp.datarecebimento)
+  END                         AS data_pagamento,
   ffp.cod_formapagamentotipo  AS cod_formapagamentotipo,
   TRIM(CASE
     -- tipo 3 aqui = bandeira interna (saldo pago sem forma identificada) OU
@@ -179,7 +196,21 @@ LEFT JOIN fincartaocreditotipo fcct
 LEFT JOIN notafiscalemitida nfe
   ON nfe.cod_notafiscalemitida = t.cod_notafiscalemitida
 
-WHERE COALESCE(flp.datapagamento, flp.datarecebimento) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+WHERE CASE
+    WHEN ffp.cod_formapagamentotipo = 3
+     AND UPPER(TRIM(COALESCE(fcct.nome, ''))) <> 'SALDO A RECEBER'
+     AND flp.datavencimentooriginal IS NOT NULL
+     AND flp.datavencimento <> flp.datavencimentooriginal
+    THEN (SELECT MIN(COALESCE(flp3.datapagamento, flp3.datavencimento))
+            FROM finlancamento fl3
+            JOIN finlancamentoparcela flp3 ON flp3.cod_lancamento = fl3.cod_lancamento
+           WHERE fl3.cod_faturatransacao = t.cod_faturatransacao
+             AND fl3.pagar = 'F'
+             AND flp3.cod_formapagamento = flp.cod_formapagamento
+             AND flp3.datavencimentooriginal IS NOT NULL
+             AND flp3.datavencimento <> flp3.datavencimentooriginal)
+    ELSE COALESCE(flp.datapagamento, flp.datarecebimento)
+  END BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
   AND COALESCE(NULLIF(flp.valorpago, 0), flp.valor) > 0
   -- cartoes passados no ATO ja comissionaram no processamento (bloco A);
   -- do tipo 3 entram aqui: a bandeira interna 'SALDO A RECEBER' paga e a
