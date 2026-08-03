@@ -180,3 +180,66 @@ describe('recebimentosService.dedupeFaturaCompartilhada', () => {
     expect(out.reduce((s, r) => s + r.valor_recebido, 0)).toBe(100);
   });
 });
+
+describe('regime da quitacao de saldo em cartao (venc <> venc original)', () => {
+  const sqlBruto = loadSql('recebimentos_detalhe.sql');
+  const sql = semComentarios(sqlBruto);
+
+  it('bloco A exclui parcelas de quitacao (vencimento alterado)', () => {
+    expect(sql).toMatch(/flp\.datavencimentooriginal\s+IS\s+NULL\s+OR\s+flp\.datavencimento\s*=\s*flp\.datavencimentooriginal/i);
+  });
+
+  it('bloco B aceita tipo 3 quando e quitacao de saldo', () => {
+    expect(sql).toMatch(/flp\.datavencimentooriginal\s+IS\s+NOT\s+NULL\s+AND\s+flp\.datavencimento\s*<>\s*flp\.datavencimentooriginal/i);
+  });
+
+  it('bloco B categoriza a quitacao pela bandeira REAL do cartao', () => {
+    const blocoB = sql.slice(sql.indexOf('UNION ALL'));
+    expect(blocoB).toMatch(/fcct\.credito\s*=\s*'T'\s+THEN\s+'CARTAO_CREDITO'/i);
+    expect(blocoB).toMatch(/'CARTAO_DEBITO'/);
+    expect(blocoB).toMatch(/'SALDO A RECEBER'\s+THEN\s+'OUTROS'/i);
+  });
+
+  it('expoe valor_emitido e fatura_previsto p/ corte de juros no service', () => {
+    expect((sql.match(/AS\s+valor_emitido/gi) || []).length).toBe(2);
+    expect((sql.match(/AS\s+fatura_previsto/gi) || []).length).toBe(2);
+  });
+});
+
+describe('recebimentosService.abaterJurosParcelamento', () => {
+  const { abaterJurosParcelamento } = require('../src/services/recebimentosService');
+
+  it('abate o acrescimo embutido do parcelado (base <= valor da venda)', () => {
+    // venda 87135: emitido 238,99, parcelas 7x40,63 = 284,41 no cartao credito
+    const rows = Array.from({ length: 7 }, (_, i) => ({
+      cod_empresa: 1, cod_transacao: 500, cod_fatura: 700,
+      forma_categoria: 'CARTAO_CREDITO', valor_recebido: 40.63,
+      valor_emitido: 238.99, fatura_previsto: 284.41,
+    }));
+    const out = abaterJurosParcelamento(rows);
+    const soma = out.reduce((s, r) => s + r.valor_recebido, 0);
+    expect(Math.abs(soma - 238.99)).toBeLessThan(0.05);
+  });
+
+  it('nao mexe quando nao ha excedente', () => {
+    const rows = [{ cod_empresa: 1, cod_transacao: 1, cod_fatura: 2, forma_categoria: 'CARTAO_CREDITO', valor_recebido: 100, valor_emitido: 100, fatura_previsto: 100 }];
+    expect(abaterJurosParcelamento(rows)[0].valor_recebido).toBe(100);
+  });
+
+  it('sem linhas de cartao credito no resultado, nao abate de outras formas', () => {
+    const rows = [{ cod_empresa: 1, cod_transacao: 1, cod_fatura: 3, forma_categoria: 'CREDIARIO', valor_recebido: 50, valor_emitido: 200, fatura_previsto: 260 }];
+    expect(abaterJurosParcelamento(rows)[0].valor_recebido).toBe(50);
+  });
+
+  it('fatura compartilhada: dedup soma o emitido das irmas antes do corte', () => {
+    const { dedupeFaturaCompartilhada } = require('../src/services/recebimentosService');
+    const rows = [
+      { cod_empresa: 1, cod_transacao: 10, cod_fatura: 9, os_list: 'A', forma_categoria: 'CARTAO_CREDITO', valor_recebido: 4709, valor_emitido: 4311, fatura_previsto: 4709 },
+      { cod_empresa: 1, cod_transacao: 11, cod_fatura: 9, os_list: 'B', forma_categoria: 'CARTAO_CREDITO', valor_recebido: 4709, valor_emitido: 398, fatura_previsto: 4709 },
+    ];
+    const out = abaterJurosParcelamento(dedupeFaturaCompartilhada(rows));
+    expect(out).toHaveLength(1);
+    expect(out[0].valor_emitido).toBe(4709); // 4311 + 398
+    expect(out[0].valor_recebido).toBe(4709); // sem excedente falso
+  });
+});

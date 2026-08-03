@@ -48,7 +48,18 @@ SELECT
   COALESCE(NULLIF(flp.valorpago, 0), flp.valor) AS valor_recebido,
   -- fatura compartilhada por N transacoes da mesma venda: o service usa
   -- cod_fatura p/ deduplicar (parcela conta 1x, na transacao canonica)
-  t.cod_faturatransacao       AS cod_fatura
+  t.cod_faturatransacao       AS cod_fatura,
+  -- p/ corte de juros de parcelamento no service (base <= valor da venda):
+  -- valor emitido da transacao (itens) e total previsto da fatura (parcelas)
+  COALESCE((SELECT SUM(COALESCE(ti.total, 0) - COALESCE(ti.valordesconto, 0) - COALESCE(ti.totalipi, 0))
+     FROM transacao_item ti
+    WHERE ti.cod_transacao = t.cod_transacao
+      AND ti.cod_empresa = t.cod_empresa), 0) AS valor_emitido,
+  COALESCE((SELECT SUM(COALESCE(flp2.valor, 0))
+     FROM finlancamento fl2
+     JOIN finlancamentoparcela flp2 ON flp2.cod_lancamento = fl2.cod_lancamento
+    WHERE fl2.cod_faturatransacao = t.cod_faturatransacao
+      AND fl2.pagar = 'F'), 0) AS fatura_previsto
 
 FROM finlancamentoparcela flp
 JOIN finformapagamento ffp
@@ -80,6 +91,12 @@ LEFT JOIN notafiscalemitida nfe
 WHERE t.dataemissao BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
   -- bandeira interna 'SALDO A RECEBER' NAO e cartao (e saldo em aberto)
   AND UPPER(TRIM(COALESCE(fcct.nome, ''))) <> 'SALDO A RECEBER'
+  -- QUITACAO de saldo em cartao NAO e processamento do ato (Natan, 2026-08-02):
+  -- comissiona na quitacao, no bloco B. Marcador validado em producao:
+  -- a parcela de quitacao tem o vencimento alterado (venc <> venc original);
+  -- parcelas do cartao passado no ato nunca tem.
+  AND (flp.datavencimentooriginal IS NULL
+       OR flp.datavencimento = flp.datavencimentooriginal)
   AND (
     t.cod_empresaestoque = CAST(? AS INTEGER)
     OR (CAST(? AS INTEGER) IN (13, 18) AND t.cod_empresaestoque IN (13, 18))
@@ -103,7 +120,16 @@ SELECT
   COALESCE(flp.datapagamento, flp.datarecebimento) AS data_pagamento,
   ffp.cod_formapagamentotipo  AS cod_formapagamentotipo,
   TRIM(CASE
-    WHEN ffp.cod_formapagamentotipo = 3 THEN 'OUTROS'
+    -- tipo 3 aqui = bandeira interna (saldo pago sem forma identificada) OU
+    -- QUITACAO de saldo em cartao (venc <> venc original): categoria do
+    -- cartao REAL para aplicar a taxa certa
+    WHEN ffp.cod_formapagamentotipo = 3
+     AND UPPER(TRIM(COALESCE(fcct.nome, ''))) = 'SALDO A RECEBER' THEN 'OUTROS'
+    WHEN ffp.cod_formapagamentotipo = 3
+     AND UPPER(COALESCE(fcct.nome, '')) LIKE '%PIX%' THEN 'PIX'
+    WHEN ffp.cod_formapagamentotipo = 3
+     AND fcct.credito = 'T' THEN 'CARTAO_CREDITO'
+    WHEN ffp.cod_formapagamentotipo = 3 THEN 'CARTAO_DEBITO'
     WHEN ffp.cod_formapagamentotipo = 1 THEN 'AVISTA'
     WHEN ffp.cod_formapagamentotipo = 2 THEN 'CHEQUE'
     WHEN ffp.cod_formapagamentotipo = 4 THEN 'CREDIARIO'
@@ -117,7 +143,16 @@ SELECT
   END) AS origem,
   -- pago pode estar em valorpago ou, quando baixado por recebimento, so em valor
   COALESCE(NULLIF(flp.valorpago, 0), flp.valor) AS valor_recebido,
-  t.cod_faturatransacao       AS cod_fatura
+  t.cod_faturatransacao       AS cod_fatura,
+  COALESCE((SELECT SUM(COALESCE(ti.total, 0) - COALESCE(ti.valordesconto, 0) - COALESCE(ti.totalipi, 0))
+     FROM transacao_item ti
+    WHERE ti.cod_transacao = t.cod_transacao
+      AND ti.cod_empresa = t.cod_empresa), 0) AS valor_emitido,
+  COALESCE((SELECT SUM(COALESCE(flp2.valor, 0))
+     FROM finlancamento fl2
+     JOIN finlancamentoparcela flp2 ON flp2.cod_lancamento = fl2.cod_lancamento
+    WHERE fl2.cod_faturatransacao = t.cod_faturatransacao
+      AND fl2.pagar = 'F'), 0) AS fatura_previsto
 
 FROM finlancamentoparcela flp
 JOIN finformapagamento ffp
@@ -146,11 +181,14 @@ LEFT JOIN notafiscalemitida nfe
 
 WHERE COALESCE(flp.datapagamento, flp.datarecebimento) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
   AND COALESCE(NULLIF(flp.valorpago, 0), flp.valor) > 0
-  -- cartoes de verdade ja comissionaram no processamento (bloco A);
-  -- do tipo 3 so entra aqui a bandeira interna 'SALDO A RECEBER' paga
+  -- cartoes passados no ATO ja comissionaram no processamento (bloco A);
+  -- do tipo 3 entram aqui: a bandeira interna 'SALDO A RECEBER' paga e a
+  -- QUITACAO de saldo feita em cartao (venc <> venc original)
   AND (
     ffp.cod_formapagamentotipo <> 3
     OR UPPER(TRIM(COALESCE(fcct.nome, ''))) = 'SALDO A RECEBER'
+    OR (flp.datavencimentooriginal IS NOT NULL
+        AND flp.datavencimento <> flp.datavencimentooriginal)
   )
   AND (
     t.cod_empresaestoque = CAST(? AS INTEGER)

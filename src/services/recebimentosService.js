@@ -76,10 +76,20 @@ function dedupeFaturaCompartilhada(rows) {
     const chave = `${fatura}|${row.cod_empresa}`;
     let info = porFatura.get(chave);
     if (!info) {
-      info = { minTransacao: row.cod_transacao, transacoes: new Set(), os: new Set() };
+      info = {
+        minTransacao: row.cod_transacao,
+        transacoes: new Set(),
+        os: new Set(),
+        emitidoPorTransacao: new Map(),
+      };
       porFatura.set(chave, info);
     }
     info.transacoes.add(row.cod_transacao);
+    // valor_emitido e por TRANSACAO; a fatura compartilhada precisa da soma
+    // das transacoes irmas (senao o corte de juros ve excedente falso)
+    if (row.valor_emitido !== undefined) {
+      info.emitidoPorTransacao.set(row.cod_transacao, Number(row.valor_emitido) || 0);
+    }
     if (row.cod_transacao < info.minTransacao) info.minTransacao = row.cod_transacao;
     const osList = String(row.os_list ?? "").trim();
     if (osList && osList !== "SEM_OS") {
@@ -100,13 +110,67 @@ function dedupeFaturaCompartilhada(rows) {
     }
     const info = porFatura.get(`${fatura}|${row.cod_empresa}`);
     if (info.transacoes.size > 1 && row.cod_transacao !== info.minTransacao) continue;
-    if (info.transacoes.size > 1 && info.os.size > 0) {
-      resultado.push({ ...row, os_list: Array.from(info.os).join(",") });
+    if (info.transacoes.size > 1) {
+      const emitidoFatura = Array.from(info.emitidoPorTransacao.values()).reduce((s, v) => s + v, 0);
+      resultado.push({
+        ...row,
+        os_list: info.os.size > 0 ? Array.from(info.os).join(",") : row.os_list,
+        ...(row.valor_emitido !== undefined ? { valor_emitido: emitidoFatura } : {}),
+      });
     } else {
       resultado.push(row);
     }
   }
   return resultado;
+}
+
+/**
+ * CORTE DE JUROS DE PARCELAMENTO (Natan, 2026-08-02): comissao e meta sobre o
+ * VALOR DA VENDA, nunca sobre acrescimos. O acrescimo do parcelado fica
+ * EMBUTIDO no valor das parcelas (flp.juros = 0; ex.: venda 87135 loja 1 —
+ * emitido 238,99, parcelas 7x40,63 = 284,38). Deteccao por fatura:
+ * excedente = fatura_previsto (soma de todas as parcelas) - valor_emitido.
+ * O excedente e abatido proporcionalmente das linhas de CARTAO_CREDITO da
+ * fatura (onde o acrescimo nasce); se nao houver, de todas as linhas.
+ */
+function abaterJurosParcelamento(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+
+  const fatorPorFatura = new Map();
+  const porFatura = new Map();
+  for (const row of rows) {
+    const chave = `${row.cod_fatura}|${row.cod_empresa}`;
+    if (!porFatura.has(chave)) porFatura.set(chave, []);
+    porFatura.get(chave).push(row);
+  }
+  for (const [chave, grupo] of porFatura) {
+    const emitido = Number(grupo[0].valor_emitido) || 0;
+    const previsto = Number(grupo[0].fatura_previsto) || 0;
+    if (emitido <= 0 || previsto <= emitido + 0.01) continue; // sem juros
+    const excedente = previsto - emitido;
+    // so abate quando as linhas de cartao credito da fatura estao presentes
+    // no resultado (vendas do periodo, bloco A); em vendas antigas cujas
+    // linhas de cartao nao foram buscadas, abater das outras formas seria
+    // penalizar a parcela errada
+    const cartoes = grupo.filter((r) => String(r.forma_categoria ?? "").trim() === "CARTAO_CREDITO");
+    if (!cartoes.length) continue;
+    const somaAlvo = cartoes.reduce((s, r) => s + (Number(r.valor_recebido) || 0), 0);
+    if (somaAlvo <= 0) continue;
+    // abate limitado ao que esta no alvo (nunca deixa valor negativo)
+    const fator = Math.max(0, 1 - Math.min(excedente, somaAlvo) / somaAlvo);
+    fatorPorFatura.set(chave, { fator, alvoCartao: true });
+  }
+  if (!fatorPorFatura.size) return rows;
+
+  return rows.map((row) => {
+    const chave = `${row.cod_fatura}|${row.cod_empresa}`;
+    const ajuste = fatorPorFatura.get(chave);
+    if (!ajuste) return row;
+    const ehCartao = String(row.forma_categoria ?? "").trim() === "CARTAO_CREDITO";
+    if (ajuste.alvoCartao && !ehCartao) return row;
+    const valor = Math.round((Number(row.valor_recebido) || 0) * ajuste.fator * 100) / 100;
+    return { ...row, valor_recebido: valor };
+  });
 }
 
 // --------- QUERIES POR EMPRESA ---------
@@ -125,8 +189,10 @@ async function getRecebimentosDetalhePorEmpresa(codEmpresa, dataInicio, dataFim,
     ttlMs: options.cacheTtlMs ?? RECEBIMENTOS_TTL_MS,
     enabled: options.useCache !== false,
     fetcher: async () =>
-      dedupeFaturaCompartilhada(
-        await db.runQuery(await aplicarFiltroVendaRegular(SQL_RECEBIMENTOS_DETALHE, "t"), params)
+      abaterJurosParcelamento(
+        dedupeFaturaCompartilhada(
+          await db.runQuery(await aplicarFiltroVendaRegular(SQL_RECEBIMENTOS_DETALHE, "t"), params)
+        )
       ),
   });
 }
@@ -305,4 +371,5 @@ module.exports = {
   // exposto para testes e para o script de validacao
   agregarRecebimentos,
   dedupeFaturaCompartilhada,
+  abaterJurosParcelamento,
 };
