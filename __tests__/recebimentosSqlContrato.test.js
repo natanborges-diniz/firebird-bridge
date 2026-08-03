@@ -48,9 +48,11 @@ describe('queries/vendas/recebimentos_detalhe.sql', () => {
     expect(sql).toMatch(/COALESCE\(NULLIF\(flp\.valorpago,\s*0\),\s*flp\.valor\)/i);
     // bandeira interna SALDO A RECEBER fora do bloco de cartoes
     expect(sql).toMatch(/<>\s*'SALDO A RECEBER'/i);
-    // bloco B: demais formas pelo pagamento efetivo do cliente —
-    // COALESCE(datapagamento, datarecebimento), regra da query do Natan
-    expect(sql).toMatch(/COALESCE\(flp\.datapagamento,\s*flp\.datarecebimento\)\s+BETWEEN\s+CAST\(\?\s+AS\s+DATE\)\s+AND\s+CAST\(\?\s+AS\s+DATE\)/i);
+    // bloco B: demais formas pelo pagamento efetivo do cliente
+    // (COALESCE(datapagamento, datarecebimento)); quitacoes de saldo em
+    // cartao usam a data da QUITACAO via CASE — o filtro fica no CASE...END
+    expect(sql).toMatch(/COALESCE\(flp\.datapagamento,\s*flp\.datarecebimento\)/i);
+    expect(sql).toMatch(/END\s+BETWEEN\s+CAST\(\?\s+AS\s+DATE\)\s+AND\s+CAST\(\?\s+AS\s+DATE\)/i);
     expect(sql).toMatch(/COALESCE\(NULLIF\(flp\.valorpago,\s*0\),\s*flp\.valor\)\s*>\s*0/i);
     // cartoes de verdade nao entram no bloco B
     expect(sql).toMatch(/cod_formapagamentotipo\s*<>\s*3/i);
