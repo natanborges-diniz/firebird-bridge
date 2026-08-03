@@ -67,6 +67,15 @@ pagamentos_por_transacao AS (
     transacao.COD_EMPRESA,
     finformapagamento.cod_formapagamentotipo AS COD_FORMAPAGAMENTOTIPO,
     fincartaocreditotipo.credito AS CARTAO_CREDITO,
+    /* SALDO A RECEBER congelado como NO ATO (bandeira interna em aberto OU
+       parcela de quitacao com vencimento alterado) */
+    CASE
+      WHEN finformapagamento.cod_formapagamentotipo = 3 AND (
+        UPPER(TRIM(COALESCE(fincartaocreditotipo.nome, ''))) = 'SALDO A RECEBER'
+        OR (finlancamentoparcela.datavencimentooriginal IS NOT NULL
+            AND finlancamentoparcela.datavencimento <> finlancamentoparcela.datavencimentooriginal)
+      ) THEN 1 ELSE 0
+    END AS EH_SALDO,
     SUM(
       COALESCE(
         IIF(finlancamentoparcela.datapagamento IS NULL,
@@ -101,7 +110,14 @@ pagamentos_por_transacao AS (
     transacao.COD_TRANSACAO,
     transacao.COD_EMPRESA,
     finformapagamento.cod_formapagamentotipo,
-    fincartaocreditotipo.credito
+    fincartaocreditotipo.credito,
+    CASE
+      WHEN finformapagamento.cod_formapagamentotipo = 3 AND (
+        UPPER(TRIM(COALESCE(fincartaocreditotipo.nome, ''))) = 'SALDO A RECEBER'
+        OR (finlancamentoparcela.datavencimentooriginal IS NOT NULL
+            AND finlancamentoparcela.datavencimento <> finlancamentoparcela.datavencimentooriginal)
+      ) THEN 1 ELSE 0
+    END
 ),
 pagamentos_totais AS (
   SELECT
@@ -134,17 +150,18 @@ SELECT
   tbempresa.empresa_nome_logico,
   vendedor.NOME AS VENDEDOR,
 
-  CASE pagamentos.cod_formapagamentotipo
-    WHEN 1 THEN 'DINHEIRO'
-    WHEN 2 THEN 'CHEQUE'
-    WHEN 3 THEN
+  CASE
+    WHEN pagamentos.eh_saldo = 1 THEN 'SALDO A RECEBER'
+    WHEN pagamentos.cod_formapagamentotipo = 1 THEN 'DINHEIRO'
+    WHEN pagamentos.cod_formapagamentotipo = 2 THEN 'CHEQUE'
+    WHEN pagamentos.cod_formapagamentotipo = 3 THEN
       CASE
         WHEN pagamentos.cartao_credito = 'T' THEN 'CARTAO CREDITO'
         ELSE 'CARTAO DEBITO'
       END
-    WHEN 4 THEN 'BANCO'
-    WHEN 5 THEN 'CARNE'
-    WHEN 6 THEN 'CREDITOS'
+    WHEN pagamentos.cod_formapagamentotipo = 4 THEN 'BANCO'
+    WHEN pagamentos.cod_formapagamentotipo = 5 THEN 'CARNE'
+    WHEN pagamentos.cod_formapagamentotipo = 6 THEN 'CREDITOS'
     ELSE 'OUTROS'
   END AS FORMAPAGAMENTO,
 

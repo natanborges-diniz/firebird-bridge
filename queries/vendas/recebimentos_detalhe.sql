@@ -45,6 +45,8 @@ SELECT
     ELSE 'CARTAO_DEBITO'
   END) AS forma_categoria,
   'VENDA_PERIODO'             AS origem,
+  -- natureza do recebimento (Natan, 2026-08-03): cartao do ato = ATO
+  'ATO'                       AS natureza,
   COALESCE(NULLIF(flp.valorpago, 0), flp.valor) AS valor_recebido,
   -- fatura compartilhada por N transacoes da mesma venda: o service usa
   -- cod_fatura p/ deduplicar (parcela conta 1x, na transacao canonica)
@@ -153,6 +155,17 @@ SELECT
     WHEN t.dataemissao >= CAST(? AS DATE) THEN 'VENDA_PERIODO'
     ELSE 'SALDO_ANTERIOR'
   END) AS origem,
+  -- natureza (Natan, 2026-08-03): o pagamento de saldo pode acontecer no
+  -- MESMO periodo da venda — discriminar por natureza, nao so por periodo.
+  --   ATO            = pago na finalizacao da venda (data = emissao)
+  --   CREDIARIO      = parcela de boleto/carne (paga conforme vencimentos)
+  --   QUITACAO_SALDO = pagamento do saldo a receber (qualquer forma)
+  TRIM(CASE
+    WHEN ffp.cod_formapagamentotipo IN (4, 5) THEN 'CREDIARIO'
+    WHEN ffp.cod_formapagamentotipo = 3 THEN 'QUITACAO_SALDO'
+    WHEN COALESCE(flp.datapagamento, flp.datarecebimento) = t.dataemissao THEN 'ATO'
+    ELSE 'QUITACAO_SALDO'
+  END) AS natureza,
   -- pago pode estar em valorpago ou, quando baixado por recebimento, so em valor
   COALESCE(NULLIF(flp.valorpago, 0), flp.valor) AS valor_recebido,
   t.cod_faturatransacao       AS cod_fatura,

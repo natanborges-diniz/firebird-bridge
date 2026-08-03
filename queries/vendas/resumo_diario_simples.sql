@@ -73,6 +73,18 @@ parcelas_agregadas AS (
     tb.cod_empresaestoque AS cod_empresa,
     fp.cod_formapagamentotipo,
     cct.credito,
+    /* SALDO A RECEBER congelado como NO ATO da venda (Natan, 2026-08-03):
+       a bandeira interna em aberto E a parcela de quitacao (venc <> venc
+       original, que ganha a bandeira real do cartao usado) contam como a
+       categoria 'SALDO A RECEBER' — o dashboard mostra como a venda foi
+       FINALIZADA, nunca os recebimentos posteriores do saldo. */
+    CASE
+      WHEN fp.cod_formapagamentotipo = 3 AND (
+        UPPER(TRIM(COALESCE(cct.nome, ''))) = 'SALDO A RECEBER'
+        OR (flp.datavencimentooriginal IS NOT NULL
+            AND flp.datavencimento <> flp.datavencimentooriginal)
+      ) THEN 1 ELSE 0
+    END AS eh_saldo,
     SUM(
       CAST(
         COALESCE(
@@ -92,7 +104,14 @@ parcelas_agregadas AS (
     tb.cod_transacao,
     tb.cod_empresaestoque,
     fp.cod_formapagamentotipo,
-    cct.credito
+    cct.credito,
+    CASE
+      WHEN fp.cod_formapagamentotipo = 3 AND (
+        UPPER(TRIM(COALESCE(cct.nome, ''))) = 'SALDO A RECEBER'
+        OR (flp.datavencimentooriginal IS NOT NULL
+            AND flp.datavencimento <> flp.datavencimentooriginal)
+      ) THEN 1 ELSE 0
+    END
 ),
 parcelas_com_proporcao AS (
   SELECT
@@ -223,17 +242,18 @@ SELECT
   tb.dataemissao AS DATA_VENDA,
   tb.cod_empresaestoque AS COD_EMPRESA,
   COALESCE(v.nome, 'SEM VENDEDOR') AS VENDEDOR,
-  CASE pp.cod_formapagamentotipo
-    WHEN 1 THEN 'DINHEIRO'
-    WHEN 2 THEN 'CHEQUE'
-    WHEN 3 THEN
+  CASE
+    WHEN pp.eh_saldo = 1 THEN 'SALDO A RECEBER'
+    WHEN pp.cod_formapagamentotipo = 1 THEN 'DINHEIRO'
+    WHEN pp.cod_formapagamentotipo = 2 THEN 'CHEQUE'
+    WHEN pp.cod_formapagamentotipo = 3 THEN
       CASE
         WHEN pp.credito = 'T' THEN 'CARTAO CREDITO'
         ELSE 'CARTAO DEBITO'
       END
-    WHEN 4 THEN 'BANCO'
-    WHEN 5 THEN 'CARNE'
-    WHEN 6 THEN 'CREDITOS'
+    WHEN pp.cod_formapagamentotipo = 4 THEN 'BANCO'
+    WHEN pp.cod_formapagamentotipo = 5 THEN 'CARNE'
+    WHEN pp.cod_formapagamentotipo = 6 THEN 'CREDITOS'
     ELSE 'OUTROS'
   END AS FORMAPAGAMENTO,
   COUNT(DISTINCT tb.cod_transacao || '-' || tb.cod_empresaestoque) AS QTD_VENDAS,
