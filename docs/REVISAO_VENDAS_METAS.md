@@ -269,3 +269,24 @@ A subquery canônica em SQL foi testada e **estoura timeout** (sem índice em
 (backfill via edge, como nas vezes anteriores) — o cache Supabase anterior ao
 fix carrega os valores duplicados. Fechamentos congelados antes do fix mantêm
 os números da época (reabrir e refechar se necessário).
+
+### 8.1 Regime final validado contra o relatório de comissões do ERP (2026-08-03)
+
+Decisões do Natan: cartão do ATO integral no processamento (emissão); QUITAÇÃO
+de saldo em cartão integral na data da quitação (`flp.datarecebimento`, igual
+em todas as parcelas da quitação; marcador = `datavencimento <>
+datavencimentooriginal`); boleto/CREDIARIO 1% (ERP usa 2% — divergência
+proposital); entradas/sinais comissionam ("sinais" do ERP = vale-presente);
+juros de parcelamento FORA da base (excedente `fatura_previsto − valor_emitido`
+abatido das linhas CARTAO_CREDITO no service).
+
+Cruzamento Marciana, junho comercial (21/05–20/06), após as regras:
+
+| | Nossa base | ERP | Diferença = regra |
+|---|---|---|---|
+| Primitiva I | 32.198,06 | 32.240,66 | −42,60 juros fora da base |
+| Antonio Agu | 66.811,19 | 67.401,19 | −590,00 créditos fora da base |
+| Comissão total | 2.274,06 | 2.286,27 | −11,36 boleto 1%×2% − 0,85 (2% s/ juros) |
+
+Zero divergência não-explicada. Pós-mudança: re-sincronizar
+`recebimentos_agregado_diario` (backfill) e refazer fechamentos não congelados.
